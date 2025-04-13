@@ -1,53 +1,67 @@
 // static/js/education_form.js
+
 function setupEducationOtherInput() {
-    // Find the radio button group and the specific text input
+    const educationForm = document.getElementById('education-form');
+    // Exit immediately if the form itself isn't present
+    if (!educationForm) {
+        // console.log("Education form not found, skipping setup."); // Optional log
+        return;
+    }
+
+    // --- Find elements WITHIN the form ---
     const radioGroupName = 'education_level';
     const otherTextInputId = 'other_education_text_input'; // ID of the text input
 
-    const radios = document.querySelectorAll(`input[type="radio"][name="${radioGroupName}"]`);
-    const otherInput = document.getElementById(otherTextInputId);
+    const radios = educationForm.querySelectorAll(`input[type="radio"][name="${radioGroupName}"]`);
+    const otherInput = educationForm.querySelector(`#${otherTextInputId}`); // Find input within the form
     let otherRadio = null;
 
-    if (!otherInput) {
-        // console.error("Education form: Could not find 'other' text input.");
-        return; // Exit if the text input isn't found (might not be on this specific render)
-    }
-
-    // Find the specific "Muu haridus" radio button
     radios.forEach(radio => {
         if (radio.value === 'Muu haridus') {
             otherRadio = radio;
         }
     });
 
-    if (!otherRadio) {
-        console.error("Education form: Could not find 'Muu haridus' radio button.");
-        return; // Exit if the specific radio isn't found
+    // --- More Robust Check ---
+    // Ensure BOTH the specific "Muu haridus" radio button AND the text input exist
+    // before adding event listeners that depend on them.
+    if (!otherRadio || !otherInput) {
+        console.warn("Education form: Could not find required 'Muu haridus' radio or text input within #education-form. Skipping event listener setup for 'other' logic.");
+        // Return early to avoid errors trying to add listeners to null elements
+        return;
     }
+    // --- End Check ---
 
-    // Function to toggle input visibility
+    // Function to toggle input visibility (safe to define even if elements were missing)
     const toggleOtherInputVisibility = () => {
-        if (otherRadio.checked) {
-            otherInput.style.display = 'block'; // Show
-        } else {
-            otherInput.style.display = 'none'; // Hide
-            // Optional: Clear the input value when hiding
-            // otherInput.value = '';
+        // Double-check elements exist before accessing properties
+        if (otherRadio && otherInput) {
+            if (otherRadio.checked) {
+                otherInput.style.display = 'block'; // Show
+            } else {
+                otherInput.style.display = 'none'; // Hide
+                // Optional: Clear the input value when hiding
+                // otherInput.value = '';
+            }
         }
     };
 
-    // Initial check when the script runs
+    // Initial check when the script runs (will only run if elements were found above)
     toggleOtherInputVisibility();
 
     // Add change listeners to ALL radio buttons in the group
     radios.forEach(radio => {
-        radio.addEventListener('change', toggleOtherInputVisibility);
+        // Check if radio element actually exists before adding listener (belt-and-suspenders)
+        if (radio) {
+            radio.addEventListener('change', toggleOtherInputVisibility);
+        }
     });
 
-     // Optional: Select "Muu" radio if the user starts typing in the input
+     // Add listener to the 'other' text input (we know it exists from check above)
      otherInput.addEventListener('focus', () => {
-        if (!otherRadio.checked) {
+        if (otherRadio && !otherRadio.checked) { // Check otherRadio exists again just in case
              otherRadio.checked = true;
+             toggleOtherInputVisibility(); // Update visibility immediately
              // Manually trigger change event if needed by other logic
              // otherRadio.dispatchEvent(new Event('change'));
         }
@@ -56,22 +70,33 @@ function setupEducationOtherInput() {
     console.log("Education 'Other' input handler setup complete.");
 }
 
-// Run on initial load
+// --- Event Listeners for Initialization ---
+
+// Run on initial load ONLY if the form exists then
 if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', setupEducationOtherInput);
+    document.addEventListener('DOMContentLoaded', () => {
+         // Check if the education form exists on the page before calling setup
+         if (document.getElementById('education-form')) {
+             setupEducationOtherInput();
+         }
+    });
 } else {
-    setupEducationOtherInput(); // Run immediately if already loaded
+     // Run immediately if already loaded AND form exists
+     if (document.getElementById('education-form')) {
+         setupEducationOtherInput();
+     }
 }
 
-// Re-run after HTMX swaps if the form container might be replaced
-// Adjust the target selector if necessary
+// Re-run after HTMX swaps ONLY if the swapped content contains the form
 document.body.addEventListener('htmx:afterSwap', function(event) {
-    // Check if the swapped content contains the education form or its container
     const educationForm = document.getElementById('education-form');
-    if (educationForm && event.detail.target.contains(educationForm)) {
+    // Check if the form exists AND if the swapped target contained it (or is the form itself)
+    // This ensures setup is only called when the relevant form content is potentially added or updated.
+    if (educationForm && event.detail.target && (event.detail.target.contains(educationForm) || event.detail.target === educationForm || event.detail.target.id === 'tab-content-container') ) {
          console.log("Re-initializing education 'Other' input handler after HTMX swap.");
-         setupEducationOtherInput();
+         // Timeout helps ensure DOM is fully ready after swap in some complex cases
+         setTimeout(setupEducationOtherInput, 0);
     }
 });
 
-// REMOVE the form 'submit' listener that modified the radio value.
+// REMOVE any old form 'submit' listener if it existed below this line.

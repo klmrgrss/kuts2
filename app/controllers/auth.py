@@ -1,9 +1,13 @@
 # controllers/auth.py
 
+# Ensure necessary imports are present
 from fasthtml.common import *
 from starlette.requests import Request
-from starlette.responses import RedirectResponse, Response # Import Response
-#from fastlite.core import NotFoundError # Import specific exception for checking user existence
+from starlette.responses import RedirectResponse, Response
+from fastlite import NotFoundError # Make sure NotFoundError is imported if using fastlite < 0.1.5
+from monsterui.all import *
+from auth.utils import get_password_hash, verify_password
+import traceback # Import traceback
 
 # Import MonsterUI components needed for forms
 from monsterui.all import *
@@ -70,97 +74,90 @@ class AuthController:
             cls="space-y-4"
         )
         
-    def process_login(self, request: Request, email: str, password: str):
-        """
-        Processes a login attempt.
-        Args:
-            request: The Starlette request, used for session access.
-            email: User's email from form.
-            password: User's plain password from form.
-        Returns:
-            RedirectResponse on success, error Span on failure for HTMX.
-        """
+    # --- MODIFIED process_login ---
+    # Now accepts email and password directly from main.py handler
+    # Marked async mainly for consistency, can be sync if no await inside
+    async def process_login(self, request: Request, email: str, password: str):
+        """ Processes login using parameters passed from the route handler. """
+        # No need for await request.form() anymore
+        print(f"--- DEBUG [AuthController]: process_login called with email: {email} ---") # Updated log
         try:
-            # ** CHANGED: Use dictionary-style lookup by PK **
-            user_data = self.users[email] 
+            # email and password arguments are already populated by FastHTML via main.py
+            if not email or not password:
+                print("--- DEBUG [AuthController]: Missing email or password argument ---")
+                # This check might be redundant if main.py handler requires them
+                return Span("Email and password arguments are required")
+
+            print(f"--- DEBUG [AuthController]: Attempting to lookup user: {email} ---")
+            user_data = self.users[email] # PK lookup
+            print(f"--- DEBUG [AuthController]: User found: {user_data['email']} ---")
+
+            print(f"--- DEBUG [AuthController]: Verifying password for {email} ---")
+            if not verify_password(password, user_data['hashed_password']):
+                print(f"--- DEBUG [AuthController]: Password verification FAILED for user '{email}'. ---")
+                return Span("Email or password incorrect") # Return error Span for HTMX
+
+            print(f"--- DEBUG [AuthController]: Password verification SUCCEEDED for user '{email}'. ---")
+            request.session['authenticated'] = True
+            request.session['user_email'] = user_data['email']
+            print(f"--- DEBUG [AuthController]: Session set for {email}. Returning HX-Redirect. ---")
+            # Return Response with HX-Redirect header for HTMX
+            return Response(headers={'HX-Redirect': '/app'})
+
         except NotFoundError:
-            print(f"Login attempt failed: User '{email}' not found.") # Server log
-            return Span("Email or password incorrect") # Return error message
-            
-        # Verify password
-        if not verify_password(password, user_data['hashed_password']):
-            print(f"Login attempt failed: Incorrect password for user '{email}'.") # Server log
-            return Span("Email or password incorrect") # Return error message
+            print(f"--- DEBUG [AuthController]: User lookup FAILED (NotFoundError) for user: {email} ---")
+            return Span("Email or password incorrect") # Return error Span for HTMX
+        except Exception as e:
+            print(f"--- ERROR [AuthController]: Unexpected error during login for {email}: {e} ---")
+            traceback.print_exc()
+            return Span("An unexpected error occurred during login.") # Return error Span for HTMX
 
-        # --- Login successful ---
-        print(f"Login successful for user '{email}'.") # Server log
-        # Store authentication state in session
-        request.session['authenticated'] = True
-        request.session['user_email'] = user_data['email'] 
-        # Add other user details if needed, but avoid storing sensitive info
-        # request.session['user_full_name'] = user_data.get('full_name') 
-
-        # Send HTMX redirect header
-        # Redirecting to '/app' which should load the main authenticated view (e.g., dashboard)
-        return Response(headers={'HX-Redirect': '/app'}) 
-        # Note: If not using HTMX, would return RedirectResponse('/app', status_code=303)
-
-    def process_registration(self, request: Request, email: str, password: str, confirm_password: str, full_name: str, birthday: str):
-        """
-        Processes a registration attempt.
-        Args:
-            request: The Starlette request, used for session access.
-            email: User's email.
-            password: User's plain password.
-            confirm_password: Password confirmation.
-            full_name: User's full name.
-            birthday: User's birthday string (e.g., "YYYY-MM-DD").
-        Returns:
-            RedirectResponse on success, error Span on failure for HTMX.
-        """
-        if password != confirm_password:
-            return Span("Passwords do not match") # Return error message
-
-        # Check if user already exists
+    # --- MODIFIED process_registration ---
+    # Now accepts all form fields directly
+    # Marked async mainly for consistency
+    async def process_registration(self, request: Request, email: str, password: str, confirm_password: str, full_name: str, birthday: str):
+        """ Processes registration using parameters passed from the route handler. """
+        # No need for await request.form() anymore
+        print(f"--- DEBUG [AuthController]: process_registration called with email: {email} ---") # Updated log
         try:
-            # ** CHANGED: Use dictionary-style lookup by PK **
-            existing_user = self.users[email] 
-            # If lookup succeeds, user exists
-            print(f"Registration attempt failed: User '{email}' already exists.") # Server log
-            return Span("User with this email already exists") # Return error message
-        except NotFoundError:
-            # User does not exist, proceed with registration
-            pass 
+            # Arguments (email, password, etc.) are already populated by FastHTML via main.py
 
-        try:
-            # Hash the password
+            # Validation (can remain here or be done in main.py handler)
+            if not all([email, password, confirm_password, full_name, birthday]):
+                 print("--- DEBUG [AuthController]: Missing required registration arguments ---")
+                 return Span("Please fill out all required fields.")
+
+            if password != confirm_password:
+                print("--- DEBUG [AuthController]: Registration passwords do not match ---")
+                return Span("Passwords do not match") # Return error Span
+
+            try:
+                # Check if user already exists
+                print(f"--- DEBUG [AuthController]: Checking if user exists: {email} ---")
+                existing_user = self.users[email]
+                print(f"Registration attempt failed: User '{email}' already exists.")
+                return Span("User with this email already exists") # Return error Span
+            except NotFoundError:
+                print(f"--- DEBUG [AuthController]: User {email} does not exist, proceeding ---")
+                pass
+
             hashed_password = get_password_hash(password)
-            
-            # Create new user record
-            new_user = {
-                "email": email,
-                "hashed_password": hashed_password,
-                "full_name": full_name,
-                "birthday": birthday
-            }
-            
-            # Insert into database
-            self.users.insert(new_user, pk='email') # Specify PK explicitly if needed by insert
-            
-            # --- Registration successful ---
-            print(f"Registration successful for user '{email}'.") # Server log
-            # Log the user in immediately by setting session variables
+            new_user = { "email": email, "hashed_password": hashed_password, "full_name": full_name, "birthday": birthday }
+
+            print(f"--- DEBUG [AuthController]: Inserting new user: {email} ---")
+            self.users.insert(new_user, pk='email')
+            print(f"Registration successful for user '{email}'.")
+
             request.session['authenticated'] = True
             request.session['user_email'] = email
-
-            # Send HTMX redirect header
-            return Response(headers={'HX-Redirect': '/app'}) # Redirect to main app page
-            # Note: If not using HTMX, would return RedirectResponse('/app', status_code=303)
+            print(f"--- DEBUG [AuthController]: Session set for {email}. Returning HX-Redirect. ---")
+            # Return Response with HX-Redirect header for HTMX
+            return Response(headers={'HX-Redirect': '/app'})
 
         except Exception as e:
-            print(f"ERROR during registration for '{email}': {e}") # Log the actual error
-            # Optionally log traceback: import traceback; traceback.print_exc()
-            return Span(f"Registration failed due to an unexpected error.") # Generic error for user
+            print(f"--- ERROR [AuthController] during registration for '{email}': {e}")
+            traceback.print_exc()
+            return Span("Registration failed due to an unexpected error.") # Return error Span
 
     def logout(self, request: Request):
         """ Clears the session and redirects to the login page. """

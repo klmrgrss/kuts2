@@ -64,9 +64,9 @@ def base_layout(title: str, *content: Any, theme_headers: tuple = Theme.blue.hea
         Script(src=flatpickr_locale_et_js_cdn),         # Flatpickr Estonian Locale
         Script(src=flatpickr_month_plugin_js_cdn),      # Flatpickr Month Plugin
         # Custom JS (ensure these come AFTER libraries they depend on)
-        Script(src="/static/js/tab_scroll.js"),         # Your tab scroll
+        Script(src="/static/js/tab_scroll.js",  defer=True),         # Your tab scroll
         Script(src="/static/js/input_tag.js", defer=True),  # Your input tag
-        Script(src="/static/js/education_form.js"),     # Your education form specific JS (if still needed)
+        Script(src="/static/js/education_form.js",  defer=True),     # Your education form specific JS (if still needed)
         # +++ ADD FLATICKR INITIALIZER +++
         Script(src="/static/js/flatpickr_init.js", defer=True), Style("""
                     .ag-header-cell-filter-button { display: none !important; }
