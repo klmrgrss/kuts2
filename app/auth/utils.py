@@ -1,5 +1,6 @@
 # auth/utils.py
 
+# Re-saved as UTF-8
 from passlib.context import CryptContext
 
 # Setup password hashing context
