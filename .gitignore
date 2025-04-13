@@ -1,0 +1,48 @@
+# Python virtual environment
+venv/
+*.venv/
+env/
+*/env/
+*/venv/
+.env
+pip-selfcheck.json
+
+# Python cache files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Database files (assuming it's in a data directory)
+data/
+*.sqlite
+*.sqlite3
+*.db
+*.db-journal # SQLite temporary files
+
+# Uploaded files
+uploads/
+
+# Development/Export folders (within app or root)
+app/prototypes/
+app/prototypes/tabulator/csv_export/
+prototypes/
+csv_export/
+
+# IDE / Editor specific files
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+
+# OS specific files
+.DS_Store
+Thumbs.db
+
+# Dependency caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+
+.sesskey
