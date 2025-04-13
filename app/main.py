@@ -111,9 +111,54 @@ for route in app.routes:
     print(f"Path: {path}, Endpoint: {endpoint_name}, Methods: {methods}")
 
 # === Routes ===
-@rt("/", methods=["GET"])
-def get_root(request: Request):
-    return Div(H1("Root Route"), P("This is the root page"))
+@rt("/")
+def get(request: Request): # Renamed function for clarity in your code
+    """Displays the public landing page or redirects logged-in users."""
+    # ... (optional redirect logic if needed) ...
+
+    # --- Build Landing Page Content for Logged-Out Users ---
+
+    # Hero Section
+    hero_section = Div(
+        Container( # Center content
+            H1("Ehitamise valdkonna kutsete taotlemine", cls="text-4xl md:text-5xl font-bold mb-4 text-center"),
+            P("Esita ja halda oma kutsetaotlusi kiirelt ja mugavalt.", cls="text-lg md:text-xl text-muted-foreground mb-8 text-center"),
+            Div( # Container for buttons
+                A(Button("Logi sisse", cls=(ButtonT.primary, ButtonT.lg)), href="/login"), # Large primary button
+                A(Button("Registreeru", cls=(ButtonT.secondary, ButtonT.lg)), href="/register"), # Large secondary button
+                cls="flex flex-col sm:flex-row justify-center items-center space-y-4 sm:space-y-0 sm:space-x-4" # Responsive button layout
+            ),
+            cls="py-16 md:py-24 text-center" # Padding for hero section
+        ),
+        cls="bg-gradient-to-b from-background to-muted/50" # Optional subtle background gradient
+    ) # [cite: uploaded:app/main.py]
+
+    # Placeholder Info Section (Example)
+    info_section = Container(
+         Section(
+             H2("Kuidas see töötab?", cls="text-2xl font-bold mb-6 text-center"),
+             Grid(
+                 Card(CardHeader(H3("1. Registreeru / Logi sisse")), CardBody(P("Loo konto või logi sisse olemasolevaga."))),
+                 Card(CardHeader(H3("2. Sisesta Andmed")), CardBody(P("Täida vajalikud ankeedid: isikuandmed, haridus, töökogemus."))),
+                 Card(CardHeader(H3("3. Esita Taotlus")), CardBody(P("Vaata andmed üle ja esita taotlus menetlemiseks."))),
+                 cols=1, md_cols=3, # Responsive grid
+                 cls="gap-6" # Gap between cards
+             ),
+             cls="py-12"
+         )
+     ) # [cite: uploaded:app/main.py]
+
+    # Combine navbar and content sections
+    page_content = Div(
+        public_navbar(), # Add the public navbar at the top
+        hero_section,
+        info_section
+        # Add more sections here if needed
+    ) # [cite: uploaded:app/main.py]
+
+    # Use public_layout, passing the combined content
+    return public_layout("Tere tulemast!", page_content) # Pass title and combined content # [cite: uploaded:app/main.py]
+
 
 @rt("/test", methods=["GET"])
 def test_route(request: Request):
