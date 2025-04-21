@@ -261,8 +261,8 @@ def render_work_experience_form(available_activities: List[str], experience: Opt
             Section(
                 H4("Ehitustöid teostanud ettevõtte andmed", cls="text-lg font-medium mb-2 md:mb-3"),
                 Grid(
-                    LabelInput(label="Töid teostanud ettevõtte nimi", id="company_name", name="company_name", value=val('company_name'), required=True, input_cls=INPUT_CLASS),
-                    LabelInput(label="Ettevõtte registrikood", id="company_code", name="company_code", value=val('company_code'), input_cls=INPUT_CLASS),
+                    LabelInput(label="Tööd teostanud ettevõtte nimi", id="company_name", name="company_name", value=val('company_name'), required=True, input_cls=INPUT_CLASS),
+                    LabelInput(label="Tööd teostanud ettevõtte registrikood", id="company_code", name="company_code", value=val('company_code'), input_cls=INPUT_CLASS),
                     cols=1, cls="gap-2 md:gap-4"
                 ),
                 Grid(
@@ -279,7 +279,7 @@ def render_work_experience_form(available_activities: List[str], experience: Opt
                 H4("Tellija andmed", cls="text-lg font-medium mb-2 md:mb-3"),
                 Grid(
                     LabelInput(label="Tellija nimi", id="client_name", name="client_name", value=val('client_name'), input_cls=INPUT_CLASS),
-                    LabelInput(label="Tellija registrikood / ID", id="client_code", name="client_code", value=val('client_code'), input_cls=INPUT_CLASS),
+                    LabelInput(label="Tellija registrikood", id="client_code", name="client_code", value=val('client_code'), input_cls=INPUT_CLASS),
                     cols=1, cls="gap-2 md:gap-4"
                 ),
                 Grid(
@@ -312,5 +312,5 @@ def render_work_experience_form(available_activities: List[str], experience: Opt
         hx_target=f"#experience-{exp_id}" if is_edit else "#work-experience-list",
         hx_swap="outerHTML" if is_edit else "beforeend",
         id="work-experience-form",
-        cls="space-y-3 md:space-y-6 p-4 md:p-6 border rounded-lg shadow-lg bg-card bg-pink-50/20" # Added background color for the form
+        cls="space-y-3 md:space-y-6 p-4 md:p-6 border rounded-lg shadow-lg bg-gradient-to-br from-pink-50 via-orange-50 via-blue-50/20 to-red-100/50" # Added background color for the form
     )

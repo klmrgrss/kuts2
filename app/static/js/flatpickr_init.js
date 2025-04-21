@@ -30,7 +30,7 @@ function initFlatpickrMonthInput(selector) {
               })
             ],
             altInput: true, // Create a user-friendly alternate input
-            allowInput: false // Disallow manual typing into the date field
+            allowInput: true // Disallow manual typing into the date field
             // wrap: true // Enable this if you wrap your input element in a div for styling/icons
           });
       } catch (e) {
