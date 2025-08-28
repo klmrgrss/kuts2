@@ -31,45 +31,40 @@ def render_qualification_form(sections: dict, app_id: str):
 
         *[
             FormSection(
-                # --- FIX: Replaced Grid component with Div and explicit Tailwind classes ---
-
                 # --- Row 1: KUTSETASE ---
                 Div(
-                    # Left Column (Label)
                     Div(
                         Small("KUTSETASE", cls="text-xs font-semibold text-muted-foreground"),
                         cls="md:col-span-1"
                     ),
-                    # Right Column (Value)
                     Div(
                         Pill(section["level"], bg_color=level_colors.get(section["level"], default_color)),
-                        cls="md:col-span-2"
+                        cls="md:col-span-4"
                     ),
-                    # Added responsive grid classes directly
                     cls="grid grid-cols-1 md:grid-cols-5 gap-y-1 md:gap-x-4 items-center"
                 ),
 
                 # --- Row 2: TEGEVUSALA ---
                 Div(
-                    # Left Column (Label)
                     Div(
                         Small("TEGEVUSALA", cls="text-xs font-semibold text-muted-foreground"),
                         cls="md:col-span-1"
                     ),
-                    # Right Column (Value)
                     Div(
-                        H5(section["category"], cls="text-base md:ml-1 md:text-lg font-bold text-foreground/90"),
+                        H5(section["category"], cls="text-base md:ml-1 md:text-lg font-extrabold text-foreground"),
                         cls="md:col-span-4"
                     ),
-                    # Added responsive grid classes directly
                     cls="grid grid-cols-1 md:grid-cols-5 gap-y-1 md:gap-x-4 items-center mt-3"
                 ),
 
+                DividerSplit(P("Valitav spetsialiseerumine", cls="text-sm text-gray-400")),
+
+                # --- FIX: Corrected the structure of the Div components in this row ---
                 # --- Row 3: SPETSIALISEERUMINE ---
                 Div(
                     # Left Column (Label)
                     Div(
-                        Small("SPETSIALISEERUMINE", cls="text-xs font-semibold text-muted-foreground"),
+                        #Small("SPETSIALISEERUMINE", cls="text-xs font-semibold text-muted-foreground"),
                         cls="md:col-span-1"
                     ),
                     # Right Column (Value - contains checkboxes and toggle)
@@ -80,30 +75,30 @@ def render_qualification_form(sections: dict, app_id: str):
                             section_info={"level": section["level"], "category": section["category"]},
                             checked_state=section["preselected"]
                         ),
-                        # Toggle switch is placed below the checkboxes within the same column
+                        # Wrapper Div for the toggle switch
                         Div(
-                            LabelSwitch(
+                            (LabelSwitch(
                                 "Tervikspetsialiseerumine",
                                 id=f"toggle-{section['id']}", name=f"toggle-{section['id']}", value="on",
                                 checked=section.get("toggle_on", False),
                                 hx_post=f"/app/kutsed/toggle?section_id={section['id']}&app_id={app_id}",
                                 hx_target=f"#checkbox-group-{section['id']}", hx_swap="outerHTML",
                                 hx_include="this", hx_trigger="change",
-                                cls="flex items-center gap-2 mt-4 text-sm text-gray-600"
-                            ),
-                            cls="flex justify-start md:justify-end" # Aligns toggle
+                                cls="flex items-center gap-2 mt-4 text-sm "
+                            ) if len(section["items"]) > 1 else Div()), # Conditionally render
+                            cls="flex justify-start md:justify-start"
                         ),
                         cls="md:col-span-4"
                     ),
-                    # Added responsive grid classes directly
-                    cls="grid grid-cols-1 md:grid-cols-5 gap-y-1 md:gap-x-4 mt-3"
+                    cls="grid grid-cols-1 md:grid-cols-5 gap-y-1 md:gap-x-4 mt-8"
                 ),
 
                 id=f"qual-section-{section['id']}",
-                cls="mb-6 border rounded-lg p-4 space-y-2" # space-y for mobile stacking
+                cls="mb-6 border-4 rounded-lg p-4 space-y-2"
             )
             for section in sections.values()
         ],
+
 
         Div(id="qual-form-error", cls="text-red-500 mt-2 mb-2"),
         # --- Submit Button ---
@@ -126,11 +121,15 @@ def render_qualification_form(sections: dict, app_id: str):
         Card(
             CardBody(form_content)
         ),
-        # JavaScript for syncing the "Select All" toggle with checkboxes
+        # --- JavaScript for toggle sync ---
         Script("""
         function setupSyncForSection(sectionId) {
-            const checkboxes = document.querySelectorAll(`#checkbox-group-${sectionId} input[type="checkbox"]`);
-            const toggle = document.querySelector(`#toggle-${sectionId}`);
+            const container = document.getElementById(`qual-section-${sectionId}`);
+            if (!container) return;
+
+            const checkboxes = container.querySelectorAll(`#checkbox-group-${sectionId} input[type="checkbox"]`);
+            const toggle = container.querySelector(`#toggle-${sectionId}`);
+            
             if (!toggle || checkboxes.length === 0) return;
 
             function updateToggleState() {
@@ -138,7 +137,13 @@ def render_qualification_form(sections: dict, app_id: str):
                 toggle.checked = allChecked;
             }
 
-            checkboxes.forEach(checkbox => checkbox.addEventListener('change', updateToggleState));
+            checkboxes.forEach(checkbox => {
+                checkbox.removeEventListener('change', updateToggleState); // Prevent duplicate listeners
+                checkbox.addEventListener('change', updateToggleState);
+            });
+            
+            // Initial sync on setup
+            updateToggleState();
         }
 
         function initializeQualificationSync() {
@@ -149,16 +154,13 @@ def render_qualification_form(sections: dict, app_id: str):
             });
         }
         
+        // Run on initial page load
         document.addEventListener('DOMContentLoaded', initializeQualificationSync);
         
+        // Re-run after any HTMX swap to catch newly added or replaced content
         document.body.addEventListener('htmx:afterSwap', function(event) {
-            const target = event.detail.target;
-            if (target.id && target.id.startsWith('checkbox-group-')) {
-                const sectionId = target.id.replace('checkbox-group-', '');
-                setupSyncForSection(sectionId);
-            } else if (target.querySelector && target.querySelector('[id^="checkbox-group-"]')) {
-                initializeQualificationSync();
-            }
+            // A simple, robust way is to just re-scan the whole document for sections
+            initializeQualificationSync();
         });
         """)
     )
