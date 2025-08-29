@@ -27,7 +27,7 @@ def render_qualification_form(sections: dict, app_id: str):
     # --- Main Form Structure ---
     form_content = Form(
         H3("Taotletavad kutsed", cls="text-xl font-semibold mb-2"),
-        P("Vali tegevusalad ja spetsialiseerumised, millele soovid kutset taotleda.", cls="text-sm text-muted-foreground mb-6"),
+        P("Vali soovitud kutsetaseme ja tegevusala alt taotletav spetsialiseerumine.", cls="text-sm text-muted-foreground mb-6"),
 
         *[
             FormSection(
@@ -51,42 +51,44 @@ def render_qualification_form(sections: dict, app_id: str):
                         cls="md:col-span-1"
                     ),
                     Div(
-                        H5(section["category"], cls="text-base md:ml-1 md:text-lg font-extrabold text-foreground"),
+                        H5(section["category"], cls="text-base md:ml-1 md:text-lg font-bold text-foreground"),
                         cls="md:col-span-4"
                     ),
                     cls="grid grid-cols-1 md:grid-cols-5 gap-y-1 md:gap-x-4 items-center mt-3"
                 ),
 
-                DividerSplit(P("Valitav spetsialiseerumine", cls="text-sm text-gray-400")),
+                DividerSplit(P("SPETSIALISEERUMINE", cls="text-xs font-semibold  text-muted-foreground")),
 
-                # --- FIX: Corrected the structure of the Div components in this row ---
-                # --- Row 3: SPETSIALISEERUMINE ---
+                # --- NEW: Centered Toggle Switch Row ---
+                # This Div is now outside the main grid for specializations
+                Div(
+                    (LabelSwitch(
+                        "Tervik",
+                        id=f"toggle-{section['id']}", name=f"toggle-{section['id']}", value="on",
+                        checked=section.get("toggle_on", False),
+                        hx_post=f"/app/kutsed/toggle?section_id={section['id']}&app_id={app_id}",
+                        hx_target=f"#checkbox-group-{section['id']}", hx_swap="outerHTML",
+                        hx_include="this", hx_trigger="change",
+                        cls="flex items-center gap-2 mb-3 text-sm italic font-semibold text-muted-foreground"
+                    ) if len(section["items"]) > 1 else Div()), # Conditionally render
+                    cls="flex justify-center" # Center the toggle
+                ),
+
+                # --- Row 3: SPETSIALISEERUMINE (Checkboxes only) ---
                 Div(
                     # Left Column (Label)
                     Div(
-                        #Small("SPETSIALISEERUMINE", cls="text-xs font-semibold text-muted-foreground"),
+                        # The label is now optional as the Divider serves as the main title
+                        # Small("SPETSIALISEERUMINE", cls="text-xs font-semibold text-muted-foreground"),
                         cls="md:col-span-1"
                     ),
-                    # Right Column (Value - contains checkboxes and toggle)
+                    # Right Column (Value - contains only checkboxes now)
                     Div(
                         render_checkbox_group(
                             section_id=section["id"],
                             items=section["items"],
                             section_info={"level": section["level"], "category": section["category"]},
                             checked_state=section["preselected"]
-                        ),
-                        # Wrapper Div for the toggle switch
-                        Div(
-                            (LabelSwitch(
-                                "Tervikspetsialiseerumine",
-                                id=f"toggle-{section['id']}", name=f"toggle-{section['id']}", value="on",
-                                checked=section.get("toggle_on", False),
-                                hx_post=f"/app/kutsed/toggle?section_id={section['id']}&app_id={app_id}",
-                                hx_target=f"#checkbox-group-{section['id']}", hx_swap="outerHTML",
-                                hx_include="this", hx_trigger="change",
-                                cls="flex items-center gap-2 mt-4 text-sm "
-                            ) if len(section["items"]) > 1 else Div()), # Conditionally render
-                            cls="flex justify-start md:justify-start"
                         ),
                         cls="md:col-span-4"
                     ),
