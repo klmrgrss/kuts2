@@ -11,6 +11,28 @@ def Pill(text: str, bg_color: str):
     """A helper component to create a styled 'pill' or 'badge'."""
     return Span(text, cls=f"px-2.5 py-1 rounded-full text-xs font-semibold {bg_color}")
 
+def QualificationStatusStrip(sections: dict):
+    """Renders a status strip indicating how many activity areas have selections."""
+    
+    # Count the number of sections (tegevusalad) with at least one preselected item.
+    sections_with_selections = sum(1 for section in sections.values() if section.get("preselected"))
+
+    if sections_with_selections == 0:
+        # Red/Pink strip for no selections
+        return Div(
+            UkIcon("info", cls="flex-shrink-0"),
+            P("Ühtegi tegevusala pole valitud."),
+            cls="p-4 bg-red-100 text-red-800 rounded-lg my-4 flex items-center gap-x-3"
+        )
+    else:
+        # Green strip showing the count
+        plural_text = "tegevusala" if sections_with_selections == 1 else "tegevusala"
+        return Div(
+            UkIcon("check-circle", cls="flex-shrink-0"),
+            P(f"Valitud on {sections_with_selections} {plural_text}."),
+            cls="p-4 bg-green-100 text-green-800 rounded-lg my-4 flex items-center gap-x-3"
+        )
+
 def render_qualification_form(sections: dict, app_id: str):
     """
     Renders the qualification selection form with a clear, responsive,
@@ -33,8 +55,9 @@ def render_qualification_form(sections: dict, app_id: str):
 
     # --- Main Form Structure ---
     form_content = Form(
-        H3("Taotletavad kutsed", cls="text-xl font-semibold mb-2"),
-        P("Vali soovitud kutsetaseme ja tegevusala alt taotletav spetsialiseerumine.", cls="text-sm text-muted-foreground mb-6"),
+        #H3("Märgi taotletav spetsialiseerumine", cls="text-xl font-semibold mb-2"),
+        #P("Vali soovitud kutsetaseme ja tegevusala alt taotletav spetsialiseerumine.", cls="text-sm text-muted-foreground mb-6"),
+        QualificationStatusStrip(sections), # Add the status strip here
 
         *[
             Div(
@@ -52,7 +75,7 @@ def render_qualification_form(sections: dict, app_id: str):
                         cls="md:col-span-1"
                     ),
                     Div(
-                        H5(section["category"], cls="text-base md:ml-1 md:text-lg font-bold text-foreground"),
+                        P(section["category"], cls="text-2xl md:ml-1 md:text-2xl font-bold text-foreground"),
                         cls="md:col-span-4"
                     ),
                     cls="grid grid-cols-1 md:grid-cols-5 gap-y-1 md:gap-x-4 items-center"
@@ -106,14 +129,14 @@ def render_qualification_form(sections: dict, app_id: str):
         Div(id="qual-form-error", cls="text-red-500 mt-2 mb-2"),
         # --- Submit Button ---
         Div(
-            Button("Kinnita valikud ja jätka", type="submit", cls="btn btn-primary"),
+            Button("Salvesta valikud", type="submit", cls="btn btn-primary"),
             cls="flex justify-end mt-6 pt-4 border-t"
         ),
 
         # --- HTMX Form Attributes ---
         method="post",
         hx_post="/app/kutsed/submit",
-        hx_target="#qual-form-error",
+        hx_target="#tab-content-container",
         hx_swap="innerHTML",
         id="qualification-form",
         cls="space-y-8"

@@ -169,5 +169,6 @@ class WorkExperienceController:
             # Redirect back with an error message if possible, for now just redirect
             return RedirectResponse("/app/workex?error=save_failed", status_code=303)
 
-        # On success, redirect to the main tab to show the updated state
-        return RedirectResponse("/app/workex", status_code=303)
+        # On success, re-render the entire tab content and return it.
+        # This will include the newly added experience in the list.
+        return self.show_workex_tab(request)

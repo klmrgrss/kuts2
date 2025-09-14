@@ -222,7 +222,7 @@ class QualificationController:
         """
         Handles POST submission for the qualification selection form.
         Validates input, saves selections to DB (delete/insert rows),
-        and redirects or returns error alert.
+        and re-renders the tab content.
         """
         user_email = request.session.get("user_email")
         if not user_email:
@@ -253,20 +253,7 @@ class QualificationController:
                     section_id = int(key.split("-")[1])
                     section_info = sections_data.get(section_id)
                     if section_info:
-                        # Handle "Tervikspetsialiseerumine" toggle
-                        # Option 1: Insert one row representing the whole activity
-                        # rows_to_insert.append({
-                        #     "user_email": user_email,
-                        #     "qualification_name": section_info["category"], # Or a derived name
-                        #     "level": section_info["level"],
-                        #     "specialisation": "Tervikspetsialiseerumine", # Special value
-                        #     "activity": section_info["category"], # Or derived
-                        #     "is_renewal": 0, # Default or from form
-                        #     "application_date": None # Set later?
-                        # })
-                        # Option 2: Insert rows for ALL items in that section
                         for item in section_info["items"]:
-                            # Avoid duplicates if individual items are also checked - handled by delete-first approach
                             rows_to_insert.append({
                                 "user_email": user_email,
                                 "qualification_name": section_info["category"],
@@ -278,7 +265,6 @@ class QualificationController:
                             })
                 except (ValueError, IndexError, KeyError) as e:
                     print(f"--- ERROR Parsing toggle key '{key}': {e} ---")
-                    # Decide how to handle parsing errors - skip or return error?
 
             elif key.startswith("qual_"):
                 try:
@@ -287,8 +273,6 @@ class QualificationController:
                     item_index = int(parts[2])
                     section_info = sections_data.get(section_id)
 
-                    # IMPORTANT: Only add if the corresponding 'toggle' is NOT 'on'
-                    # Otherwise, the toggle loop already added all items.
                     if section_info and form_data.get(f"toggle-{section_id}") != "on":
                         if 0 <= item_index < len(section_info["items"]):
                             item = section_info["items"][item_index]
@@ -304,65 +288,26 @@ class QualificationController:
                 except (ValueError, IndexError, KeyError) as e:
                     print(f"--- ERROR Parsing qual key '{key}': {e} ---")
 
-
-        # --- Validation: Check if any selections were made ---
-        # --- MODIFICATION START ---
-        if not selections_made:
-            print(f"--- VALIDATION FAIL [submit_qualifications]: No selections made by {user_email} ---")
-            message = "Vali vähemalt üks spetsialiseerumine!"
-            # Change alert_type to 'warning' for orange background
-            error_toast = ToastAlert(message=message, alert_type='warning')
-            # The accompanying script to trigger the notification remains the same
-            # Make sure UIkit (or your notification library) is loaded and configured
-            trigger_script = Script("""
-                (function() {
-                    const toastElement = document.getElementById('error-toast');
-                    if (toastElement && typeof UIkit !== 'undefined') {
-                        UIkit.notification({
-                            message: toastElement.dataset.toastMessage,
-                            status: toastElement.dataset.toastStatus,
-                            pos: 'bottom-right',
-                            timeout: 5000 // Optional: duration in milliseconds
-                        });
-                        // Optionally remove the hidden toast element after triggering
-                        // toastElement.remove();
-                    } else {
-                        console.error("Could not find toast element or UIkit to display notification.");
-                    }
-                })();
-            """)
-            # Return the hidden toast element and the script to display it
-            return error_toast, trigger_script
-        
-        # --- MODIFICATION END ---
-        # --- Remove potential duplicates introduced by toggle + individual checks ---
-        # Convert list of dicts to list of tuples, use set to find uniques, convert back
-        unique_rows_to_insert = [dict(t) for t in {tuple(d.items()) for d in rows_to_insert}]
-        print(f"--- DEBUG [submit_qualifications]: Unique rows to insert: {unique_rows_to_insert} ---")
-
-
         # --- Database Operations ---
         try:
             print(f"--- DB [submit_qualifications]: Deleting existing for {user_email} ---")
-            # Use delete_where (check fastlite docs for exact syntax if needed)
             deleted_count = self.applied_qual_table.delete_where('user_email=?', [user_email])
             print(f"--- DB [submit_qualifications]: Deleted {deleted_count} rows ---")
 
-            if unique_rows_to_insert:
+            if rows_to_insert:
+                unique_rows_to_insert = [dict(t) for t in {tuple(d.items()) for d in rows_to_insert}]
                 print(f"--- DB [submit_qualifications]: Inserting {len(unique_rows_to_insert)} new rows for {user_email} ---")
-                # Use insert_many if fastlite supports it, otherwise loop
                 for row in unique_rows_to_insert:
-                    self.applied_qual_table.insert(row) # Assumes insert handles dicts
+                    self.applied_qual_table.insert(row)
 
             print(f"--- SUCCESS [submit_qualifications]: Saved selections for {user_email} ---")
 
-            # --- Redirect to next tab on success ---
-            return Response(headers={'HX-Redirect': '/app/tookogemus'}) # Redirect to Work Experience
+            # --- Re-render the tab on success ---
+            return self.show_qualifications_tab(request)
 
         except Exception as e:
             print(f"--- ERROR [submit_qualifications] DB Operation Failed for {user_email}: {e} ---")
-            error_message = f"Database error saving selections: {e} ---"
-            # --- MODIFIED: Return Toast and JS to trigger it ---
+            error_message = f"Database error saving selections: {e}"
             error_toast = ToastAlert(message=error_message, alert_type='error')
             return error_toast, Script("""
                 UIkit.notification({

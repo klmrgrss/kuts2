@@ -6,7 +6,16 @@ from typing import Optional, Dict, Any
 
 # --- TABS Dictionary (remains the same) ---
 TABS = { # ... TABS content ...
-    "taotleja": "Taotleja", "kutsed": "Taotletavad kutsed", "tookogemus": "Töökogemus", "haridus": "Haridus", "taiendkoolitus": "Täiendkoolitus", "tootamise_toend": "Töötamise tõend", "ulevaatamine": "Taotluse ülevaatamine", "workex": "WorkEx"}
+    #"taotleja": "Taotleja", 
+    "kutsed": "Taotletavad kutsed", 
+    #"tookogemus": "Töökogemus",
+    "workex": "Töökogemus",
+    "dokumendid": "Dokumentide lisamine",
+    #"haridus": "Haridus", 
+    #"taiendkoolitus": "Täiendkoolitus", 
+    #"tootamise_toend": "Töötamise tõend", 
+    "ulevaatamine": "Taotluse ülevaatamine", 
+    }
 
 # --- public_navbar (remains the same) ---
 def public_navbar() -> FT:
@@ -97,16 +106,21 @@ def tab_nav(active_tab: str, request: Request, badge_counts: Dict = None) -> FT:
         )
         nav_items.append(Li(link, role='presentation', cls="flex-shrink-0")) # flex-shrink-0 prevents tabs from shrinking
 
-    # *** ADDED id="tab-list-container" to the Ul element ***
-    nav_content = Div(
-        Ul(
-            *nav_items,
-            # Added ID here
-            id="tab-list-container",
-            cls="flex flex-nowrap -mb-px text-sm font-medium text-center text-muted-foreground border-b border-border overflow-x-auto" # overflow-x-auto enables horizontal scroll
-        )
+    # The Ul holds the list of tabs
+    tab_list = Ul(
+        *nav_items,
+        id="tab-list-container",
+        cls="flex flex-nowrap -mb-px text-sm font-medium text-center text-muted-foreground"
     )
-    return Nav(nav_content, aria_label="Application Tabs", cls="border-b border-border bg-background") # Added bg-background
+
+    # A parent Div that centers the Ul and handles horizontal scrolling
+    nav_container = Div(
+        tab_list,
+        cls="flex justify-center border-b border-border overflow-x-auto overflow-y-hidden"
+    )
+
+    return Nav(nav_container, aria_label="Application Tabs", cls="bg-background")
+
 
 # --- Combined Sticky Header Function (MODIFIED for centering on wide screens) ---
 def render_sticky_header(request: Request, active_tab: str, badge_counts: Dict = None, container_class: str = "md:max-w-screen-lg") -> FT:

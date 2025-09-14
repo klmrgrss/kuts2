@@ -15,6 +15,7 @@ from controllers.qualifications import QualificationController
 from controllers.applicant import ApplicantController
 from controllers.work_experience import WorkExperienceController
 from controllers.education import EducationController
+from controllers.documents import DocumentsController
 from controllers.training import TrainingController
 from controllers.evaluator import EvaluatorController
 from ui.layouts import public_layout, app_layout
@@ -59,6 +60,7 @@ try:
     training_controller = TrainingController(db)
     employment_proof_controller = EmploymentProofController(db)
     education_controller = EducationController(db)
+    documents_controller = DocumentsController(db)
     review_controller = ReviewController(db)
     evaluator_controller = EvaluatorController(db)
 except AttributeError as e:
@@ -293,6 +295,24 @@ def get_employment_proof(request: Request):
 @rt("/app/tootamise_toend/upload", methods=['POST'])
 async def post_emp_proof_upload(request: Request):
     return await employment_proof_controller.upload_employment_proof(request)
+
+@rt("/app/haridus/submit", methods=['POST'])
+async def post_edu_submit(request: Request):
+    return await education_controller.submit_education_form(request)
+
+# ADD NEW ROUTES FOR DOCUMENTS TAB
+@rt("/app/dokumendid", methods=["GET"])
+def get_documents(request: Request):
+    return documents_controller.show_documents_tab(request)
+
+@rt("/app/dokumendid/upload", methods=['POST'])
+async def post_document_upload(request: Request, document_type: str):
+    return await documents_controller.upload_document(request, document_type)
+# END NEW ROUTES
+
+@rt("/app/taiendkoolitus", methods=["GET"])
+def get_training(request: Request):
+    return training_controller.show_training_tab(request)
 
 @rt("/app/ulevaatamine", methods=["GET"])
 def get_review(request: Request):

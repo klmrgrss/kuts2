@@ -272,5 +272,23 @@ def setup_database():
         )
         print("--- 'employment_proof' table created ---")
 
+    # === Create Documents Table ===
+    documents = db.t.documents
+    if documents not in db.t:
+        print("--- Creating 'documents' table ---")
+        documents.create(
+            id=int, 
+            user_email=str, 
+            document_type=str, # e.g., 'education', 'training', 'employment_proof'
+            description=str,   # User-provided description or title
+            metadata=str,      # To store JSON data like institution, specialty, etc.
+            original_filename=str, 
+            storage_identifier=str, 
+            upload_timestamp=str, 
+            pk='id'
+        )
+        db.execute("CREATE INDEX IF NOT EXISTS ix_documents_user_email ON documents (user_email)")
+        print("--- 'documents' table created ---")
+
     print(f"--- Database setup complete. Tables checked/created/updated. ---")
     return db

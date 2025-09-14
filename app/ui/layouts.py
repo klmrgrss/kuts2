@@ -69,6 +69,19 @@ def base_layout(title: str, *content: Any, theme_headers: tuple = Theme.blue.hea
         Script(src="/static/js/education_form.js",  defer=True),     # Your education form specific JS (if still needed)
         # +++ ADD FLATICKR INITIALIZER +++
         Script(src="/static/js/flatpickr_init.js", defer=True), Style("""
+                    /* Animation and state styles for WorkEx v2 */
+                    @keyframes fadeInDown {
+                        from { opacity: 0; transform: translateY(-0.5rem); }
+                        to { opacity: 1; transform: translateY(0); }
+                    }
+                    .form-revealed {
+                        animation: fadeInDown 0.4s ease-out forwards;
+                    }
+                    .activity-selected {
+                        border-color: #3b82f6; /* Tailwind blue-500 */
+                        background-color: #eff6ff; /* Tailwind blue-50 */
+                    }
+                    /* Other styles */
                     .ag-header-cell-filter-button { display: none !important; }
                     /* Form state styles */
                     .state-unfocused { border-width: 2px; border-color: #e5e7eb; } /* gray-200 */

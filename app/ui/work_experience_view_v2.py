@@ -35,17 +35,26 @@ def render_work_experience_form_v2(
     # --- Activity Selection Box ---
     # This section is now for displaying activities and their existing experiences
     radio_buttons = []
-    for activity in available_activities:
-        # The selected radio button is the one matching the current active task
-        is_radio_selected = (activity == selected_activity)
+    for i, activity in enumerate(available_activities):
+        # An activity is "in focus" if it's selected for a new item OR if we are editing an item belonging to it.
+        is_activity_in_focus = (activity == selected_activity) or (is_edit and activity == experience.get('associated_activity'))
         
         activity_experiences = [exp for exp in experiences if exp.get('associated_activity') == activity]
         
         experience_links = []
         for exp in activity_experiences:
             # Determine state for existing experiences
-            # This is a simplified logic. A more robust one would check all required fields.
             exp_state = 'state-complete' if exp.get('work_description') and exp.get('object_address') else 'state-in-progress'
+            
+            # Check if the current link's experience is the one being edited
+            is_being_edited = is_edit and exp.get('id') == experience.get('id')
+            
+            # Start with base classes
+            link_classes = f"btn btn-sm {exp_state} border"
+            # Conditionally add the 'activity-selected' class to the link itself for a double highlight effect
+            if is_being_edited:
+                link_classes += " activity-selected"
+
             experience_links.append(
                 A(
                     # Descriptive name as requested
@@ -54,28 +63,36 @@ def render_work_experience_form_v2(
                     hx_get=f"/app/workex/{exp.get('id')}/edit",
                     hx_target="#tab-content-container",
                     hx_swap="innerHTML",
-                    # Apply state class to the link itself
-                    cls=f"btn btn-sm {exp_state} border"
+                    # Apply the combined classes
+                    cls=link_classes
                 )
             )
 
-        container_classes = "p-4 rounded-lg bg-gray-50 dark:bg-gray-900"
+        # Apply the 'activity-selected' class to the container if it's active
+        container_classes = f"p-4 rounded-lg bg-gray-50 dark:bg-gray-900 border-2 transition-colors {'activity-selected' if is_activity_in_focus else 'border-transparent'}"
+        
+        # Generate a unique ID for each radio button
+        radio_id = f"activity_radio_{i}"
 
         radio_buttons.append(
             Div(
-                # Radio button to select an activity for a NEW experience
-                Label(
+                # Use a FormLabel associated with the radio button
+                Div(
                     Radio(
+                        id=radio_id,
                         name="selected_activity_radio",
                         value=activity,
-                        checked=is_radio_selected,
-                        # This now reloads the whole tab content with the activity selected
+                        checked=is_activity_in_focus, # Use the unified focus logic here
                         hx_get=f"/app/workex?activity={activity}",
                         hx_target="#tab-content-container",
                         hx_swap="innerHTML"
                     ),
-                    Span(activity, cls="font-semibold text-lg ml-2"),
-                    cls="flex items-center cursor-pointer"
+                    FormLabel(
+                        activity,
+                        fr=radio_id,
+                        cls="font-semibold text-lg ml-2 cursor-pointer"
+                    ),
+                    cls="flex items-center"
                 ),
                 # List of existing experiences for this activity
                 Div(*experience_links, cls="flex flex-row flex-wrap gap-2 mt-2 pl-8") if experience_links else P("Selle tegevusala kohta pole töökogemusi lisatud.", cls="text-sm text-gray-500 mt-2 pl-8"),
@@ -84,8 +101,8 @@ def render_work_experience_form_v2(
         )
     
     activity_selection_box = Div(
-        H3("1. Vali tegevusala või muuda olemasolevat kogemust", cls="text-xl font-semibold mb-4"),
-        P("Uue kogemuse lisamiseks vali tegevusala. Olemasoleva muutmiseks klõpsa selle kirjel.", cls="text-sm text-muted-foreground mb-6"),
+        #H3("1. Vali tegevusala või muuda olemasolevat kogemust", cls="text-xl font-semibold mb-4"),
+        #P("Uue kogemuse lisamiseks vali tegevusala. Olemasoleva muutmiseks klõpsa selle kirjel.", cls="text-sm text-muted-foreground mb-6"),
         Div(id="form-guidance-message"), # Placeholder for the guidance message
         Div(*radio_buttons, cls="space-y-4"),
         cls="mb-8"
@@ -94,9 +111,9 @@ def render_work_experience_form_v2(
     # --- Explanatory text for the form ---
     form_intro_text = None
     if is_task_active:
-        intro_title = f"Muudan kogemust: {val('start_date')} - {val('object_address')}" if is_edit else f"Loon uut kogemust tegevusalale: {selected_activity}"
+        intro_title = f"MUUDA töökogemust: {val('start_date')} - {val('object_address')}" if is_edit else f"LISA UUS töökogemus tegevusalale: {selected_activity}"
         form_intro_text = Div(
-            H3("2. Sisesta andmed", cls="text-xl font-semibold mb-2"),
+            #H3("2. Sisesta andmed", cls="text-xl font-semibold mb-2"),
             P(intro_title, cls="p-4 bg-blue-100 text-blue-800 rounded-lg my-4 text-center")
         )
 
@@ -125,7 +142,7 @@ def render_work_experience_form_v2(
     form_content = Div(
         activity_selection_box if activity_selection_box else "",
         
-        # This Div will intercept clicks when the form is disabled
+        # This Div will intercept clicks and trigger animations
         Div(
             Form(
                 Fieldset(
@@ -135,7 +152,7 @@ def render_work_experience_form_v2(
                     # The associated activity is now set based on edit or new selection
                     Hidden(name="associated_activity", value=val('associated_activity') if is_edit else selected_activity),
 
-                    SectionContainer("Üldinfo",
+                    SectionContainer("1. Üldinfo",
                         StyledLabelInput(label="Taotleja roll objektil", placeholder="objektijuht, projektijuht vms", id="role", name="role", value=val('role'), required=True),
                         Div(
                             P("Töövõtuvorm", cls=LABEL_CLASS + " mb-1"),
@@ -151,12 +168,12 @@ def render_work_experience_form_v2(
                         ),
                     ),
 
-                    SectionContainer("Teostatud ehitustööd",
+                    SectionContainer("2. Teostatud ehitustööd",
                         InputTag(name="work_keywords", value=val('work_keywords', "Vundamenditööd, Müüritööd"), placeholder="Lisa ehitustöö ja vajuta Enter...", max_length=30),
                         StyledLabelTextArea(label="Ehitustegevuse liigi kirjeldus", id="work_description", name="work_description", value=val('work_description'), rows=3, required=True)
                     ),
 
-                    SectionContainer("Ehitusobjekti andmed",
+                    SectionContainer("3. Ehitusobjekti andmed",
                         StyledLabelInput(label="Objekti aadress", id="object_address", name="object_address", value=val('object_address'), required=True),
                         StyledLabelInput(label="Objekti otstarve", id="object_purpose", name="object_purpose", value=val('object_purpose')),
                         StyledLabelInput(label="EHR kood", id="ehr_code", name="ehr_code", value=val('ehr_code')),
@@ -165,14 +182,14 @@ def render_work_experience_form_v2(
                     
                     # The two-column layout for company/client data
                     Div(
-                        SectionContainer("Ettevõtte andmed",
+                        SectionContainer("4. Ettevõtte andmed",
                             StyledLabelInput(label="Ettevõtte nimi", id="company_name", name="company_name", value=val('company_name'), required=True),
                             StyledLabelInput(label="Registrikood", id="company_code", name="company_code", value=val('company_code')),
                             StyledLabelInput(label="Kontaktisik", id="company_contact", name="company_contact", value=val('company_contact')),
                             StyledLabelInput(label="E-post", id="company_email", name="company_email", value=val('company_email'), type="email"),
                             StyledLabelInput(label="Telefon", id="company_phone", name="company_phone", value=val('company_phone'), type="tel"),
                         ),
-                        SectionContainer("Tellija andmed",
+                        SectionContainer("5. Tellija andmed",
                             StyledLabelInput(label="Tellija nimi", id="client_name", name="client_name", value=val('client_name')),
                             StyledLabelInput(label="Registrikood", id="client_code", name="client_code", value=val('client_code')),
                             StyledLabelInput(label="Kontaktisik", id="client_contact", name="client_contact", value=val('client_contact')),
@@ -198,10 +215,10 @@ def render_work_experience_form_v2(
                 id="work-experience-form-v2",
                 cls="space-y-4 md:space-y-6"
             ),
-            # Add the guidance message logic here
+            # Add the animation class here
             _=("on click if I match '.form-disabled' then "
                "call alert('Palun vali ülevalt tegevusala uue kogemuse lisamiseks või klõpsa olemasoleval kogemusel, et seda muuta.')"),
-            cls=form_wrapper_class
+            cls=f"{form_wrapper_class} {'form-revealed' if is_task_active else ''}"
         ),
         cls="max-w-5xl mx-auto",
         id="work-experience-form-v2-container"
