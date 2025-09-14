@@ -70,6 +70,11 @@ def base_layout(title: str, *content: Any, theme_headers: tuple = Theme.blue.hea
         # +++ ADD FLATICKR INITIALIZER +++
         Script(src="/static/js/flatpickr_init.js", defer=True), Style("""
                     .ag-header-cell-filter-button { display: none !important; }
+                    /* Form state styles */
+                    .state-unfocused { border-width: 2px; border-color: #e5e7eb; } /* gray-200 */
+                    .state-in-progress { border-width: 2px; border-color: #3b82f6; } /* blue-500 */
+                    .state-complete { border-width: 2px; border-color: #22c55e; } /* green-500 */
+                    .form-disabled { opacity: 0.6; pointer-events: none; }
                         """), # Your new Flatpickr initializer
         Link(rel="stylesheet", href="https://cdn.jsdelivr.net/npm/vis-timeline@7.7.2/dist/vis-timeline-graph2d.min.css"),
         Script(src="https://cdn.jsdelivr.net/npm/vis-timeline@7.7.2/standalone/umd/vis-timeline-graph2d.min.js"),
@@ -100,18 +105,18 @@ def public_layout(title: str, *content: Any) -> FT:
 
 
 # --- app_layout (keep as is, uses render_sticky_header) ---
-def app_layout(request: Request, title: str, content: Any, active_tab: str, badge_counts: Dict = {}) -> FT:
+def app_layout(request: Request, title: str, content: Any, active_tab: str, badge_counts: Dict = {}, container_class: str = "md:max-w-screen-lg") -> FT:
     """
     Main layout using a single combined sticky header.
     Centers content container on medium screens and up.
     """
     print(f"--- DEBUG: app_layout rendering with title: '{title}' ---")
     sticky_header = render_sticky_header(
-        request=request, active_tab=active_tab, badge_counts=badge_counts
+        request=request, active_tab=active_tab, badge_counts=badge_counts, container_class=container_class
     )
     main_content_container = Container(
         Div(content, id="tab-content-container"),
-        cls=f"{ContainerT.xl} pt-8 md:max-w-screen-lg md:mx-auto" # Centering classes
+        cls=f"{ContainerT.xl} pt-8 md:max-w-screen-md md:mx-auto" # Centering classes
     )
     return base_layout(title, sticky_header, main_content_container)
 

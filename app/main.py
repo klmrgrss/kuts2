@@ -258,6 +258,18 @@ def delete_exp(request: Request, experience_id: int):
 def get_work_experience_edit_form(request: Request, experience_id: int):
     return work_experience_controller.show_edit_form(request, experience_id)
 
+@rt("/app/workex", methods=["GET"])
+def get_workex(request: Request):
+    return work_experience_controller.show_workex_tab(request)
+
+@rt("/app/workex/{experience_id:int}/edit", methods=["GET"])
+def get_workex_edit_form(request: Request, experience_id: int):
+    return work_experience_controller.show_workex_edit_form(request, experience_id)
+
+@rt("/app/workex/save", methods=["POST"])
+async def post_save_workex_experience(request: Request):
+    return await work_experience_controller.save_workex_experience(request)
+
 @rt("/app/haridus", methods=["GET"])
 def get_education(request: Request):
     return education_controller.show_education_tab(request)

@@ -6,7 +6,7 @@ from typing import Optional, Dict, Any
 
 # --- TABS Dictionary (remains the same) ---
 TABS = { # ... TABS content ...
-    "taotleja": "Taotleja", "kutsed": "Taotletavad kutsed", "tookogemus": "Töökogemus", "haridus": "Haridus", "taiendkoolitus": "Täiendkoolitus", "tootamise_toend": "Töötamise tõend", "ulevaatamine": "Taotluse ülevaatamine"}
+    "taotleja": "Taotleja", "kutsed": "Taotletavad kutsed", "tookogemus": "Töökogemus", "haridus": "Haridus", "taiendkoolitus": "Täiendkoolitus", "tootamise_toend": "Töötamise tõend", "ulevaatamine": "Taotluse ülevaatamine", "workex": "WorkEx"}
 
 # --- public_navbar (remains the same) ---
 def public_navbar() -> FT:
@@ -109,7 +109,7 @@ def tab_nav(active_tab: str, request: Request, badge_counts: Dict = None) -> FT:
     return Nav(nav_content, aria_label="Application Tabs", cls="border-b border-border bg-background") # Added bg-background
 
 # --- Combined Sticky Header Function (MODIFIED for centering on wide screens) ---
-def render_sticky_header(request: Request, active_tab: str, badge_counts: Dict = None) -> FT:
+def render_sticky_header(request: Request, active_tab: str, badge_counts: Dict = None, container_class: str = "md:max-w-screen-lg") -> FT:
     """Renders the combined sticky header with content centered on wide screens."""
     top_nav_content = app_navbar(request)
     tab_nav_content = tab_nav(active_tab, request, badge_counts)
@@ -124,11 +124,8 @@ def render_sticky_header(request: Request, active_tab: str, badge_counts: Dict =
             top_nav_content,
             tab_nav_wrapper,
 
-            # *** ADDED classes ***
-            # Apply the same max-width and centering classes used in app_layout
-            # 'w-full' ensures this inner div tries to fill the outer sticky div horizontally
-            # before max-width and mx-auto take effect on wider screens.
-            cls="w-full md:max-w-screen-lg md:mx-auto" # Adjust max-w-screen-lg if needed
+            # *** CORRECTED classes ***
+            cls=f"w-full {container_class} md:mx-auto"
         ),
         # Original classes for the outer sticky container remain
         cls="sticky top-0 z-50 bg-background shadow-md"
@@ -143,7 +140,7 @@ def evaluator_navbar(request: Request) -> FT:
     is_authenticated = request.session.get("authenticated", False)
 
     # --- Evaluator Specific Title ---
-    evaluator_title = "Ehitamise valdkonna kutsetaotluste HINDAMISKESKKOND" # New Title
+    evaluator_title = "Ehitamise valdkonna kutsete taotluste HINDAMISKESKKOND" # New Title
 
     # --- Wide Screen Elements ---
     # Use the new title here

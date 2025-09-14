@@ -24,24 +24,25 @@ def render_qualification_form(sections: dict, app_id: str):
     }
     default_color = "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200"
 
+    border_colors = {
+        "Ehitusjuht, TASE 6": "border-blue-300 dark:border-blue-700",
+        "Ehituse tööjuht, TASE 5": "border-green-300 dark:border-green-700",
+        "Oskustööline, TASE 4": "border-yellow-300 dark:border-yellow-700"
+    }
+    default_border_color = "border-gray-300 dark:border-gray-600"
+
     # --- Main Form Structure ---
     form_content = Form(
         H3("Taotletavad kutsed", cls="text-xl font-semibold mb-2"),
         P("Vali soovitud kutsetaseme ja tegevusala alt taotletav spetsialiseerumine.", cls="text-sm text-muted-foreground mb-6"),
 
         *[
-            FormSection(
-                # --- Row 1: KUTSETASE ---
+            Div(
+                # --- Row 1: KUTSETASE (Legend) ---
                 Div(
-                    Div(
-                        Small("KUTSETASE", cls="text-xs font-semibold text-muted-foreground"),
-                        cls="md:col-span-1"
-                    ),
-                    Div(
-                        Pill(section["level"], bg_color=level_colors.get(section["level"], default_color)),
-                        cls="md:col-span-4"
-                    ),
-                    cls="grid grid-cols-1 md:grid-cols-5 gap-y-1 md:gap-x-4 items-center"
+                    Small("KUTSETASE", cls="text-xs font-semibold text-muted-foreground"),
+                    Pill(section["level"], bg_color=level_colors.get(section["level"], default_color)),
+                    cls="absolute -top-3 left-4 bg-background px-2 flex items-center gap-x-2"
                 ),
 
                 # --- Row 2: TEGEVUSALA ---
@@ -54,7 +55,7 @@ def render_qualification_form(sections: dict, app_id: str):
                         H5(section["category"], cls="text-base md:ml-1 md:text-lg font-bold text-foreground"),
                         cls="md:col-span-4"
                     ),
-                    cls="grid grid-cols-1 md:grid-cols-5 gap-y-1 md:gap-x-4 items-center mt-3"
+                    cls="grid grid-cols-1 md:grid-cols-5 gap-y-1 md:gap-x-4 items-center"
                 ),
 
                 DividerSplit(P("SPETSIALISEERUMINE", cls="text-xs font-semibold  text-muted-foreground")),
@@ -92,11 +93,11 @@ def render_qualification_form(sections: dict, app_id: str):
                         ),
                         cls="md:col-span-4"
                     ),
-                    cls="grid grid-cols-1 md:grid-cols-5 gap-y-1 md:gap-x-4 mt-8"
+                    cls="grid grid-cols-1 md:grid-cols-5 gap-y-1 md:gap-x-4"
                 ),
 
                 id=f"qual-section-{section['id']}",
-                cls="mb-6 border-4 rounded-lg p-4 space-y-2"
+                cls=f"relative mt-8 mb-10 border-4 rounded-lg p-4 space-y-4 {border_colors.get(section['level'], default_border_color)}"
             )
             for section in sections.values()
         ],
@@ -115,14 +116,12 @@ def render_qualification_form(sections: dict, app_id: str):
         hx_target="#qual-form-error",
         hx_swap="innerHTML",
         id="qualification-form",
-        cls="space-y-4"
+        cls="space-y-8"
     )
 
     # --- Final Component Assembly ---
     return Div(
-        Card(
-            CardBody(form_content)
-        ),
+        form_content,
         # --- JavaScript for toggle sync ---
         Script("""
         function setupSyncForSection(sectionId) {
