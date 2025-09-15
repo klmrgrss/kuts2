@@ -217,93 +217,73 @@ class QualificationController:
         """
         user_email = request.session.get("user_email")
         if not user_email:
-            return Alert("Authentication Error", cls="", id="qual-form-error", hx_swap_oob="innerHTML")
+            # Use a more specific error target if available, or a general one
+            return Alert("Authentication Error", cls="text-red-500", id="form-guidance-message", hx_swap_oob="innerHTML")
 
         try:
             form_data = await request.form()
+            print(f"--- DEBUG [submit_qualifications]: Raw form data: {form_data} ---")
         except Exception as e:
             print(f"--- ERROR: Could not read form data in submit_qualifications: {e} ---")
-            return Alert("Error reading form data", cls="", id="qual-form-error", hx_swap_oob="innerHTML")
+            return Alert("Error reading form data", cls="text-red-500", id="form-guidance-message", hx_swap_oob="innerHTML")
 
-        print(f"--- DEBUG [submit_qualifications]: Raw form data: {form_data} ---")
-
-        # --- Parse Selections & Validate ---
-        selections_made = False
+        # --- Parse Selections & Validate (SIMPLIFIED LOGIC) ---
         rows_to_insert = []
-        # Need the section structure to map form names to data
-        sections_data = self._prepare_qualification_data(user_email) # Re-run/fetch structure
+        # Re-run/fetch the section structure to map form names back to data
+        sections_data = self._prepare_qualification_data(user_email)
 
+        # Iterate through all form items
         for key, value in form_data.items():
-            if value != "on": # Checkboxes/toggles send 'on' when checked
+            # We only care about checked checkboxes, which have the value "on"
+            if not key.startswith("qual_") or value != "on":
                 continue
 
-            selections_made = True # Mark that at least one selection was found
-
-            if key.startswith("toggle-"):
-                try:
-                    section_id = int(key.split("-")[1])
-                    section_info = sections_data.get(section_id)
-                    if section_info:
-                        for item in section_info["items"]:
-                            rows_to_insert.append({
-                                "user_email": user_email,
-                                "qualification_name": section_info["category"],
-                                "level": section_info["level"],
-                                "specialisation": item,
-                                "activity": section_info["category"], # Assumption: activity is category
-                                "is_renewal": 0,
-                                "application_date": None
-                            })
-                except (ValueError, IndexError, KeyError) as e:
-                    print(f"--- ERROR Parsing toggle key '{key}': {e} ---")
-
-            elif key.startswith("qual_"):
-                try:
-                    parts = key.split("_")
-                    section_id = int(parts[1])
-                    item_index = int(parts[2])
-                    section_info = sections_data.get(section_id)
-
-                    if section_info and form_data.get(f"toggle-{section_id}") != "on":
-                        if 0 <= item_index < len(section_info["items"]):
-                            item = section_info["items"][item_index]
-                            rows_to_insert.append({
-                                "user_email": user_email,
-                                "qualification_name": section_info["category"],
-                                "level": section_info["level"],
-                                "specialisation": item,
-                                "activity": section_info["category"], # Assumption
-                                "is_renewal": 0,
-                                "application_date": None
-                            })
-                except (ValueError, IndexError, KeyError) as e:
-                    print(f"--- ERROR Parsing qual key '{key}': {e} ---")
+            try:
+                # qual_SECTIONID_ITEMINDEX -> parts = ["qual", "SECTIONID", "ITEMINDEX"]
+                parts = key.split("_")
+                section_id = int(parts[1])
+                item_index = int(parts[2])
+                
+                # Get the corresponding section and item from our structure
+                section_info = sections_data.get(section_id)
+                if section_info and 0 <= item_index < len(section_info["items"]):
+                    item = section_info["items"][item_index]
+                    
+                    # Construct the row to be inserted into the database
+                    rows_to_insert.append({
+                        "user_email": user_email,
+                        "qualification_name": section_info["category"],
+                        "level": section_info["level"],
+                        "specialisation": item,
+                        "activity": section_info["category"], # Assumption: activity is category
+                        "is_renewal": 0, # Default, can be changed later
+                        "application_date": None # Default
+                    })
+            except (ValueError, IndexError, KeyError) as e:
+                # Log if a form key is malformed, but don't crash
+                print(f"--- ERROR Parsing qualification key '{key}': {e} ---")
 
         # --- Database Operations ---
         try:
             print(f"--- DB [submit_qualifications]: Deleting existing for {user_email} ---")
+            # Delete all previous selections for this user to ensure a clean slate
             deleted_count = self.applied_qual_table.delete_where('user_email=?', [user_email])
             print(f"--- DB [submit_qualifications]: Deleted {deleted_count} rows ---")
 
+            # Insert the new selections if any were made
             if rows_to_insert:
-                unique_rows_to_insert = [dict(t) for t in {tuple(d.items()) for d in rows_to_insert}]
-                print(f"--- DB [submit_qualifications]: Inserting {len(unique_rows_to_insert)} new rows for {user_email} ---")
-                for row in unique_rows_to_insert:
+                print(f"--- DB [submit_qualifications]: Inserting {len(rows_to_insert)} new rows for {user_email} ---")
+                for row in rows_to_insert:
                     self.applied_qual_table.insert(row)
 
             print(f"--- SUCCESS [submit_qualifications]: Saved selections for {user_email} ---")
 
             # --- Re-render the tab on success ---
+            # This will show the newly saved selections and update the status strip
             return self.show_qualifications_tab(request)
 
         except Exception as e:
             print(f"--- ERROR [submit_qualifications] DB Operation Failed for {user_email}: {e} ---")
             error_message = f"Database error saving selections: {e}"
-            error_toast = ToastAlert(message=error_message, alert_type='error')
-            return error_toast, Script("""
-                UIkit.notification({
-                    message: document.getElementById('error-toast').dataset.toastMessage,
-                    status: document.getElementById('error-toast').dataset.toastStatus,
-                    pos: 'bottom-right'
-                });
-            """)
+            # Return an error message to the user
+            return Alert(error_message, cls="text-red-500", id="form-guidance-message", hx_swap_oob="innerHTML")

@@ -96,11 +96,14 @@ class WorkExperienceController:
         user_email = request.session.get("user_email")
         if not user_email: return Div("Authentication Error", cls="text-red-500 p-4")
         
-        page_title = "WorkEx (Test) | Ehitamise valdkonna kutsete taotlemine"
+        page_title = "Töökogemus | Ehitamise valdkonna kutsete taotlemine"
         badge_counts = get_badge_counts(self.db, user_email)
         available_activities = self._get_saved_activities(user_email)
         
         warning_message = None
+        work_experience_content = None
+        footer = None
+
         if not available_activities:
             warning_message = Card(CardBody(P("Enne töökogemuse lisamist vali tegevusalad 'Taotletavad kutsed' lehel.", cls="text-warning text-center"), A(Button("Vali kutsed", cls="btn btn-secondary mt-4"), href="/app/kutsed")), cls="border-warning")
             work_experience_content = Div(warning_message, cls="max-w-5xl mx-auto")
@@ -110,8 +113,11 @@ class WorkExperienceController:
 
             # Determine which activity is selected
             selected_activity = request.query_params.get('activity')
-            if not selected_activity and not experience_to_edit:
-                selected_activity = available_activities[0] if len(available_activities) == 1 else None
+            if not selected_activity and not experience_to_edit and available_activities:
+                 # If we are not editing and no activity is selected via query param,
+                 # check if there's only one activity available and select it by default.
+                 # Otherwise, leave it unselected for the user to choose.
+                 selected_activity = available_activities[0] if len(available_activities) == 1 else None
 
             work_experience_content, footer = render_work_experience_form_v2(
                 available_activities=available_activities, 
@@ -123,10 +129,20 @@ class WorkExperienceController:
 
         if request.headers.get('HX-Request'):
             updated_tab_nav = tab_nav(active_tab="workex", request=request, badge_counts=badge_counts)
-            oob_footer = Div(footer, id="footer-container", hx_swap_oob="innerHTML") if footer else ""
+            oob_footer = Div(footer, id="footer-container", hx_swap_oob="innerHTML") if footer else Div(id="footer-container", hx_swap_oob="innerHTML")
             return work_experience_content, oob_footer, Div(updated_tab_nav, id="tab-navigation-container", hx_swap_oob="outerHTML"), Title(page_title, id="page-title", hx_swap_oob="innerHTML")
         else:
-            return app_layout(request=request, title=page_title, content=work_experience_content, footer=footer, active_tab="workex", badge_counts=badge_counts, container_class="max-w-7xl") # Use a wider container for v2
+            # For a full page load, pass the footer to the app_layout
+            return app_layout(
+                request=request, 
+                title=page_title, 
+                content=work_experience_content, 
+                footer=footer,  # Pass the footer here
+                active_tab="workex", 
+                badge_counts=badge_counts, 
+                container_class="max-w-7xl"
+            )
+
 
     def show_workex_edit_form(self, request: Request, experience_id: int):
         user_email = request.session.get("user_email")

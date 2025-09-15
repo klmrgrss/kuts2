@@ -150,11 +150,12 @@ def public_layout(title: str, *content: Any) -> FT:
     return base_layout(title, Container( *content, cls="flex flex-col items-center justify-center min-h-screen py-12" ) )
 
 
-# --- app_layout (keep as is, uses render_sticky_header) ---
+# --- app_layout (MODIFIED to conditionally render footer) ---
 def app_layout(request: Request, title: str, content: Any, active_tab: str, badge_counts: Dict = {}, container_class: str = "md:max-w-screen-lg", footer: Optional[Any] = None) -> FT:
     """
     Main layout using a single combined sticky header.
     Centers content container on medium screens and up.
+    Conditionally renders the footer.
     """
     print(f"--- DEBUG: app_layout rendering with title: '{title}' ---")
     sticky_header = render_sticky_header(
@@ -164,10 +165,13 @@ def app_layout(request: Request, title: str, content: Any, active_tab: str, badg
         Div(content, id="tab-content-container"),
         cls=f"{ContainerT.xl} pt-8 md:max-w-screen-md md:mx-auto" # Centering classes
     )
-    footer_container = Div(footer or "", id="footer-container")
+
+    # Conditionally include the footer container only if a footer is provided
+    footer_container = Div(footer, id="footer-container") if footer else Div(id="footer-container")
+
     return base_layout(title, sticky_header, main_content_container, footer_container)
 
-# --- evaluator_layout (MODIFIED) ---
+# --- evaluator_layout (keep as is) ---
 def evaluator_layout(request: Request, title: str, content: Any) -> FT:
     """
     Layout for evaluator views, using a WIDER (2xl) centered container.
