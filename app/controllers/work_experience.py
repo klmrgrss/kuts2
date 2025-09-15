@@ -113,7 +113,7 @@ class WorkExperienceController:
             if not selected_activity and not experience_to_edit:
                 selected_activity = available_activities[0] if len(available_activities) == 1 else None
 
-            work_experience_content = render_work_experience_form_v2(
+            work_experience_content, footer = render_work_experience_form_v2(
                 available_activities=available_activities, 
                 experiences=experiences, 
                 experience=experience_to_edit, 
@@ -123,9 +123,10 @@ class WorkExperienceController:
 
         if request.headers.get('HX-Request'):
             updated_tab_nav = tab_nav(active_tab="workex", request=request, badge_counts=badge_counts)
-            return work_experience_content, Div(updated_tab_nav, id="tab-navigation-container", hx_swap_oob="outerHTML"), Title(page_title, id="page-title", hx_swap_oob="innerHTML")
+            oob_footer = Div(footer, id="footer-container", hx_swap_oob="innerHTML") if footer else ""
+            return work_experience_content, oob_footer, Div(updated_tab_nav, id="tab-navigation-container", hx_swap_oob="outerHTML"), Title(page_title, id="page-title", hx_swap_oob="innerHTML")
         else:
-            return app_layout(request=request, title=page_title, content=work_experience_content, active_tab="workex", badge_counts=badge_counts, container_class="max-w-7xl") # Use a wider container for v2
+            return app_layout(request=request, title=page_title, content=work_experience_content, footer=footer, active_tab="workex", badge_counts=badge_counts, container_class="max-w-7xl") # Use a wider container for v2
 
     def show_workex_edit_form(self, request: Request, experience_id: int):
         user_email = request.session.get("user_email")

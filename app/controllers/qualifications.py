@@ -122,7 +122,7 @@ class QualificationController:
                  return app_layout(request=request, title="Error", content=error_content, active_tab="kutsed") # Assuming 'kutsed' is the target tab
 
         # --- Render Content Fragment ---
-        qualification_content = render_qualification_form(
+        qualification_content, footer = render_qualification_form(
             sections=prepared_sections,
             app_id=user_email
         )
@@ -130,31 +130,22 @@ class QualificationController:
         # --- Check for HTMX Request Header ---
         if request.headers.get('HX-Request'):
             print(f"--- DEBUG: Returning {page_title} tab fragment + OOB nav/title for HTMX ---") # Updated log
-            # 1. Content Fragment (qualification_content)
-
-            # 2. OOB Navigation Swap
-            # Make sure badge_counts are available if needed, or pass {}
-            updated_tab_nav = tab_nav(active_tab="kutsed", request=request, badge_counts=badge_counts) # Use 'kutsed' ID
-            oob_nav = Div(
-                updated_tab_nav,
-                id="tab-navigation-container",
-                hx_swap_oob="outerHTML"
-            )
-
-            # 3. OOB Title Swap
+            updated_tab_nav = tab_nav(active_tab="kutsed", request=request, badge_counts=badge_counts)
+            oob_nav = Div(updated_tab_nav, id="tab-navigation-container", hx_swap_oob="outerHTML")
             oob_title = Title(page_title, id="page-title", hx_swap_oob="innerHTML")
+            oob_footer = Div(footer, id="footer-container", hx_swap_oob="innerHTML") if footer else ""
 
-            # 4. Return all three components
-            return qualification_content, oob_nav, oob_title
+            return qualification_content, oob_nav, oob_title, oob_footer
         else:
             # --- Full Page Load Response ---
             print(f"--- DEBUG: Returning full app_layout for {page_title} tab ---") # Updated log
             return app_layout(
                 request=request,
-                title=page_title, # Pass title for full page load
+                title=page_title,
                 content=qualification_content,
+                footer=footer,
                 active_tab="kutsed",
-                badge_counts=badge_counts # Set the correct active tab ID
+                badge_counts=badge_counts
             )
 
 

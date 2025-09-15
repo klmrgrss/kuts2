@@ -67,20 +67,28 @@ def base_layout(title: str, *content: Any, theme_headers: tuple = Theme.blue.hea
         Script(src="/static/js/tab_scroll.js",  defer=True),         # Your tab scroll
         Script(src="/static/js/input_tag.js", defer=True),  # Your input tag
         Script(src="/static/js/education_form.js",  defer=True),     # Your education form specific JS (if still needed)
+        Script(src="/static/js/form_validator.js", defer=True),
         # +++ ADD FLATICKR INITIALIZER +++
         Script(src="/static/js/flatpickr_init.js", defer=True), Style("""
-                    /* Animation and state styles for WorkEx v2 */
-                    @keyframes fadeInDown {
-                        from { opacity: 0; transform: translateY(-0.5rem); }
-                        to { opacity: 1; transform: translateY(0); }
+                    /* --- Selective animation disabling class --- */
+                    .no-animation, .no-animation:hover {
+                        animation: none !important;
+                        transition: none !important;
                     }
-                    .form-revealed {
-                        animation: fadeInDown 0.4s ease-out forwards;
-                    }
-                    .activity-selected {
+                    
+                    /* --- Style for the selected STRIP (border only) --- */
+                    div.activity-selected {
                         border-color: #3b82f6; /* Tailwind blue-500 */
-                        background-color: #eff6ff; /* Tailwind blue-50 */
                     }
+                    
+                    /* --- "Pushed down" effect for the selected CHIP (an 'a' tag) --- */
+                    a.activity-selected {
+                        border-color: #3b82f6 !important; /* Tailwind blue-500 */
+                        background-color: #dbeafe !important; /* Tailwind blue-200 for a darker "pressed" look */
+                        transform: scale(0.95);
+                    }
+                    /* --- END --- */
+
                     /* Other styles */
                     .ag-header-cell-filter-button { display: none !important; }
                     /* Form state styles */
@@ -88,6 +96,31 @@ def base_layout(title: str, *content: Any, theme_headers: tuple = Theme.blue.hea
                     .state-in-progress { border-width: 2px; border-color: #3b82f6; } /* blue-500 */
                     .state-complete { border-width: 2px; border-color: #22c55e; } /* green-500 */
                     .form-disabled { opacity: 0.6; pointer-events: none; }
+/* --- Sticky Action Bar for Forms --- */
+.sticky-action-bar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 10;
+    background-color: rgba(255, 255, 255, 0.8);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    padding: 0.75rem;
+    border-top: 1px solid #e5e7eb;
+    box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.05);
+}
+
+/* Dark mode styles */
+.dark .sticky-action-bar {
+    background-color: rgba(31, 41, 55, 0.8); /* gray-800 with opacity */
+    border-top-color: #4b5563; /* gray-600 */
+}
+
+/* Add space at the bottom of the main content so it isn't hidden */
+#tab-content-container {
+    padding-bottom: 100px;
+}
                         """), # Your new Flatpickr initializer
         Link(rel="stylesheet", href="https://cdn.jsdelivr.net/npm/vis-timeline@7.7.2/dist/vis-timeline-graph2d.min.css"),
         Script(src="https://cdn.jsdelivr.net/npm/vis-timeline@7.7.2/standalone/umd/vis-timeline-graph2d.min.js"),
@@ -118,7 +151,7 @@ def public_layout(title: str, *content: Any) -> FT:
 
 
 # --- app_layout (keep as is, uses render_sticky_header) ---
-def app_layout(request: Request, title: str, content: Any, active_tab: str, badge_counts: Dict = {}, container_class: str = "md:max-w-screen-lg") -> FT:
+def app_layout(request: Request, title: str, content: Any, active_tab: str, badge_counts: Dict = {}, container_class: str = "md:max-w-screen-lg", footer: Optional[Any] = None) -> FT:
     """
     Main layout using a single combined sticky header.
     Centers content container on medium screens and up.
@@ -131,7 +164,8 @@ def app_layout(request: Request, title: str, content: Any, active_tab: str, badg
         Div(content, id="tab-content-container"),
         cls=f"{ContainerT.xl} pt-8 md:max-w-screen-md md:mx-auto" # Centering classes
     )
-    return base_layout(title, sticky_header, main_content_container)
+    footer_container = Div(footer or "", id="footer-container")
+    return base_layout(title, sticky_header, main_content_container, footer_container)
 
 # --- evaluator_layout (MODIFIED) ---
 def evaluator_layout(request: Request, title: str, content: Any) -> FT:

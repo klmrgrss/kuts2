@@ -1,6 +1,8 @@
 # gem/ui/custom_components.py
 
 from fasthtml.common import *
+from monsterui.all import *
+from typing import Optional
 
 # Function definition renamed to InputTag to match convention and user preference
 def InputTag(name: str, value: str = "", placeholder: str = "", max_length: int = 24, disabled: bool = False, cls: str = ""):
@@ -64,4 +66,27 @@ def InputTag(name: str, value: str = "", placeholder: str = "", max_length: int 
         # Attributes for the outermost container Div
         id=container_id,
         cls=f"custom-input-tag-container {cls}" # Hook class + any passed classes
+    )
+
+def StickyActionBar(form_id: str, save_text: str = "Salvesta valikud", cancel_url: Optional[str] = None, cancel_text: str = "Tühista"):
+    """
+    Creates a sticky bar at the bottom of the viewport for form actions.
+    The save button starts as disabled.
+    """
+    save_button = Button(save_text, type="submit", form=form_id, cls="btn btn-primary", disabled=True)
+    
+    cancel_button = None
+    if cancel_url:
+        cancel_button = A(cancel_text, href=cancel_url, cls="btn btn-secondary")
+
+    return Div(
+        Div(
+            DivRAligned(
+                cancel_button if cancel_button else "",
+                save_button,
+                cls="flex space-x-2"
+            ),
+            cls="max-w-5xl mx-auto px-4" # Added padding
+        ),
+        cls="sticky-action-bar"
     )

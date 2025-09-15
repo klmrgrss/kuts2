@@ -1,6 +1,7 @@
 # ui/qualification_form.py
 from fasthtml.common import *
 from monsterui.all import *
+from .custom_components import StickyActionBar
 from .checkbox_group import render_checkbox_group
 
 def FormSection(*children, **kwargs):
@@ -126,24 +127,19 @@ def render_qualification_form(sections: dict, app_id: str):
         ],
 
 
-        Div(id="qual-form-error", cls="text-red-500 mt-2 mb-2"),
-        # --- Submit Button ---
-        Div(
-            Button("Salvesta valikud", type="submit", cls="btn btn-primary"),
-            cls="flex justify-end mt-6 pt-4 border-t"
-        ),
-
         # --- HTMX Form Attributes ---
         method="post",
         hx_post="/app/kutsed/submit",
         hx_target="#tab-content-container",
         hx_swap="innerHTML",
         id="qualification-form",
-        cls="space-y-8"
+        cls="space-y-8 validated-form" # Add validated-form class
     )
 
+    action_bar = StickyActionBar(form_id="qualification-form")
+
     # --- Final Component Assembly ---
-    return Div(
+    page_content = Div(
         form_content,
         # --- JavaScript for toggle sync ---
         Script("""
@@ -151,7 +147,7 @@ def render_qualification_form(sections: dict, app_id: str):
             const container = document.getElementById(`qual-section-${sectionId}`);
             if (!container) return;
 
-            const checkboxes = container.querySelectorAll(`#checkbox-group-${sectionId} input[type="checkbox"]`);
+            const checkboxes = container.querySelectorAll(`#checkbox-group-${sectionId} input[type=\"checkbox\"]`);
             const toggle = container.querySelector(`#toggle-${sectionId}`);
             
             if (!toggle || checkboxes.length === 0) return;
@@ -188,3 +184,5 @@ def render_qualification_form(sections: dict, app_id: str):
         });
         """)
     )
+
+    return page_content, action_bar
