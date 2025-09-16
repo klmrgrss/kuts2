@@ -42,25 +42,20 @@ class AppliedQualification:
 
 @dataclass
 class WorkExperience:
+    # --- SIMPLIFIED MODEL TO MATCH V2 FORM ---
     user_email: str
     id: Optional[int] = None
-    application_id: Optional[str] = None
-    competency: Optional[str] = None # NOTE: May become redundant or used differently now
-    other_work: Optional[str] = None
+    associated_activity: Optional[str] = None
+    role: Optional[str] = None
+    contract_type: Optional[str] = None
+    start_date: Optional[str] = None # YYYY-MM
+    end_date: Optional[str] = None   # YYYY-MM
+    work_keywords: Optional[str] = None
+    work_description: Optional[str] = None
     object_address: Optional[str] = None
     object_purpose: Optional[str] = None
     ehr_code: Optional[str] = None
-    construction_activity: Optional[str] = None # NOTE: May become redundant or used differently now
-    other_activity: Optional[str] = None
     permit_required: int = 0
-    start_month: Optional[str] = None
-    start_year: Optional[str] = None
-    end_month: Optional[str] = None
-    end_year: Optional[str] = None
-    work_description: Optional[str] = None
-    role: Optional[str] = None
-    other_role: Optional[str] = None
-    contract_type: Optional[str] = None
     company_name: Optional[str] = None
     company_code: Optional[str] = None
     company_contact: Optional[str] = None
@@ -71,9 +66,7 @@ class WorkExperience:
     client_contact: Optional[str] = None
     client_email: Optional[str] = None
     client_phone: Optional[str] = None
-    work_keywords: Optional[str] = None
-    # --- NEW FIELD ADDED ---
-    associated_activity: Optional[str] = None # Link to qualification activity name
+    # Obsolete fields removed
 
 @dataclass
 class Education:

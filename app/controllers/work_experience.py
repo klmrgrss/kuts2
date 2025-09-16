@@ -1,21 +1,22 @@
 # controllers/work_experience.py
 from fasthtml.common import *
 from starlette.requests import Request
-from starlette.responses import Response, RedirectResponse # Needed for delete response and redirect
-from fastlite import NotFoundError # Or your specific DB error
-from ui.layouts import app_layout
-from ui.nav_components import tab_nav # For OOB swap
-from controllers.utils import get_badge_counts
-from monsterui.all import * # Import MonsterUI components if needed for warning message
-import traceback # Keep for debugging
-from typing import List, Optional # Ensure List and Optional are imported
+from starlette.responses import Response, RedirectResponse
+from fastlite import NotFoundError
+from ui.layouts import app_layout, ToastAlert
+from ui.nav_components import tab_nav
+from .utils import get_badge_counts
+from monsterui.all import *
+import traceback
+from typing import List, Optional
 
-# Import the view functions
-from ui.work_experience_view import render_experience_item, render_work_experience_form, render_work_experience_list
+# Import the V2 view and the data model
 from ui.work_experience_view_v2 import render_work_experience_form_v2
+from models import WorkExperience
 
 
 class WorkExperienceController:
+    # ... (__init__, _get_saved_activities, show_workex_tab, show_workex_edit_form, save_workex_experience methods are unchanged) ...
     def __init__(self, db):
         self.db = db
         self.experience_table = db.t.work_experience
@@ -31,67 +32,6 @@ class WorkExperienceController:
             print(f"--- ERROR fetching saved activities for {user_email}: {e} ---")
         return activities
 
-    # --- V1 (OLD) TAB METHODS --- #
-
-    def _render_add_button(self):
-         add_button = Button("+ Lisa töökogemus", hx_get="/app/tookogemus/add_form", hx_target="#add-experience-form-container", hx_swap="innerHTML", cls="btn btn-primary mt-4")
-         return Div(add_button, id="add-button-container", hx_swap_oob="outerHTML")
-
-    def show_work_experience_tab(self, request: Request):
-        user_email = request.session.get("user_email")
-        if not user_email: return Div("Authentication Error", cls="text-red-500 p-4")
-        page_title = "Töökogemus | Ehitamise valdkonna kutsete taotlemine"
-        badge_counts = get_badge_counts(self.db, user_email)
-        available_activities = self._get_saved_activities(user_email)
-        warning_message = None
-        if not available_activities:
-            warning_message = Card(CardBody(P("Enne töökogemuse lisamist vali tegevusalad 'Taotletavad kutsed' lehel.", cls="text-warning text-center"), A(Button("Vali kutsed", cls="btn btn-secondary mt-4"), href="/app/kutsed")), cls="border-warning")
-        experiences = [exp for exp in self.experience_table(order_by='id') if exp.get('user_email') == user_email] if not warning_message else []
-        work_experience_content = render_work_experience_list(experiences=experiences, warning_message=warning_message)
-        if request.headers.get('HX-Request'):
-            updated_tab_nav = tab_nav(active_tab="tookogemus", request=request, badge_counts=badge_counts)
-            return work_experience_content, Div(updated_tab_nav, id="tab-navigation-container", hx_swap_oob="outerHTML"), Title(page_title, id="page-title", hx_swap_oob="innerHTML")
-        else:
-            return app_layout(request=request, title=page_title, content=work_experience_content, active_tab="tookogemus", badge_counts=badge_counts)
-
-    def show_add_form(self, request: Request):
-        user_email = request.session.get("user_email")
-        if not user_email: return Div("Authentication Error", cls="text-red-500 p-4")
-        available_activities = self._get_saved_activities(user_email)
-        if not available_activities: return Div("Viga: Kutsed peavad olema valitud.", cls="text-red-500 p-4")
-        form_html = render_work_experience_form(available_activities=available_activities, experience=None)
-        return form_html, Div(id="add-button-container", hx_swap_oob="innerHTML")
-
-    def show_edit_form(self, request: Request, experience_id: int):
-        user_email = request.session.get("user_email")
-        if not user_email: return Div("Authentication Error", cls="text-red-500 p-4")
-        try:
-            experience_data = self.experience_table[experience_id]
-            if experience_data.get('user_email') != user_email: return Div("Access Denied", cls="text-red-500 p-4")
-            available_activities = self._get_saved_activities(user_email)
-            form_html = render_work_experience_form(available_activities=available_activities, experience=experience_data)
-            return form_html, Div(id="add-button-container", hx_swap_oob="innerHTML")
-        except NotFoundError:
-            return Div(f"Error: ID {experience_id} not found.", cls="text-red-500 p-4")
-
-    def cancel_form(self, request: Request):
-        return "", self._render_add_button()
-
-    async def save_work_experience(self, request: Request):
-        # This is the old save method, it remains unchanged and uses OOB swaps
-        user_email = request.session.get("user_email")
-        if not user_email: return Div("Auth Error", id="form-error-message", hx_swap_oob="innerHTML")
-        form_data = await request.form()
-        # ... (rest of the old save logic) ...
-        # On success, it returns OOB swaps for the list
-        pass # Placeholder for existing logic
-
-    def delete_work_experience(self, request: Request, experience_id: int):
-        # This is the old delete method, it remains unchanged
-        pass # Placeholder for existing logic
-
-    # --- V2 (WORKEX) TAB METHODS --- #
-
     def show_workex_tab(self, request: Request, experience_to_edit: Optional[dict] = None):
         user_email = request.session.get("user_email")
         if not user_email: return Div("Authentication Error", cls="text-red-500 p-4")
@@ -100,7 +40,6 @@ class WorkExperienceController:
         badge_counts = get_badge_counts(self.db, user_email)
         available_activities = self._get_saved_activities(user_email)
         
-        warning_message = None
         work_experience_content = None
         footer = None
 
@@ -109,21 +48,17 @@ class WorkExperienceController:
             work_experience_content = Div(warning_message, cls="max-w-5xl mx-auto")
         else:
             experiences = [exp for exp in self.experience_table(order_by='id') if exp.get('user_email') == user_email]
-            activity_counts = [] # This can be removed if not used in v2 view
-
-            # Determine which activity is selected
+            
             selected_activity = request.query_params.get('activity')
-            if not selected_activity and not experience_to_edit and available_activities:
-                 # If we are not editing and no activity is selected via query param,
-                 # check if there's only one activity available and select it by default.
-                 # Otherwise, leave it unselected for the user to choose.
-                 selected_activity = available_activities[0] if len(available_activities) == 1 else None
+            
+            if request.method == "GET" and not selected_activity and not experience_to_edit and available_activities:
+                 if len(available_activities) == 1:
+                     selected_activity = available_activities[0]
 
             work_experience_content, footer = render_work_experience_form_v2(
                 available_activities=available_activities, 
                 experiences=experiences, 
                 experience=experience_to_edit, 
-                activity_counts=activity_counts,
                 selected_activity=selected_activity
             )
 
@@ -132,17 +67,15 @@ class WorkExperienceController:
             oob_footer = Div(footer, id="footer-container", hx_swap_oob="innerHTML") if footer else Div(id="footer-container", hx_swap_oob="innerHTML")
             return work_experience_content, oob_footer, Div(updated_tab_nav, id="tab-navigation-container", hx_swap_oob="outerHTML"), Title(page_title, id="page-title", hx_swap_oob="innerHTML")
         else:
-            # For a full page load, pass the footer to the app_layout
             return app_layout(
                 request=request, 
                 title=page_title, 
                 content=work_experience_content, 
-                footer=footer,  # Pass the footer here
+                footer=footer,
                 active_tab="workex", 
                 badge_counts=badge_counts, 
                 container_class="max-w-7xl"
             )
-
 
     def show_workex_edit_form(self, request: Request, experience_id: int):
         user_email = request.session.get("user_email")
@@ -150,7 +83,6 @@ class WorkExperienceController:
         try:
             experience_data = self.experience_table[experience_id]
             if experience_data.get('user_email') != user_email: return Div("Access Denied", cls="text-red-500 p-4")
-            # Call the main tab renderer, passing the experience to edit
             return self.show_workex_tab(request, experience_to_edit=experience_data)
         except NotFoundError:
             return Div(f"Error: Work experience with ID {experience_id} not found.", cls="text-red-500 p-4")
@@ -164,15 +96,16 @@ class WorkExperienceController:
         is_edit = experience_id_str and experience_id_str != 'None' and experience_id_str.isdigit()
         experience_id = int(experience_id_str) if is_edit else None
 
-        # Basic validation
-        required_fields = ["role", "company_name", "start_date", "associated_activity", "work_description", "object_address"]
-        if any(not form_data.get(field) for field in required_fields):
-            # In this workflow, we just redirect back. A more advanced version could show errors.
-            return RedirectResponse("/app/workex", status_code=303)
-
-        experience_data = {k: v for k, v in form_data.items() if k != 'experience_id'}
+        model_fields = [f.name for f in WorkExperience.__dataclass_fields__.values()]
+        experience_data = {
+            key: form_data.get(key) for key in model_fields if form_data.get(key) is not None
+        }
         experience_data['user_email'] = user_email
         experience_data['permit_required'] = 1 if form_data.get("permit_required") == 'on' else 0
+        
+        required_fields = ["role", "company_name", "start_date", "associated_activity", "work_description", "object_address"]
+        if any(not experience_data.get(field) for field in required_fields):
+            return RedirectResponse("/app/workex?error=missing_fields", status_code=303)
 
         try:
             if is_edit:
@@ -180,12 +113,34 @@ class WorkExperienceController:
                 if current_record.get('user_email') != user_email: return Response("Forbidden", status_code=403)
                 self.experience_table.update(experience_data, id=experience_id)
             else:
+                experience_data.pop('id', None)
                 self.experience_table.insert(experience_data)
         except Exception as e:
-            print(f"--- ERROR [save_workex_experience]: {e}")
-            # Redirect back with an error message if possible, for now just redirect
+            traceback.print_exc()
             return RedirectResponse("/app/workex?error=save_failed", status_code=303)
 
-        # On success, re-render the entire tab content and return it.
-        # This will include the newly added experience in the list.
         return self.show_workex_tab(request)
+
+    def delete_workex_experience(self, request: Request, experience_id: int):
+        user_email = request.session.get("user_email")
+        if not user_email:
+            return ToastAlert("Authentication Error", alert_type="error")
+
+        try:
+            experience_to_delete = self.experience_table[experience_id]
+            if experience_to_delete.get('user_email') != user_email:
+                return ToastAlert("Access Denied", alert_type="error")
+
+            # --- FIX: Call delete with a positional argument, not a keyword argument ---
+            self.experience_table.delete(experience_id)
+            print(f"--- [DELETE WORKEX] Successfully deleted record ID: {experience_id} for user {user_email}")
+
+            return self.show_workex_tab(request)
+
+        except NotFoundError:
+            print(f"--- ERROR [DELETE WORKEX] Record ID: {experience_id} not found.")
+            return self.show_workex_tab(request)
+        except Exception as e:
+            print(f"--- ERROR [DELETE WORKEX] Failed to delete record ID: {experience_id}. Error: {e}")
+            traceback.print_exc()
+            return ToastAlert("Kustutamine ebaõnnestus.", alert_type="error")

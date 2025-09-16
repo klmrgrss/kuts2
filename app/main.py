@@ -133,7 +133,7 @@ def get(request: Request): # Renamed function for clarity in your code
             cls="py-16 md:py-24 text-center" # Padding for hero section
         ),
         cls="bg-gradient-to-b from-background to-muted/50" # Optional subtle background gradient
-    ) # [cite: uploaded:app/main.py]
+    ) #
 
     # Placeholder Info Section (Example)
     info_section = Container(
@@ -148,7 +148,7 @@ def get(request: Request): # Renamed function for clarity in your code
              ),
              cls="py-12"
          )
-     ) # [cite: uploaded:app/main.py]
+     ) #
 
     # Combine navbar and content sections
     page_content = Div(
@@ -156,10 +156,10 @@ def get(request: Request): # Renamed function for clarity in your code
         hero_section,
         info_section
         # Add more sections here if needed
-    ) # [cite: uploaded:app/main.py]
+    ) #
 
     # Use public_layout, passing the combined content
-    return public_layout("Tere tulemast!", page_content) # Pass title and combined content # [cite: uploaded:app/main.py]
+    return public_layout("Tere tulemast!", page_content) # Pass title and combined content #
 
 
 @rt("/test", methods=["GET"])
@@ -222,7 +222,6 @@ def get_app_root(request: Request):
 @rt("/app/taotleja", methods=["GET"])
 def get_applicant(request: Request):
     return applicant_controller.show_applicant_tab(request)
-# === Commented Out Original Routes ===
 
 @rt("/app/kutsed", methods=["GET"])
 def get_qualifications(request: Request):
@@ -236,30 +235,7 @@ async def post_qual_toggle(request: Request, section_id: int, app_id: str):
 async def post_qual_submit(request: Request):
     return await qualification_controller.submit_qualifications(request)
 
-@rt("/app/tookogemus", methods=["GET"])
-def get_work_experience(request: Request):
-    return work_experience_controller.show_work_experience_tab(request)
-
-@rt("/app/tookogemus/add_form", methods=["GET"])
-def get_work_experience_add_form(request: Request):
-    return work_experience_controller.show_add_form(request)
-
-@rt("/app/tookogemus/save", methods=['POST'])
-async def post_save_work_experience(request: Request):
-    return await work_experience_controller.save_work_experience(request)
-
-@rt("/app/tookogemus/cancel_form", methods=["GET"])
-def get_cancel_work_experience_form(request: Request):
-    return work_experience_controller.cancel_form(request)
-
-@rt("/app/tookogemus/{experience_id:int}", methods=['DELETE'])
-def delete_exp(request: Request, experience_id: int):
-    return work_experience_controller.delete_work_experience(request, experience_id)
-
-@rt("/app/tookogemus/{experience_id:int}/edit", methods=["GET"])
-def get_work_experience_edit_form(request: Request, experience_id: int):
-    return work_experience_controller.show_edit_form(request, experience_id)
-
+# --- V2 WORK EXPERIENCE ROUTES ---
 @rt("/app/workex", methods=["GET"])
 def get_workex(request: Request):
     return work_experience_controller.show_workex_tab(request)
@@ -271,6 +247,14 @@ def get_workex_edit_form(request: Request, experience_id: int):
 @rt("/app/workex/save", methods=["POST"])
 async def post_save_workex_experience(request: Request):
     return await work_experience_controller.save_workex_experience(request)
+
+
+# --- NEW: Add the delete route ---
+@rt("/app/workex/{experience_id:int}/delete", methods=["DELETE"])
+def delete_workex_experience(request: Request, experience_id: int):
+    return work_experience_controller.delete_workex_experience(request, experience_id)
+# --- END NEW --
+# --- END V2 ROUTES ---
 
 @rt("/app/haridus", methods=["GET"])
 def get_education(request: Request):
@@ -296,10 +280,6 @@ def get_employment_proof(request: Request):
 async def post_emp_proof_upload(request: Request):
     return await employment_proof_controller.upload_employment_proof(request)
 
-@rt("/app/haridus/submit", methods=['POST'])
-async def post_edu_submit(request: Request):
-    return await education_controller.submit_education_form(request)
-
 # ADD NEW ROUTES FOR DOCUMENTS TAB
 @rt("/app/dokumendid", methods=["GET"])
 def get_documents(request: Request):
@@ -309,10 +289,6 @@ def get_documents(request: Request):
 async def post_document_upload(request: Request, document_type: str):
     return await documents_controller.upload_document(request, document_type)
 # END NEW ROUTES
-
-@rt("/app/taiendkoolitus", methods=["GET"])
-def get_training(request: Request):
-    return training_controller.show_training_tab(request)
 
 @rt("/app/ulevaatamine", methods=["GET"])
 def get_review(request: Request):

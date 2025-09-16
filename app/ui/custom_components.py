@@ -4,7 +4,7 @@ from fasthtml.common import *
 from monsterui.all import *
 from typing import Optional
 
-# Function definition renamed to InputTag to match convention and user preference
+# InputTag function remains unchanged...
 def InputTag(name: str, value: str = "", placeholder: str = "", max_length: int = 24, disabled: bool = False, cls: str = ""):
     """
     Renders an interactive tag input component.
@@ -40,13 +40,10 @@ def InputTag(name: str, value: str = "", placeholder: str = "", max_length: int 
 
     container_classes = "input input-bordered w-full input-sm flex flex-wrap items-center gap-1 min-h-[2.5rem] h-auto"
 
-    # *** CORRECTED RETURN STATEMENT ***
-    # Return the outermost Div containing the component structure
     return Div(
-        # This inner Div holds the hidden input and the visible part
         Div(
             Input(type="hidden", id=hidden_input_id, name=name, value=processed_value),
-            Div( # This is the visible container styled like an input
+            Div(
                 *initial_tags,
                 Input(
                     type="text",
@@ -60,33 +57,58 @@ def InputTag(name: str, value: str = "", placeholder: str = "", max_length: int 
                 id=tag_container_id,
                 cls=container_classes,
             ),
-            # Accessibility live region
             Div(aria_live="polite", aria_atomic="true", cls="sr-only", id=f"sr-{container_id}"),
         ),
-        # Attributes for the outermost container Div
         id=container_id,
-        cls=f"custom-input-tag-container {cls}" # Hook class + any passed classes
+        cls=f"custom-input-tag-container {cls}"
     )
 
-def StickyActionBar(form_id: str, save_text: str = "Salvesta valikud", cancel_url: Optional[str] = None, cancel_text: str = "Tühista"):
+def StickyActionBar(
+    form_id: str,
+    save_text: str = "Salvesta valikud",
+    cancel_url: Optional[str] = None,
+    cancel_text: str = "Tühista",
+    delete_url: Optional[str] = None,  # <-- NEW: Add delete_url parameter
+    delete_text: str = "Kustuta töökogemus",
+    **kwargs
+):
     """
     Creates a sticky bar at the bottom of the viewport for form actions.
-    The save button starts as disabled.
+    Optionally includes a delete button.
     """
     save_button = Button(save_text, type="submit", form=form_id, cls="btn btn-primary", disabled=True)
     
-    cancel_button = None
-    if cancel_url:
-        cancel_button = A(cancel_text, href=cancel_url, cls="btn btn-secondary")
+    cancel_button = A(cancel_text, href=cancel_url, cls="btn btn-secondary disabled") if cancel_url else ""
+
+    # --- NEW: Conditionally create the delete button ---
+    delete_button = ""
+    if delete_url:
+        delete_button = Button(
+            delete_text,
+            type="button",
+            cls="btn btn-error",  # Use a destructive color
+            hx_delete=delete_url,
+            hx_confirm="Oled kindel, et soovid selle töökogemuse kustutada?",
+            hx_target="#tab-content-container",
+            hx_swap="innerHTML"
+        )
+    # --- END NEW ---
+
+    attrs = {
+        "cls": "sticky-action-bar",
+        "data_form_id": form_id
+    }
+    attrs.update(kwargs)
 
     return Div(
         Div(
-            DivRAligned(
-                cancel_button if cancel_button else "",
-                save_button,
-                cls="flex space-x-2"
+            # --- NEW: Add a container to group left-aligned and right-aligned buttons ---
+            Div( # Main flex container
+                Div(delete_button, cls="mr-auto"), # This div pushes the delete button to the far left
+                Div(cancel_button, save_button, cls="flex space-x-2"), # This div keeps cancel/save together
+                cls="flex justify-between items-center w-full"
             ),
-            cls="max-w-5xl mx-auto px-4" # Added padding
+            cls="max-w-5xl mx-auto px-4"
         ),
-        cls="sticky-action-bar"
+        **attrs
     )

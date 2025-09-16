@@ -2,47 +2,53 @@
 import pytest
 from starlette.testclient import TestClient
 
-# The 'client' fixture is automatically provided by tests/conftest.py
+# The 'authenticated_client' fixture is automatically provided by tests/conftest.py
 
-def test_submit_new_work_experience(authenticated_client: TestClient):
+def test_submit_new_work_experience_v2(authenticated_client: TestClient):
     """
-    Tests submitting a new work experience form with valid data.
+    Tests submitting a new work experience form with valid data using the V2 endpoint.
     """
-    # Define all the form fields and their values as a dictionary
-    # Make sure to include all required fields!
+    # Define all the form fields and their values as a dictionary.
+    # This must match the fields in the V2 form.
     form_data = {
-        "associated_activity": "Üldehituslik ehitamine", # Example activity
-        "role": "Projektijuht",
+        "associated_activity": "Üldehituslik ehitamine",
+        "role": "Test Role",
         "contract_type": "PTV",
         "start_date": "2023-01",
         "end_date": "2024-06",
-        "work_keywords": "Vundamenditööd, Betoonitööd",
-        "work_description": "Eramu ehitus nullist võtmed kätte lahendusena.",
-        "company_name": "Test Ehitus OÜ",
+        "work_keywords": "Testing, Pytest",
+        "work_description": "A work experience entry created by an automated test.",
+        "object_address": "123 Test Street",
+        "object_purpose": "Testing Facility",
+        "ehr_code": "TEST123456",
+        "permit_required": "on",
+        "company_name": "Test Inc.",
         "company_code": "12345678",
-        "company_contact": "Jaan Tamm",
-        "company_email": "jaan.tamm@test.ee",
-        "company_phone": "+37255512345",
-        "object_address": "Näidis tn 1, Tallinn",
-        "object_purpose": "Elamu",
-        "ehr_code": "123456789",
-        "permit_required": "on", # Checkbox value
-        "client_name": "Mati Maasikas",
+        "company_contact": "Test Contact",
+        "company_email": "contact@testinc.com",
+        "company_phone": "555-0101",
+        "client_name": "Test Client",
         "client_code": "87654321",
-        "client_contact": "Mari Maasikas",
-        "client_email": "mari.maasikas@example.com",
-        "client_phone": "+37255598765",
+        "client_contact": "Client Contact",
+        "client_email": "contact@client.com",
+        "client_phone": "555-0102",
     }
 
-    # Simulate a POST request to the form's submission endpoint
-    response = authenticated_client.post("/app/tookogemus/save", data=form_data)
+    # Simulate a POST request to the new V2 submission endpoint
+    response = authenticated_client.post("/app/workex/save", data=form_data)
 
+    # Assert that the request was successful (HTTP 200 OK)
     assert response.status_code == 200
 
-    # Assert that the response contains some expected HTMX fragments
-    # Check for the presence of the 'add-button-container' which indicates the form was cleared and button shown.
-    assert 'id="add-button-container"' in response.text
-    assert 'hx-swap-oob="outerHTML"' in response.text # Confirm it's an OOB swap
+    # The new controller method re-renders the entire tab.
+    # A good assertion is to check for a key element that should be present on that page.
+    # For example, we can check for the title of the page or a specific form element.
+    # Let's check for the newly created entry's address in the response text.
+    assert '123 Test Street' in response.text
+    
+    # We can also assert that the response is a full HTML fragment for the tab,
+    # for instance by checking for the main container ID.
+    assert 'id="work-experience-form-v2-container"' in response.text
 
-    # Assert that the form-error-message is NOT present
-    assert 'id="form-error-message"' not in response.text
+    # And we can assert that the OLD response fragment is NOT present
+    assert 'id="add-button-container"' not in response.text

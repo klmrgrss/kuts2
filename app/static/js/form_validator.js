@@ -1,54 +1,115 @@
 // app/static/js/form_validator.js
 
 function setupFormValidator(formElement) {
-    if (!formElement) return;
-
-    const submitButton = formElement.querySelector('button[type="submit"], input[type="submit"]');
-    if (!submitButton) {
-        console.warn("Form validator: Could not find a submit button for form:", formElement.id);
+    if (!formElement || formElement.dataset.validatorInitialized === 'true') {
         return;
     }
+    console.log(`[Validator] Setting up for form: #${formElement.id}`);
+    formElement.dataset.validatorInitialized = 'true';
 
-    const requiredInputs = Array.from(formElement.querySelectorAll('[required]'));
-    if (requiredInputs.length === 0) {
-        submitButton.disabled = false;
-        return;
-    }
+    const formId = formElement.id;
+    const actionBar = document.querySelector(`.sticky-action-bar[data-form-id="${formId}"]`);
+    if (!actionBar) return;
 
-    const validate = () => {
-        const allValid = requiredInputs.every(input => {
-            if (input.type === 'checkbox' || input.type === 'radio') {
-                if (input.type === 'radio') {
-                    const radioGroup = formElement.querySelectorAll(`input[name="${input.name}"]:checked`);
-                    return radioGroup.length > 0;
-                }
-                return input.checked;
+    const saveButton = actionBar.querySelector('button[type="submit"]');
+    const cancelButton = actionBar.querySelector('a.btn-secondary, button.btn-secondary');
+    if (!saveButton) return;
+
+    const validationMode = formElement.dataset.validationMode || 'required';
+    let initialInputStates = new Map();
+
+    const recordInitialState = () => {
+        initialInputStates.clear();
+        formElement.querySelectorAll('input, select, textarea').forEach(input => {
+            const key = input.name || input.id;
+            if (key) {
+                const state = (input.type === 'checkbox' || input.type === 'radio') ? input.checked : input.value;
+                initialInputStates.set(key, state);
             }
-            return input.value.trim() !== '';
         });
-        submitButton.disabled = !allValid;
     };
 
-    requiredInputs.forEach(input => {
-        input.addEventListener('input', validate);
-        input.addEventListener('change', validate);
-    });
+    const isFormDirty = () => {
+        if (formElement.dataset.isDirty === 'true') return true;
+        for (const [key, initialState] of initialInputStates.entries()) {
+            if (!key) continue;
+            const input = formElement.querySelector(`[name="${key}"], #${key}`);
+            if (input) {
+                const currentState = (input.type === 'checkbox' || input.type === 'radio') ? input.checked : input.value;
+                if (initialState !== currentState) {
+                    formElement.dataset.isDirty = 'true';
+                    return true;
+                }
+            }
+        }
+        return false;
+    };
 
+    const validate = () => {
+        console.log(`[Validator] Event triggered. Running validation for #${formId}...`);
+        let isFormValid = false;
+        const isDirty = isFormDirty();
+
+        if (validationMode === 'dirty') {
+            isFormValid = isDirty;
+        } else { // 'required' mode
+            const requiredInputs = Array.from(formElement.querySelectorAll('[required]'));
+            console.log(`[Validator] --- Checking ${requiredInputs.length} Required Inputs ---`);
+            
+            isFormValid = requiredInputs.every(input => {
+                let isValid = false;
+                const inputName = input.name || input.id;
+
+                if (input.type === 'radio') {
+                    isValid = formElement.querySelector(`input[name="${input.name}"]:checked`) !== null;
+                    console.log(`  - Input (Radio Group) '${inputName}': has selection? ${isValid}`);
+                } else if (input.type === 'checkbox') {
+                    isValid = input.checked;
+                    console.log(`  - Input (Checkbox) '${inputName}': checked? ${isValid}`);
+                } else {
+                    isValid = input.value.trim() !== '';
+                    console.log(`  - Input '${inputName}': value='${input.value}', valid? ${isValid}`);
+                }
+                
+                // Highlight failing inputs
+                if (!isValid) {
+                    input.style.borderColor = 'red';
+                } else {
+                    input.style.borderColor = ''; // Or original color
+                }
+                return isValid;
+            });
+            console.log(`[Validator] --- End of Checks ---`);
+        }
+
+        console.log(`%c[Validator] Overall form valid? ${isFormValid}. Setting saveButton.disabled to: ${!isFormValid}`, 'color: blue; font-weight: bold;');
+        saveButton.disabled = !isFormValid;
+        if (cancelButton) {
+            cancelButton.classList.toggle('disabled', !isDirty);
+            cancelButton.style.pointerEvents = isDirty ? 'auto' : 'none';
+        }
+    };
+
+    const attachListeners = () => {
+        formElement.querySelectorAll('input, select, textarea').forEach(input => {
+            input.removeEventListener('input', validate);
+            input.removeEventListener('change', validate);
+            input.addEventListener('input', validate);
+            input.addEventListener('change', validate);
+        });
+    };
+
+    recordInitialState();
+    attachListeners();
     validate();
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-    const formsToValidate = document.querySelectorAll('.validated-form');
-    formsToValidate.forEach(setupFormValidator);
-});
+function initializeAllValidators() {
+    document.querySelectorAll('.validated-form').forEach(form => {
+        form.dataset.validatorInitialized = 'false';
+        setupFormValidator(form);
+    });
+}
 
-document.body.addEventListener('htmx:afterSwap', function(event) {
-    const target = event.detail.target;
-    if (target) {
-        const newForms = target.querySelectorAll('.validated-form');
-        newForms.forEach(setupFormValidator);
-        if (target.classList.contains('validated-form')) {
-            setupFormValidator(target);
-        }
-    }
-});
+document.addEventListener('DOMContentLoaded', initializeAllValidators);
+document.body.addEventListener('htmx:afterSettle', initializeAllValidators);
