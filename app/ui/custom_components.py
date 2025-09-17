@@ -96,7 +96,7 @@ def StickyActionBar(
 
     attrs = {
         "cls": "sticky-action-bar",
-        "data_form_id": form_id
+        "data-form-id": form_id
     }
     attrs.update(kwargs)
 

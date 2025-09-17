@@ -28,14 +28,14 @@ function initFlatpickrMonthInput(selector) {
             ],
             altInput: true,
             allowInput: true,
-            // --- FIX: Add the onClose callback ---
+            // --- FINAL FIX: Explicitly set the value before dispatching the event ---
             onClose: function(selectedDates, dateStr, instance) {
-                // When the calendar closes, find the parent form and trigger a 'change' event.
-                // This will make our form_validator script re-evaluate the form's state.
-                const form = instance.input.closest('form');
-                if (form) {
-                    form.dispatchEvent(new Event('change', { bubbles: true }));
-                }
+                // 1. Force the correct value into the original input.
+                //    `dateStr` is the date formatted as "Y-m".
+                instance.element.value = dateStr;
+
+                // 2. Trigger a 'change' event so the form validator sees the update.
+                instance.element.dispatchEvent(new Event('change', { bubbles: true }));
             }
             // --- END FIX ---
           });
@@ -68,12 +68,12 @@ function initFlatpickrMonthInput(selector) {
             altInput: true,
             allowInput: false,
             maxDate: "today",
-            // --- FIX: Add the onClose callback here as well ---
+            // --- FINAL FIX: Apply the same logic here ---
             onClose: function(selectedDates, dateStr, instance) {
-                const form = instance.input.closest('form');
-                if (form) {
-                    form.dispatchEvent(new Event('change', { bubbles: true }));
-                }
+                // 1. Force the value.
+                instance.element.value = dateStr;
+                // 2. Trigger the event.
+                instance.element.dispatchEvent(new Event('change', { bubbles: true }));
             }
             // --- END FIX ---
           });

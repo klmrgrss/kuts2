@@ -16,7 +16,7 @@ from models import WorkExperience
 
 
 class WorkExperienceController:
-    # ... (__init__, _get_saved_activities, show_workex_tab, show_workex_edit_form, save_workex_experience methods are unchanged) ...
+    # ... (__init__, _get_saved_activities, show_workex_tab, show_workex_edit_form methods are unchanged) ...
     def __init__(self, db):
         self.db = db
         self.experience_table = db.t.work_experience
@@ -92,6 +92,9 @@ class WorkExperienceController:
         if not user_email: return Response("Authentication Error", status_code=403)
 
         form_data = await request.form()
+
+        print(f"--- DEBUG [save_workex_experience]: Raw form data received: {form_data} ---")
+
         experience_id_str = form_data.get("experience_id")
         is_edit = experience_id_str and experience_id_str != 'None' and experience_id_str.isdigit()
         experience_id = int(experience_id_str) if is_edit else None
@@ -103,7 +106,10 @@ class WorkExperienceController:
         experience_data['user_email'] = user_email
         experience_data['permit_required'] = 1 if form_data.get("permit_required") == 'on' else 0
         
-        required_fields = ["role", "company_name", "start_date", "associated_activity", "work_description", "object_address"]
+        # --- MODIFICATION: Only 'role' is now required ---
+        required_fields = ["role"]
+        # --- END MODIFICATION ---
+
         if any(not experience_data.get(field) for field in required_fields):
             return RedirectResponse("/app/workex?error=missing_fields", status_code=303)
 
@@ -131,7 +137,6 @@ class WorkExperienceController:
             if experience_to_delete.get('user_email') != user_email:
                 return ToastAlert("Access Denied", alert_type="error")
 
-            # --- FIX: Call delete with a positional argument, not a keyword argument ---
             self.experience_table.delete(experience_id)
             print(f"--- [DELETE WORKEX] Successfully deleted record ID: {experience_id} for user {user_email}")
 
