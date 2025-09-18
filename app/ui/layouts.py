@@ -2,29 +2,23 @@
 
 from fasthtml.common import *
 from monsterui.all import *
-from typing import Optional, Dict, Any, Tuple # Import Tuple for type hint
-from starlette.requests import Request # Import Request for type hint
+from typing import Optional, Dict, Any, Tuple
+from starlette.requests import Request
 
-# Import the appropriate navbar functions needed
-# If evaluator_layout uses evaluator_navbar, import it here too
-from .nav_components import render_sticky_header, app_navbar, evaluator_navbar # Import all used navbars
+from .nav_components import render_sticky_header, app_navbar, evaluator_navbar
 
-# AG Grid CDN links (keep as they were)
+# --- CDN Links ---
 ag_grid_js_cdn = "https://cdn.jsdelivr.net/npm/ag-grid-community/dist/ag-grid-community.min.js"
-ag_grid_css_cdn = "https://cdn.jsdelivr.net/npm/ag-grid-community/styles/ag-grid.css"
-ag_theme_css_cdn = "https://cdn.jsdelivr.net/npm/ag-grid-community/styles/ag-theme-quartz.css" # Or another theme
-
-# --- Flatpickr CDN Links ---
+ag_theme_css_cdn = "https://cdn.jsdelivr.net/npm/ag-grid-community/styles/ag-theme-quartz.css"
 flatpickr_css_cdn = "https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css"
 flatpickr_js_cdn = "https://cdn.jsdelivr.net/npm/flatpickr"
-flatpickr_month_plugin_css_cdn = "https://cdn.jsdelivr.net/npm/flatpickr/dist/plugins/monthSelect/style.css" # Verify path
-flatpickr_month_plugin_js_cdn = "https://cdn.jsdelivr.net/npm/flatpickr/dist/plugins/monthSelect/index.js" # Verify path
-flatpickr_locale_et_js_cdn = "https://npmcdn.com/flatpickr/dist/l10n/et.js" # Estonian locale
+flatpickr_month_plugin_css_cdn = "https://cdn.jsdelivr.net/npm/flatpickr/dist/plugins/monthSelect/style.css"
+flatpickr_month_plugin_js_cdn = "https://cdn.jsdelivr.net/npm/flatpickr/dist/plugins/monthSelect/index.js"
+flatpickr_locale_et_js_cdn = "https://npmcdn.com/flatpickr/dist/l10n/et.js"
 
 
-# --- ToastAlert Component (keep as is) ---
+# --- ToastAlert Component ---
 def ToastAlert(message: str, alert_type: str = 'info', icon_name: Optional[str] = None) -> FT:
-    # ... (ToastAlert code remains unchanged) ...
     base_classes = "fixed bottom-4 right-4 z-50 p-3 rounded-md shadow-lg flex items-center"
     type_classes = {
         'info': "bg-blue-100 border border-blue-300 text-blue-800",
@@ -45,148 +39,69 @@ def ToastAlert(message: str, alert_type: str = 'info', icon_name: Optional[str] 
     )
 
 
-# --- base_layout function (MODIFIED to include Flatpickr) ---
+# --- base_layout function ---
 def base_layout(title: str, *content: Any, theme_headers: tuple = Theme.blue.headers()) -> FT:
-    # Combine theme headers with other necessary global assets
-    all_hdrs = list(theme_headers) # Start with theme
+    all_hdrs = list(theme_headers)
     all_hdrs.extend([
-        # AG Grid (keep existing)
-        # Link(rel="stylesheet", href=ag_grid_css_cdn), # Base grid CSS if needed
-        Link(rel="stylesheet", href=ag_theme_css_cdn), # Theme CSS
-        # Flatpickr CSS
+        Link(rel="stylesheet", href=ag_theme_css_cdn),
         Link(rel="stylesheet", href=flatpickr_css_cdn),
         Link(rel="stylesheet", href=flatpickr_month_plugin_css_cdn),
-        # Core JS Libraries
-        Script(src="https://unpkg.com/htmx.org@1.9.10"), # HTMX
-        Script(src=ag_grid_js_cdn, defer=True),         # AG Grid JS
-        # Flatpickr JS Libraries
-        Script(src=flatpickr_js_cdn),                   # Flatpickr Core
-        Script(src=flatpickr_locale_et_js_cdn),         # Flatpickr Estonian Locale
-        Script(src=flatpickr_month_plugin_js_cdn),      # Flatpickr Month Plugin
-        # Custom JS (ensure these come AFTER libraries they depend on)
-        Script(src="/static/js/tab_scroll.js",  defer=True),         # Your tab scroll
-        Script(src="/static/js/input_tag.js", defer=True),  # Your input tag
-        Script(src="/static/js/education_form.js",  defer=True),     # Your education form specific JS (if still needed)
+        Script(src="https://unpkg.com/htmx.org@1.9.10"),
+        Script(src=ag_grid_js_cdn, defer=True),
+        Script(src=flatpickr_js_cdn),
+        Script(src=flatpickr_locale_et_js_cdn),
+        Script(src=flatpickr_month_plugin_js_cdn),
+        Script(src="/static/js/tab_scroll.js", defer=True),
+        Script(src="/static/js/input_tag.js", defer=True),
+        Script(src="/static/js/education_form.js", defer=True),
         Script(src="/static/js/form_validator.js", defer=True),
-        # +++ ADD FLATICKR INITIALIZER +++
         Script(src="/static/js/flatpickr_init.js", defer=True), Style("""
-                    /* --- Selective animation disabling class --- */
-                    .no-animation, .no-animation:hover {
-                        animation: none !important;
-                        transition: none !important;
-                    }
-                    
-                    /* --- Style for the selected STRIP (border only) --- */
-                    div.activity-selected {
-                        border-color: #3b82f6; /* Tailwind blue-500 */
-                    }
-                    
-                    /* --- "Pushed down" effect for the selected CHIP (an 'a' tag) --- */
-                    a.activity-selected {
-                        border-color: #3b82f6 !important; /* Tailwind blue-500 */
-                        background-color: #dbeafe !important; /* Tailwind blue-200 for a darker "pressed" look */
-                        transform: scale(0.95);
-                    }
-                    /* --- END --- */
-
-                    /* Other styles */
+                    .no-animation, .no-animation:hover { animation: none !important; transition: none !important; }
+                    div.activity-selected { border-color: #3b82f6; }
+                    a.activity-selected { border-color: #3b82f6 !important; background-color: #dbeafe !important; transform: scale(0.95); }
                     .ag-header-cell-filter-button { display: none !important; }
-                    /* Form state styles */
-                    .state-unfocused { border-width: 2px; border-color: #e5e7eb; } /* gray-200 */
-                    .state-in-progress { border-width: 2px; border-color: #3b82f6; } /* blue-500 */
-                    .state-complete { border-width: 2px; border-color: #22c55e; } /* green-500 */
+                    .state-unfocused { border-width: 2px; border-color: #e5e7eb; }
+                    .state-in-progress { border-width: 2px; border-color: #3b82f6; }
+                    .state-complete { border-width: 2px; border-color: #22c55e; }
                     .form-disabled { opacity: 0.6; pointer-events: none; }
-/* --- Sticky Action Bar for Forms --- */
-.sticky-action-bar {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    z-index: 10;
-    background-color: rgba(255, 255, 255, 0.8);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
-    padding: 0.75rem;
-    border-top: 1px solid #e5e7eb;
-    box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.05);
-}
-
-/* Dark mode styles */
-.dark .sticky-action-bar {
-    background-color: rgba(31, 41, 55, 0.8); /* gray-800 with opacity */
-    border-top-color: #4b5563; /* gray-600 */
-}
-
-/* Add space at the bottom of the main content so it isn't hidden */
-#tab-content-container {
-    padding-bottom: 100px;
-}
-                        """), # Your new Flatpickr initializer
+                    .sticky-action-bar { position: fixed; bottom: 0; left: 0; right: 0; z-index: 10; background-color: rgba(255, 255, 255, 0.8); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); padding: 0.75rem; border-top: 1px solid #e5e7eb; box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.05); }
+                    .dark .sticky-action-bar { background-color: rgba(31, 41, 55, 0.8); border-top-color: #4b5563; }
+                    #tab-content-container { padding-bottom: 100px; }
+                    """),
         Link(rel="stylesheet", href="https://cdn.jsdelivr.net/npm/vis-timeline@7.7.2/dist/vis-timeline-graph2d.min.css"),
         Script(src="https://cdn.jsdelivr.net/npm/vis-timeline@7.7.2/standalone/umd/vis-timeline-graph2d.min.js"),
         Script(src="/static/js/vis_timeline_init.js", defer=True),
     ])
-
-    return Html(
-        Head(
-            Meta(charset="UTF-8"),
-            Meta(name="viewport", content="width=device-width, initial-scale=1.0"),
-            Title(title, id="page-title"),
-            # Include all combined headers
-            *all_hdrs
-        ),
-        Body(
-            *content,
-            Div(id="toast-container"), # For potential toasts
-            cls="bg-background text-foreground"
-        ),
-        lang="et" # Keep Estonian language attribute
-    )
+    return Html( Head( Meta(charset="UTF-8"), Meta(name="viewport", content="width=device-width, initial-scale=1.0"), Title(title, id="page-title"), *all_hdrs ), Body( *content, Div(id="toast-container"), cls="bg-background text-foreground" ), lang="et" )
 
 
-# --- public_layout function (keep as is) ---
+# --- public_layout function ---
 def public_layout(title: str, *content: Any) -> FT:
-    # ... (public_layout code remains unchanged) ...
     return base_layout(title, Container( *content, cls="flex flex-col items-center justify-center min-h-screen py-12" ) )
 
 
-# --- app_layout (MODIFIED to conditionally render footer) ---
-def app_layout(request: Request, title: str, content: Any, active_tab: str, badge_counts: Dict = {}, container_class: str = "md:max-w-screen-lg", footer: Optional[Any] = None) -> FT:
+# --- app_layout (MODIFIED to accept and pass db) ---
+def app_layout(request: Request, title: str, content: Any, active_tab: str, db: Any, badge_counts: Dict = {}, container_class: str = "md:max-w-screen-lg", footer: Optional[Any] = None) -> FT:
     """
-    Main layout using a single combined sticky header.
-    Centers content container on medium screens and up.
-    Conditionally renders the footer.
+    Main layout that now accepts a 'db' object to pass to the sticky header.
     """
     print(f"--- DEBUG: app_layout rendering with title: '{title}' ---")
     sticky_header = render_sticky_header(
-        request=request, active_tab=active_tab, badge_counts=badge_counts, container_class=container_class
+        request=request, active_tab=active_tab, db=db, badge_counts=badge_counts, container_class=container_class
     )
     main_content_container = Container(
         Div(content, id="tab-content-container"),
-        cls=f"{ContainerT.xl} pt-8 md:max-w-screen-md md:mx-auto" # Centering classes
+        cls=f"{ContainerT.xl} pt-8 md:max-w-screen-md md:mx-auto"
     )
 
-    # Conditionally include the footer container only if a footer is provided
     footer_container = Div(footer, id="footer-container") if footer else Div(id="footer-container")
 
     return base_layout(title, sticky_header, main_content_container, footer_container)
 
-# --- evaluator_layout (keep as is) ---
+# --- evaluator_layout ---
 def evaluator_layout(request: Request, title: str, content: Any) -> FT:
-    """
-    Layout for evaluator views, using a WIDER (2xl) centered container.
-    """
     page_title = f"{title} | Hindamiskeskkond"
-
-    # --- Use a wider max-width class ---
-    MAX_WIDTH_CLASS = "md:max-w-screen-xl" # Changed from xl to 2xl
-
-    navbar_container = Div(
-        evaluator_navbar(request),
-        cls=f"w-full {MAX_WIDTH_CLASS} md:mx-auto" # Apply wider class
-    )
-    main_content_container = Container(
-        content,
-        cls=f"{ContainerT.xl} pt-8 {MAX_WIDTH_CLASS} md:mx-auto" # Apply wider class
-    )
+    MAX_WIDTH_CLASS = "md:max-w-screen-xl"
+    navbar_container = Div( evaluator_navbar(request), cls=f"w-full {MAX_WIDTH_CLASS} md:mx-auto" )
+    main_content_container = Container( content, cls=f"{ContainerT.xl} pt-8 {MAX_WIDTH_CLASS} md:mx-auto" )
     return base_layout(page_title, navbar_container, main_content_container)

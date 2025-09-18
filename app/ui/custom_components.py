@@ -68,31 +68,39 @@ def StickyActionBar(
     save_text: str = "Salvesta valikud",
     cancel_url: Optional[str] = None,
     cancel_text: str = "Tühista",
-    delete_url: Optional[str] = None,  # <-- NEW: Add delete_url parameter
+    delete_url: Optional[str] = None,
     delete_text: str = "Kustuta töökogemus",
     **kwargs
 ):
     """
     Creates a sticky bar at the bottom of the viewport for form actions.
-    Optionally includes a delete button.
+    The cancel button now uses HTMX to reload the main tab content.
     """
     save_button = Button(save_text, type="submit", form=form_id, cls="btn btn-primary", disabled=True)
     
-    cancel_button = A(cancel_text, href=cancel_url, cls="btn btn-secondary disabled") if cancel_url else ""
+    # --- FIX: Make Cancel button an HTMX-powered link ---
+    cancel_button = ""
+    if cancel_url:
+        cancel_button = A(
+            cancel_text,
+            href=cancel_url, # Keep href for right-click/new-tab functionality
+            hx_get=cancel_url,
+            hx_target="#tab-content-container", # Target the main content area
+            hx_swap="innerHTML",
+            cls="btn btn-secondary disabled" # Still controlled by form_validator.js
+        )
 
-    # --- NEW: Conditionally create the delete button ---
     delete_button = ""
     if delete_url:
         delete_button = Button(
             delete_text,
             type="button",
-            cls="btn btn-error",  # Use a destructive color
+            cls="btn btn-error",
             hx_delete=delete_url,
             hx_confirm="Oled kindel, et soovid selle töökogemuse kustutada?",
             hx_target="#tab-content-container",
             hx_swap="innerHTML"
         )
-    # --- END NEW ---
 
     attrs = {
         "cls": "sticky-action-bar",
@@ -102,10 +110,9 @@ def StickyActionBar(
 
     return Div(
         Div(
-            # --- NEW: Add a container to group left-aligned and right-aligned buttons ---
-            Div( # Main flex container
-                Div(delete_button, cls="mr-auto"), # This div pushes the delete button to the far left
-                Div(cancel_button, save_button, cls="flex space-x-2"), # This div keeps cancel/save together
+            Div(
+                Div(delete_button, cls="mr-auto"),
+                Div(cancel_button, save_button, cls="flex space-x-2"),
                 cls="flex justify-between items-center w-full"
             ),
             cls="max-w-5xl mx-auto px-4"

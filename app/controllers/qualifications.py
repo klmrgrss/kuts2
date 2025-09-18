@@ -115,11 +115,10 @@ class QualificationController:
              print(f"ERROR preparing data for {user_email}: {e}")
              error_content = Div(f"Error loading qualification data: {e}", cls="text-red-500 p-4")
              if request.headers.get('HX-Request'):
-                 # For HTMX error, also include OOB nav update if possible, or just error fragment
-                 # Here, just returning error fragment for simplicity
                  return error_content
              else:
-                 return app_layout(request=request, title="Error", content=error_content, active_tab="kutsed") # Assuming 'kutsed' is the target tab
+                 # Pass db to app_layout in the error case as well
+                 return app_layout(request=request, title="Error", content=error_content, active_tab="kutsed", db=self.db)
 
         # --- Render Content Fragment ---
         qualification_content, footer = render_qualification_form(
@@ -129,7 +128,7 @@ class QualificationController:
 
         # --- Check for HTMX Request Header ---
         if request.headers.get('HX-Request'):
-            print(f"--- DEBUG: Returning {page_title} tab fragment + OOB nav/title for HTMX ---") # Updated log
+            print(f"--- DEBUG: Returning {page_title} tab fragment + OOB nav/title for HTMX ---")
             updated_tab_nav = tab_nav(active_tab="kutsed", request=request, badge_counts=badge_counts)
             oob_nav = Div(updated_tab_nav, id="tab-navigation-container", hx_swap_oob="outerHTML")
             oob_title = Title(page_title, id="page-title", hx_swap_oob="innerHTML")
@@ -138,38 +137,35 @@ class QualificationController:
             return qualification_content, oob_nav, oob_title, oob_footer
         else:
             # --- Full Page Load Response ---
-            print(f"--- DEBUG: Returning full app_layout for {page_title} tab ---") # Updated log
+            print(f"--- DEBUG: Returning full app_layout for {page_title} tab ---")
             return app_layout(
                 request=request,
                 title=page_title,
                 content=qualification_content,
                 footer=footer,
                 active_tab="kutsed",
-                badge_counts=badge_counts
+                badge_counts=badge_counts,
+                db=self.db # <-- THE FIX IS HERE
             )
 
 
     async def handle_toggle(self, request: Request, section_id: int, app_id: str):
         """Handles the HTMX toggle request."""
-        print(f"--- DEBUG: Entering handle_toggle for section {section_id} ---") # Optional Debug
+        print(f"--- DEBUG: Entering handle_toggle for section {section_id} ---")
 
-        # Await the form data since it's an async operation
         try:
             form_data = await request.form()
-            print(f"--- DEBUG: Form data received: {form_data} ---") # Optional Debug
+            print(f"--- DEBUG: Form data received: {form_data} ---")
         except Exception as e:
              print(f"--- ERROR: Could not read form data in handle_toggle: {e} ---")
-             return Div("Error reading form data", cls="text-red-500") # Return error fragment
+             return Div("Error reading form data", cls="text-red-500")
 
-        # Check the toggle state using the awaited form_data
         toggle_state = form_data.get(f"toggle-{section_id}") == "on"
-        print(f"--- DEBUG: Toggle state for section {section_id}: {toggle_state} ---") # Optional Debug
+        print(f"--- DEBUG: Toggle state for section {section_id}: {toggle_state} ---")
 
-        # Regenerate just the checkbox group based on the new toggle state
-        # Need to find the section data again (Consider caching or more efficient lookup)
-        user_email = request.session.get("user_email", app_id) # Get user context
+        user_email = request.session.get("user_email", app_id)
         try:
-            sections_data = self._prepare_qualification_data(user_email) # Re-fetch section structure/data
+            sections_data = self._prepare_qualification_data(user_email)
             target_section_data = sections_data.get(section_id)
         except Exception as e:
              print(f"--- ERROR: Could not get section data in handle_toggle: {e} ---")
@@ -178,16 +174,7 @@ class QualificationController:
         if not target_section_data:
             return Div("Error: Section not found", cls="text-red-500")
 
-        # Call the checkbox group rendering function
-        # Ensure render_checkbox_group is accessible (imported or defined locally/in utils)
-        # Example assuming it's imported or defined elsewhere:
         try:
-            # If render_checkbox_group is defined within render_qualification_form,
-            # you need to move it out to be callable here or duplicate the logic.
-            # Let's assume it's moved or imported, e.g., from ui.components.checkbox_group
-            
-
-            # Determine checked state based on toggle
             checked_state = {}
             if toggle_state:
                 for i in range(len(target_section_data["items"])):
@@ -199,25 +186,19 @@ class QualificationController:
                 section_info={"level": target_section_data["level"], "category": target_section_data["category"]},
                 checked_state=checked_state
             )
-            print(f"--- DEBUG: Returning updated checkbox group for section {section_id} ---") # Optional Debug
+            print(f"--- DEBUG: Returning updated checkbox group for section {section_id} ---")
             return updated_checkbox_group
 
         except Exception as e:
              print(f"--- ERROR: Could not render checkbox group in handle_toggle: {e} ---")
-             # You might need to import traceback and print traceback.print_exc() here for detailed debugging
              return Div("Error rendering checkbox group", cls="text-red-500")
-
-        # --- Note: The toggle state is not saved in the database ---
 
     async def submit_qualifications(self, request: Request):
         """
         Handles POST submission for the qualification selection form.
-        Validates input, saves selections to DB (delete/insert rows),
-        and re-renders the tab content.
         """
         user_email = request.session.get("user_email")
         if not user_email:
-            # Use a more specific error target if available, or a general one
             return Alert("Authentication Error", cls="text-red-500", id="form-guidance-message", hx_swap_oob="innerHTML")
 
         try:
@@ -227,63 +208,47 @@ class QualificationController:
             print(f"--- ERROR: Could not read form data in submit_qualifications: {e} ---")
             return Alert("Error reading form data", cls="text-red-500", id="form-guidance-message", hx_swap_oob="innerHTML")
 
-        # --- Parse Selections & Validate (SIMPLIFIED LOGIC) ---
         rows_to_insert = []
-        # Re-run/fetch the section structure to map form names back to data
         sections_data = self._prepare_qualification_data(user_email)
 
-        # Iterate through all form items
         for key, value in form_data.items():
-            # We only care about checked checkboxes, which have the value "on"
             if not key.startswith("qual_") or value != "on":
                 continue
-
             try:
-                # qual_SECTIONID_ITEMINDEX -> parts = ["qual", "SECTIONID", "ITEMINDEX"]
                 parts = key.split("_")
                 section_id = int(parts[1])
                 item_index = int(parts[2])
                 
-                # Get the corresponding section and item from our structure
                 section_info = sections_data.get(section_id)
                 if section_info and 0 <= item_index < len(section_info["items"]):
                     item = section_info["items"][item_index]
                     
-                    # Construct the row to be inserted into the database
                     rows_to_insert.append({
                         "user_email": user_email,
                         "qualification_name": section_info["category"],
                         "level": section_info["level"],
                         "specialisation": item,
-                        "activity": section_info["category"], # Assumption: activity is category
-                        "is_renewal": 0, # Default, can be changed later
-                        "application_date": None # Default
+                        "activity": section_info["category"],
+                        "is_renewal": 0,
+                        "application_date": None
                     })
             except (ValueError, IndexError, KeyError) as e:
-                # Log if a form key is malformed, but don't crash
                 print(f"--- ERROR Parsing qualification key '{key}': {e} ---")
 
-        # --- Database Operations ---
         try:
             print(f"--- DB [submit_qualifications]: Deleting existing for {user_email} ---")
-            # Delete all previous selections for this user to ensure a clean slate
             deleted_count = self.applied_qual_table.delete_where('user_email=?', [user_email])
             print(f"--- DB [submit_qualifications]: Deleted {deleted_count} rows ---")
 
-            # Insert the new selections if any were made
             if rows_to_insert:
                 print(f"--- DB [submit_qualifications]: Inserting {len(rows_to_insert)} new rows for {user_email} ---")
                 for row in rows_to_insert:
                     self.applied_qual_table.insert(row)
 
             print(f"--- SUCCESS [submit_qualifications]: Saved selections for {user_email} ---")
-
-            # --- Re-render the tab on success ---
-            # This will show the newly saved selections and update the status strip
             return self.show_qualifications_tab(request)
 
         except Exception as e:
             print(f"--- ERROR [submit_qualifications] DB Operation Failed for {user_email}: {e} ---")
             error_message = f"Database error saving selections: {e}"
-            # Return an error message to the user
             return Alert(error_message, cls="text-red-500", id="form-guidance-message", hx_swap_oob="innerHTML")
