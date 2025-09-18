@@ -1,7 +1,7 @@
 // app/static/js/flatpickr_init.js
 
 /**
- * Initializes Flatpickr month selection inputs.
+ * Initializes Flatpickr month selection inputs with a simplified, robust configuration.
  * @param {string} selector - CSS selector for the target input elements.
  */
 function initFlatpickrMonthInput(selector) {
@@ -12,6 +12,7 @@ function initFlatpickrMonthInput(selector) {
   
     const elements = document.querySelectorAll(selector);
     elements.forEach(el => {
+      // Don't re-initialize existing instances
       if (el._flatpickr) {
           return;
       }
@@ -20,24 +21,18 @@ function initFlatpickrMonthInput(selector) {
             locale: "et",
             plugins: [
               new monthSelectPlugin({
-                shorthand: false,
-                dateFormat: "Y-m",
-                altFormat: "F Y",
-                theme: "light"
+                shorthand: true, // Use MMM format like "Jan", "Feb"
+                dateFormat: "Y-m", // The value that will be submitted (e.g., "2024-01")
               })
             ],
-            altInput: true,
-            allowInput: true,
-            // --- FINAL FIX: Explicitly set the value before dispatching the event ---
-            onClose: function(selectedDates, dateStr, instance) {
-                // 1. Force the correct value into the original input.
-                //    `dateStr` is the date formatted as "Y-m".
-                instance.element.value = dateStr;
-
-                // 2. Trigger a 'change' event so the form validator sees the update.
+            // --- CORE FIX: Simplify the configuration ---
+            altInput: false,      // DO NOT create a second, alternate input
+            allowInput: false,    // Prevent manual typing to ensure valid format
+            
+            // This event is still useful to ensure the form validator runs
+            onChange: function(selectedDates, dateStr, instance) {
                 instance.element.dispatchEvent(new Event('change', { bubbles: true }));
             }
-            // --- END FIX ---
           });
       } catch (e) {
           console.error("Error initializing Flatpickr month input for:", el, e);
@@ -64,18 +59,12 @@ function initFlatpickrMonthInput(selector) {
           flatpickr(el, {
             locale: "et",
             dateFormat: "Y-m-d",
-            altFormat: "d.m.Y",
-            altInput: true,
+            altInput: false, // Simplify here as well
             allowInput: false,
             maxDate: "today",
-            // --- FINAL FIX: Apply the same logic here ---
-            onClose: function(selectedDates, dateStr, instance) {
-                // 1. Force the value.
-                instance.element.value = dateStr;
-                // 2. Trigger the event.
+            onChange: function(selectedDates, dateStr, instance) {
                 instance.element.dispatchEvent(new Event('change', { bubbles: true }));
             }
-            // --- END FIX ---
           });
       } catch (e) {
           console.error("Error initializing Flatpickr date input for:", el, e);
@@ -96,12 +85,14 @@ function initFlatpickrMonthInput(selector) {
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initializeAllPickers);
   } else {
+    // Use a small timeout to ensure other scripts might run first
     setTimeout(initializeAllPickers, 0);
   }
   
   document.body.addEventListener('htmx:afterSettle', function(event) {
     const target = event.detail.target;
-    if (target && (target.querySelector('.flatpickr-month-input') || target.querySelector('.flatpickr-date-input') || target.classList.contains('flatpickr-month-input') || target.classList.contains('flatpickr-date-input'))) {
+    // Check if the swapped content contains a picker or is a picker itself
+    if (target && (target.querySelector('.flatpickr-month-input, .flatpickr-date-input') || target.matches('.flatpickr-month-input, .flatpickr-date-input'))) {
         initializeAllPickers();
     }
   });

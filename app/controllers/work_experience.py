@@ -87,31 +87,50 @@ class WorkExperienceController:
         except NotFoundError:
             return Div(f"Error: Work experience with ID {experience_id} not found.", cls="text-red-500 p-4")
 
+    # --- METHOD MODIFIED FOR ROBUSTNESS ---
     async def save_workex_experience(self, request: Request):
         user_email = request.session.get("user_email")
         if not user_email: return Response("Authentication Error", status_code=403)
 
         form_data = await request.form()
 
+        # Enhanced Debugging: See exactly what the server receives
         print(f"--- DEBUG [save_workex_experience]: Raw form data received: {form_data} ---")
+        print(f"--- DEBUG: Value for 'start_date' in form: {form_data.get('start_date')} ---")
+        print(f"--- DEBUG: Value for 'end_date' in form: {form_data.get('end_date')} ---")
+
 
         experience_id_str = form_data.get("experience_id")
         is_edit = experience_id_str and experience_id_str != 'None' and experience_id_str.isdigit()
         experience_id = int(experience_id_str) if is_edit else None
 
+        # Build the data dictionary from the model's fields
         model_fields = [f.name for f in WorkExperience.__dataclass_fields__.values()]
         experience_data = {
             key: form_data.get(key) for key in model_fields if form_data.get(key) is not None
         }
+        
+        # --- FIX: Explicitly handle date fields ---
+        # This ensures that even if the date is an empty string '', it gets processed.
+        # The previous `is not None` check might have been too strict if the JS sent an empty string.
+        start_date = form_data.get("start_date")
+        if start_date is not None:
+            experience_data['start_date'] = start_date
+
+        end_date = form_data.get("end_date")
+        if end_date is not None:
+            experience_data['end_date'] = end_date
+        # --- END FIX ---
+
         experience_data['user_email'] = user_email
         experience_data['permit_required'] = 1 if form_data.get("permit_required") == 'on' else 0
         
-        # --- MODIFICATION: Only 'role' is now required ---
         required_fields = ["role"]
-        # --- END MODIFICATION ---
 
         if any(not experience_data.get(field) for field in required_fields):
             return RedirectResponse("/app/workex?error=missing_fields", status_code=303)
+
+        print(f"--- DEBUG: Final data being saved to DB: {experience_data} ---")
 
         try:
             if is_edit:
