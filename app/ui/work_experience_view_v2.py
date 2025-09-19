@@ -28,91 +28,90 @@ def render_work_experience_form_v2(
 
     def val(key, default=''): return experience.get(key, default)
 
-    activity_strips = []
+    activity_accordions = []
     for i, activity in enumerate(available_activities):
         is_activity_in_focus = (activity == selected_activity) or (is_edit and activity == experience.get('associated_activity'))
         
         activity_experiences = [exp for exp in experiences if exp.get('associated_activity') == activity]
-        has_experiences = len(activity_experiences) > 0
-        
-        experience_chips = []
-        # --- MODIFICATION: Added enumerate to the loop for numbering ---
-        for i, exp in enumerate(activity_experiences, 1):
-            is_being_edited = is_edit and exp.get('id') == experience.get('id')
-            
-            link_classes = "px-1 text-sm rounded-none no-animation" 
-            if is_being_edited:
-                link_classes += " bg-blue-500 text-white"
-            else:
-                link_classes += " bg-gray-200 dark:bg-gray-700"
+        experience_count = len(activity_experiences)
+        has_experiences = experience_count > 0
 
-            experience_chips.append(
-                A(
-                    # Added "f'{i}. '" to the beginning of the string for the number
-                    f"{i}. {exp.get('start_date', '')} - {exp.get('object_address', 'Aadress puudub')}",
-                    hx_get=f"/app/workex/{exp.get('id')}/edit",
-                    hx_target="#tab-content-container",
-                    hx_swap="innerHTML",
-                    cls=link_classes
-                )
-            )
-        # --- END MODIFICATION ---
+        # --- Accordion Summary (The Collapsed State) ---
+        if has_experiences:
+            icon = UkIcon("check-circle", cls="flex-shrink-0 text-green-600")
+            text = P(f"Salvestatud ({experience_count}) '{activity}' töökogemust")
+        else:
+            icon = UkIcon("info", cls="flex-shrink-0 text-red-600")
+            text = P(f"Ühtegi '{activity}' töökogemust pole lisatud")
 
-        is_adding_new_in_this_activity = (activity == selected_activity) and not is_edit
-        
-        add_chip_classes = "btn btn-xs btn-secondary rounded-full no-animation"
-        if is_adding_new_in_this_activity:
-            add_chip_classes += " activity-selected"
-
-        add_new_chip = A(
-            UkIcon("plus", cls="w-4 h-4"),
+        add_new_button = A(
+            UkIcon("plus"),
+            "Lisa",
             hx_get=f"/app/workex?activity={activity}",
             hx_target="#tab-content-container",
             hx_swap="innerHTML",
-            cls=add_chip_classes
+            cls="btn btn-sm btn-secondary ml-auto rounded-full"
+        )
+
+        # --- REVISED: Horizontal layout for the Summary ---
+        custom_marker = UkIcon("chevron-down", cls="accordion-marker flex-shrink-0 text-muted-foreground")
+        summary_content = Summary(
+            Div(
+                custom_marker,
+                icon,
+                text,
+                add_new_button,
+                cls="flex items-center gap-x-3 w-full cursor-pointer p-1"
+            )
         )
         
-        experience_chips.append(add_new_chip)
-
-        chips_container = Div(
-            Div(*experience_chips, cls="flex flex-row flex-wrap items-center gap-2"),
-            cls="p-4"
-        )
-
+        # --- Accordion Content (The Expanded State) ---
+        experience_chips = []
         if has_experiences:
-            icon = UkIcon("check-circle", cls="flex-shrink-0")
-            text = P(f"Salvestatud '{activity}' töökogemused")
-            strip_classes = "p-4 bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100 rounded-t-lg flex items-center gap-x-3"
-        else:
-            icon = UkIcon("info", cls="flex-shrink-0")
-            text = P(f"Ühtegi '{activity}' töökogemust pole lisatud")
-            strip_classes = "p-4 bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-100 rounded-t-lg flex items-center gap-x-3"
+            for i, exp in enumerate(activity_experiences, 1):
+                is_being_edited = is_edit and exp.get('id') == experience.get('id')
+                
+                link_classes = "px-1 text-sm rounded-none no-animation" 
+                if is_being_edited:
+                    link_classes += " bg-blue-500 text-white"
+                else:
+                    link_classes += " underline decoration-2 decoration-sky-500 hover:no-underline"
 
-        header_strip = Div(
-            icon,
-            text,
-            cls=strip_classes
-        )
+                experience_chips.append(
+                    A(
+                        f"{i}. {exp.get('start_date', '')} - {exp.get('object_address', 'Aadress puudub')}",
+                        hx_get=f"/app/workex/{exp.get('id')}/edit",
+                        hx_target="#tab-content-container",
+                        hx_swap="innerHTML",
+                        cls=link_classes
+                    )
+                )
+        
+        accordion_details = Div(
+            Div(*experience_chips, cls="flex flex-row flex-wrap items-center gap-2 p-4 bg-gray-50 dark:bg-gray-800 rounded-b-lg"),
+        ) if has_experiences else Div()
 
         border_class = 'border-blue-500' if is_activity_in_focus else 'border-gray-200 dark:border-gray-700'
         
-        visual_group_wrapper = Div(
-            header_strip,
-            chips_container,
-            cls=f"border-2 rounded-lg {border_class}" 
+        accordion = Details(
+            summary_content,
+            accordion_details,
+            cls=f"border-2 rounded-lg {border_class} overflow-hidden",
+            open=is_activity_in_focus 
         )
 
-        activity_strips.append(visual_group_wrapper)
+        activity_accordions.append(accordion)
+
 
     activity_selection_box = Div(
         Div(id="form-guidance-message"),
-        Div(*activity_strips, cls="space-y-4"), 
+        Div(*activity_accordions, cls="space-y-4"), 
         cls="mb-6"
     )
 
     form_intro_text = None
     if is_task_active:
-        intro_title = f"MUUDA töökogemust: {val('start_date')} - {val('object_address')}" if is_edit else f"LISA UUS töökogemus tegevusalale: {selected_activity}"
+        intro_title = f"MUUDA töökogemust: {val('start_date')} - {val('object_address')}" if is_edit else f"SISESTA töökogemus tegevusalale: {selected_activity}"
         form_intro_text = Div(
             Div(
                 P(intro_title, cls="font-semibold"),

@@ -71,6 +71,10 @@ def base_layout(title: str, *content: Any, theme_headers: tuple = Theme.blue.hea
                     .sticky-action-bar { position: fixed; bottom: 0; left: 0; right: 0; z-index: 10; background-color: rgba(255, 255, 255, 0.8); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); padding: 0.75rem; border-top: 1px solid #e5e7eb; box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.05); }
                     .dark .sticky-action-bar { background-color: rgba(31, 41, 55, 0.8); border-top-color: #4b5563; }
                     #tab-content-container { padding-bottom: 100px; }
+                    summary { list-style: none; } /* For Firefox */
+                    summary::-webkit-details-marker { display: none; } /* For Chrome, Safari */
+                    .accordion-marker { transition: transform 0.2s; }
+                    details[open] > summary .accordion-marker { transform: rotate(180deg); }
                     """),
         Link(rel="stylesheet", href="https://cdn.jsdelivr.net/npm/vis-timeline@7.7.2/dist/vis-timeline-graph2d.min.css"),
         Script(src="https://cdn.jsdelivr.net/npm/vis-timeline@7.7.2/standalone/umd/vis-timeline-graph2d.min.js"),

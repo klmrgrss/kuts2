@@ -1,98 +1,100 @@
 // app/static/js/flatpickr_init.js
 
 /**
- * Initializes Flatpickr month selection inputs with a simplified, robust configuration.
- * @param {string} selector - CSS selector for the target input elements.
+ * Initializes Flatpickr month selection inputs found within a specific root element.
+ * @param {Element} root - The element to search within for inputs.
  */
-function initFlatpickrMonthInput(selector) {
+function initFlatpickrMonthInputsIn(root) {
     if (typeof flatpickr === 'undefined' || typeof monthSelectPlugin === 'undefined') {
-      console.error("Flatpickr or monthSelectPlugin not loaded");
-      return;
+        console.error("Flatpickr or monthSelectPlugin not loaded");
+        return;
     }
-  
-    const elements = document.querySelectorAll(selector);
+
+    const elements = root.querySelectorAll('.flatpickr-month-input');
     elements.forEach(el => {
-      // Don't re-initialize existing instances
-      if (el._flatpickr) {
-          return;
-      }
-      try {
-          flatpickr(el, {
-            locale: "et",
-            plugins: [
-              new monthSelectPlugin({
-                shorthand: true, // Use MMM format like "Jan", "Feb"
-                dateFormat: "Y-m", // The value that will be submitted (e.g., "2024-01")
-              })
-            ],
-            // --- CORE FIX: Simplify the configuration ---
-            altInput: false,      // DO NOT create a second, alternate input
-            allowInput: false,    // Prevent manual typing to ensure valid format
-            
-            // This event is still useful to ensure the form validator runs
-            onChange: function(selectedDates, dateStr, instance) {
-                instance.element.dispatchEvent(new Event('change', { bubbles: true }));
-            }
-          });
-      } catch (e) {
-          console.error("Error initializing Flatpickr month input for:", el, e);
-      }
+        if (el._flatpickr) { // Don't re-initialize existing instances
+            return;
+        }
+        try {
+            flatpickr(el, {
+                locale: "et",
+                plugins: [
+                    new monthSelectPlugin({
+                        shorthand: true, // Use MMM format like "Jan", "Feb"
+                        dateFormat: "Y-m", // The value that will be submitted (e.g., "2024-01")
+                    })
+                ],
+                altInput: false,
+                allowInput: false,
+                onChange: function(selectedDates, dateStr, instance) {
+                    // Dispatch a 'change' event to trigger form validation
+                    instance.element.dispatchEvent(new Event('change', { bubbles: true }));
+                }
+            });
+        } catch (e) {
+            console.error("Error initializing Flatpickr month input for:", el, e);
+        }
     });
-  }
-  
-  /**
-   * Initializes Flatpickr standard date selection inputs.
-   * @param {string} selector - CSS selector for the target input elements.
-   */
-  function initFlatpickrDateInput(selector) {
+}
+
+/**
+ * Initializes Flatpickr standard date selection inputs found within a specific root element.
+ * @param {Element} root - The element to search within for inputs.
+ */
+function initFlatpickrDateInputsIn(root) {
     if (typeof flatpickr === 'undefined') {
-      console.error("Flatpickr not loaded");
-      return;
+        console.error("Flatpickr not loaded");
+        return;
     }
-  
-    const elements = document.querySelectorAll(selector);
+
+    const elements = root.querySelectorAll('.flatpickr-date-input');
     elements.forEach(el => {
-      if (el._flatpickr) {
-          return;
-      }
-      try {
-          flatpickr(el, {
-            locale: "et",
-            dateFormat: "Y-m-d",
-            altInput: false, // Simplify here as well
-            allowInput: false,
-            maxDate: "today",
-            onChange: function(selectedDates, dateStr, instance) {
-                instance.element.dispatchEvent(new Event('change', { bubbles: true }));
-            }
-          });
-      } catch (e) {
-          console.error("Error initializing Flatpickr date input for:", el, e);
-      }
+        if (el._flatpickr) { // Don't re-initialize
+            return;
+        }
+        try {
+            flatpickr(el, {
+                locale: "et",
+                dateFormat: "Y-m",
+                altInput: false,
+                allowInput: false,
+                maxDate: "today",
+                onChange: function(selectedDates, dateStr, instance) {
+                    instance.element.dispatchEvent(new Event('change', { bubbles: true }));
+                }
+            });
+        } catch (e) {
+            console.error("Error initializing Flatpickr date input for:", el, e);
+        }
     });
-  }
-  
-  /**
-   * Initializes all Flatpickr inputs based on their CSS classes.
-   */
-  function initializeAllPickers() {
-      initFlatpickrMonthInput('.flatpickr-month-input');
-      initFlatpickrDateInput('.flatpickr-date-input');
-  }
-  
-  // --- Initialization Triggers ---
-  
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initializeAllPickers);
-  } else {
-    // Use a small timeout to ensure other scripts might run first
-    setTimeout(initializeAllPickers, 0);
-  }
-  
-  document.body.addEventListener('htmx:afterSettle', function(event) {
-    const target = event.detail.target;
-    // Check if the swapped content contains a picker or is a picker itself
-    if (target && (target.querySelector('.flatpickr-month-input, .flatpickr-date-input') || target.matches('.flatpickr-month-input, .flatpickr-date-input'))) {
-        initializeAllPickers();
+}
+
+/**
+ * Initializes all Flatpickr inputs found within a given root element.
+ * @param {Element} rootElement - The element to scan for date pickers.
+ */
+function initializeAllPickersIn(rootElement) {
+    // Initialize month pickers
+    initFlatpickrMonthInputsIn(rootElement);
+    if (rootElement.matches && rootElement.matches('.flatpickr-month-input')) {
+        initFlatpickrMonthInputsIn(rootElement.parentElement || document);
     }
-  });
+
+    // Initialize date pickers
+    initFlatpickrDateInputsIn(rootElement);
+    if (rootElement.matches && rootElement.matches('.flatpickr-date-input')) {
+        initFlatpickrDateInputsIn(rootElement.parentElement || document);
+    }
+}
+
+// --- Initialization Triggers ---
+
+// Run once on initial page load, scanning the entire document
+document.addEventListener('DOMContentLoaded', () => initializeAllPickersIn(document));
+
+// Run after each HTMX swap, scanning only the newly added content
+document.body.addEventListener('htmx:afterSettle', function(event) {
+    if (event.detail.target) {
+        initializeAllPickersIn(event.detail.target);
+    }
+});

@@ -48,10 +48,9 @@ function setupFormValidator(formElement) {
     const validate = () => {
         console.log(`[Validator] Event triggered. Running validation for #${formId}...`);
         let isFormValid = false;
-        const isDirty = isFormDirty();
 
         if (validationMode === 'dirty') {
-            isFormValid = isDirty;
+            isFormValid = isFormDirty();
         } else { // 'required' mode
             const requiredInputs = Array.from(formElement.querySelectorAll('[required]'));
             console.log(`[Validator] --- Checking ${requiredInputs.length} Required Inputs ---`);
@@ -71,11 +70,10 @@ function setupFormValidator(formElement) {
                     console.log(`  - Input '${inputName}': value='${input.value}', valid? ${isValid}`);
                 }
                 
-                // Highlight failing inputs
                 if (!isValid) {
                     input.style.borderColor = 'red';
                 } else {
-                    input.style.borderColor = ''; // Or original color
+                    input.style.borderColor = '';
                 }
                 return isValid;
             });
@@ -84,9 +82,12 @@ function setupFormValidator(formElement) {
 
         console.log(`%c[Validator] Overall form valid? ${isFormValid}. Setting saveButton.disabled to: ${!isFormValid}`, 'color: blue; font-weight: bold;');
         saveButton.disabled = !isFormValid;
+        
+        // --- FIX: Decouple the cancel button from the 'dirty' check ---
+        // If the action bar is visible, the cancel button should always be active.
         if (cancelButton) {
-            cancelButton.classList.toggle('disabled', !isDirty);
-            cancelButton.style.pointerEvents = isDirty ? 'auto' : 'none';
+            cancelButton.classList.remove('disabled');
+            cancelButton.style.pointerEvents = 'auto';
         }
     };
 

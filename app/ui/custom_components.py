@@ -77,15 +77,15 @@ def StickyActionBar(
     The cancel button now uses HTMX to reload the main tab content.
     """
     save_button = Button(save_text, type="submit", form=form_id, cls="btn btn-primary", disabled=True)
-    
-    # --- FIX: Make Cancel button an HTMX-powered link ---
+
+    # --- FIX: Changed Cancel from a link (A) to a button (Button) ---
     cancel_button = ""
     if cancel_url:
-        cancel_button = A(
+        cancel_button = Button(
             cancel_text,
-            href=cancel_url, # Keep href for right-click/new-tab functionality
+            type="button", # Ensure it doesn't submit the form
             hx_get=cancel_url,
-            hx_target="#tab-content-container", # Target the main content area
+            hx_target="#tab-content-container",
             hx_swap="innerHTML",
             cls="btn btn-secondary disabled" # Still controlled by form_validator.js
         )

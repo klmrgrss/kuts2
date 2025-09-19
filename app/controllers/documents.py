@@ -43,7 +43,8 @@ class DocumentsController:
         else:
             return app_layout(
                 request=request, title=page_title, content=content,
-                active_tab="dokumendid", badge_counts=badge_counts
+                active_tab="dokumendid", badge_counts=badge_counts,
+                db=self.db # <-- FIX: Pass the database connection to the layout
             )
 
     async def upload_document(self, request: Request, document_type: str):

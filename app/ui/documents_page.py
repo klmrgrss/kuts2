@@ -47,7 +47,7 @@ def StatusStrip(docs: list, doc_type: str, title: str):
 
 
 def render_documents_page(existing_documents: list):
-    """Renders the main page for the 'Dokumentide lisamine' tab with status strips."""
+    """Renders the main page for the 'Dokumentide lisamine' tab with consistent layout."""
     
     # --- Section 1: Haridus (Education) ---
     education_form = Form(
@@ -90,20 +90,16 @@ def render_documents_page(existing_documents: list):
         cls="space-y-4"
     )
 
+    # --- FIX: Wrap content in a div with consistent max-width and margin ---
     return Div(
-        #H3("Dokumentide lisamine", cls="text-xl font-semibold mb-4"),
-        #P("Lae üles kõik taotluseks vajalikud dokumendid. Süsteem salvestab iga dokumendi eraldi.", cls="text-sm text-muted-foreground mb-6"),
-
-        # --- Status Strips ---
-        StatusStrip(existing_documents, 'education', "Haridus"),
-        StatusStrip(existing_documents, 'training', "Täiendkoolitus"),
-        StatusStrip(existing_documents, 'employment_proof', "Töötamise tõend"),
-        
-        # --- Form Sections ---
-        SectionContainer("1. Haridus", education_form),
-        SectionContainer("2. Täiendkoolitus", training_form),
-        SectionContainer("3. Töötamise tõend", employment_form),
-        
-        # Consistent outer padding with other tabs
-        cls="p-0 md:p-6"
+        Div(
+            StatusStrip(existing_documents, 'education', "Haridus"),
+            StatusStrip(existing_documents, 'training', "Täiendkoolitus"),
+            StatusStrip(existing_documents, 'employment_proof', "Töötamise tõend"),
+            
+            SectionContainer("1. Haridus", education_form),
+            SectionContainer("2. Täiendkoolitus", training_form),
+            SectionContainer("3. Töötamise tõend", employment_form),
+        ),
+        cls="max-w-5xl mx-auto" # This brings it in line with other tabs
     )
