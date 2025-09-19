@@ -155,7 +155,7 @@ def render_work_experience_form_v2(
                         cls="flex flex-row flex-wrap gap-x-4 gap-y-2 mt-1"
                     )
                 ),
-                DivHStacked(
+                Grid(
                     Div(
                         P("Alguskuu/aasta", fr="start_date", cls="mb-1 " + LABEL_CLASS),
                         Div(
@@ -166,7 +166,6 @@ def render_work_experience_form_v2(
                             UkIcon("calendar", cls="h-5 w-5 text-muted-foreground absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none"),
                             cls="relative"
                         ),
-                        cls="w-48"
                     ),
                     Div(
                         P("Lõppkuu/aasta", fr="end_date", cls="mb-1 " + LABEL_CLASS),
@@ -178,9 +177,8 @@ def render_work_experience_form_v2(
                             UkIcon("calendar", cls="h-5 w-5 text-muted-foreground absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none"),
                             cls="relative"
                         ),
-                        cls="w-48"
                     ),
-                    cls="mb-4 space-x-4"
+                    cols=1, md_cols=2, cls="gap-4"
                 ),
             ),
 
