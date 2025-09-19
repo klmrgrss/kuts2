@@ -57,6 +57,7 @@ def base_layout(title: str, *content: Any, theme_headers: tuple = Theme.blue.hea
         Script(src="/static/js/form_validator.js", defer=True),
         Script(src="/static/js/flatpickr_init.js", defer=True),
                # --- SCRIPT CHANGES ---
+        Script(src="/static/js/qualification_scroll.js", defer=True),
         Script(src="/static/js/qualification_form.js", defer=True), # Include the new safe script
         Style("""
                     .no-animation, .no-animation:hover { animation: none !important; transition: none !important; }
