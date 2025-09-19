@@ -1,4 +1,4 @@
-# ui/layouts.py
+# klmrgrss/kuts2/kuts2-sticky-bar/app/ui/layouts.py
 
 from fasthtml.common import *
 from monsterui.all import *
@@ -39,7 +39,7 @@ def ToastAlert(message: str, alert_type: str = 'info', icon_name: Optional[str] 
     )
 
 
-# --- base_layout function ---
+# --- base_layout function (MODIFIED) ---
 def base_layout(title: str, *content: Any, theme_headers: tuple = Theme.blue.headers()) -> FT:
     all_hdrs = list(theme_headers)
     all_hdrs.extend([
@@ -55,7 +55,10 @@ def base_layout(title: str, *content: Any, theme_headers: tuple = Theme.blue.hea
         Script(src="/static/js/input_tag.js", defer=True),
         Script(src="/static/js/education_form.js", defer=True),
         Script(src="/static/js/form_validator.js", defer=True),
-        Script(src="/static/js/flatpickr_init.js", defer=True), Style("""
+        Script(src="/static/js/flatpickr_init.js", defer=True),
+               # --- SCRIPT CHANGES ---
+        Script(src="/static/js/qualification_form.js", defer=True), # Include the new safe script
+        Style("""
                     .no-animation, .no-animation:hover { animation: none !important; transition: none !important; }
                     div.activity-selected { border-color: #3b82f6; }
                     a.activity-selected { border-color: #3b82f6 !important; background-color: #dbeafe !important; transform: scale(0.95); }
@@ -71,6 +74,15 @@ def base_layout(title: str, *content: Any, theme_headers: tuple = Theme.blue.hea
         Link(rel="stylesheet", href="https://cdn.jsdelivr.net/npm/vis-timeline@7.7.2/dist/vis-timeline-graph2d.min.css"),
         Script(src="https://cdn.jsdelivr.net/npm/vis-timeline@7.7.2/standalone/umd/vis-timeline-graph2d.min.js"),
         Script(src="/static/js/vis_timeline_init.js", defer=True),
+        # The scrolling script that will now execute without being blocked by the crash
+        Script("""
+            document.body.addEventListener('htmx:afterSwap', function(event) {
+                const triggerElement = event.detail.requestConfig.elt;
+                if (triggerElement && triggerElement.id === 'qualification-form') {
+                    window.scrollTo({top: 0, behavior: 'smooth'});
+                }
+            });
+        """),
     ])
     return Html( Head( Meta(charset="UTF-8"), Meta(name="viewport", content="width=device-width, initial-scale=1.0"), Title(title, id="page-title"), *all_hdrs ), Body( *content, Div(id="toast-container"), cls="bg-background text-foreground" ), lang="et" )
 

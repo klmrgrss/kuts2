@@ -1,4 +1,4 @@
-# controllers/qualifications.py
+# klmrgrss/kuts2/kuts2-sticky-bar/app/controllers/qualifications.py
 from fasthtml.common import *
 from starlette.requests import Request
 from starlette.responses import Response
@@ -246,6 +246,8 @@ class QualificationController:
                     self.applied_qual_table.insert(row)
 
             print(f"--- SUCCESS [submit_qualifications]: Saved selections for {user_email} ---")
+            # After saving, just call the method that renders the tab.
+            # The scrolling logic is now handled in the view.
             return self.show_qualifications_tab(request)
 
         except Exception as e:

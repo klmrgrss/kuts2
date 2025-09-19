@@ -1,4 +1,4 @@
-# ui/qualification_form.py
+# klmrgrss/kuts2/kuts2-sticky-bar/app/ui/qualification_form.py
 from fasthtml.common import *
 from monsterui.all import *
 from .custom_components import StickyActionBar
@@ -113,41 +113,11 @@ def render_qualification_form(sections: dict, app_id: str):
         data_validation_mode="dirty"
     )
 
-    # --- FIX: Remove the redundant data_form_id argument ---
     action_bar = StickyActionBar(form_id="qualification-form")
-    # --- END FIX ---
-
+    
+    # The inline <script> has been completely removed from this component.
     page_content = Div(
-        form_content,
-        Script("""
-        function setupSyncForSection(sectionId) {
-            const container = document.getElementById(`qual-section-${sectionId}`);
-            if (!container) return;
-            const checkboxes = container.querySelectorAll(`#checkbox-group-${sectionId} input[type=\"checkbox\"]`);
-            const toggle = container.querySelector(`#toggle-${sectionId}`);
-            if (!toggle || checkboxes.length === 0) return;
-            function updateToggleState() {
-                const allChecked = Array.from(checkboxes).every(cb => cb.checked);
-                toggle.checked = allChecked;
-            }
-            checkboxes.forEach(checkbox => {
-                checkbox.removeEventListener('change', updateToggleState);
-                checkbox.addEventListener('change', updateToggleState);
-            });
-            updateToggleState();
-        }
-        function initializeQualificationSync() {
-            const sections = document.querySelectorAll('[id^="qual-section-"]');
-            sections.forEach(section => {
-                const sectionId = section.id.replace('qual-section-', '');
-                setupSyncForSection(sectionId);
-            });
-        }
-        document.addEventListener('DOMContentLoaded', initializeQualificationSync);
-        document.body.addEventListener('htmx:afterSwap', function(event) {
-            initializeQualificationSync();
-        });
-        """)
+        form_content
     )
 
     return page_content, action_bar
