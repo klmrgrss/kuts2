@@ -310,6 +310,20 @@ def get_evaluator_application(request: Request, user_email: str):
 async def post_update_qual_status(request: Request, user_email: str, record_id: int):
     return await evaluator_controller.update_qualification_status(request, user_email, record_id)
 
+@rt("/evaluator/d", methods=["GET"])
+def get_evaluator_dashboard_v2(request: Request):
+    return evaluator_controller.show_dashboard_v2(request)
+
+@rt("/evaluator/d/application/{qual_id:int}", methods=["GET"])
+def get_v2_application_detail(request: Request, qual_id: int):
+    # This will call a new method in the evaluator_controller
+    # which we will create in the next step.
+    return evaluator_controller.show_v2_application_detail(request, qual_id)
+
+@rt("/evaluator/d/search_applications", methods=["GET"])
+def search_v2_applications(request: Request, search: str = ""):
+    return evaluator_controller.search_applications(request, search)
+
 @rt("/files/download/{identifier:str}", methods=["GET"])
 async def download_file_route(request: Request, identifier: str):
     print(f"--- DEBUG [Download]: Request received for identifier: {identifier} ---")

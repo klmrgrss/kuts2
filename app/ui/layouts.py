@@ -75,6 +75,38 @@ def base_layout(title: str, *content: Any, theme_headers: tuple = Theme.blue.hea
                     summary::-webkit-details-marker { display: none; } /* For Chrome, Safari */
                     .accordion-marker { transition: transform 0.2s; }
                     details[open] > summary .accordion-marker { transform: rotate(180deg); }
+
+                    /* Styles for Evaluator V2 UI */
+                    #evaluator-v2-container { overflow: hidden; }
+                    .ev-panel { overflow-y: auto; transition: transform 0.3s ease-in-out; }
+                    #ev-overlay {
+                        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+                        background-color: rgba(0, 0, 0, 0.5);
+                        opacity: 0; visibility: hidden;
+                        transition: opacity 0.3s ease-in-out, visibility 0.3s ease-in-out;
+                        z-index: 30; /* Below panels */
+                    }
+                    @media (max-width: 1024px) {
+                        #evaluator-v2-container { display: block; } /* Stack them on mobile */
+                        .ev-panel {
+                            position: fixed; top: 65px; /* Height of navbar */
+                            height: calc(100% - 65px);
+                            width: 85%; max-width: 350px;
+                            background: white; z-index: 40;
+                            box-shadow: 0 0 15px rgba(0,0,0,0.2);
+                        }
+                        #ev-left-panel { left: 0; transform: translateX(-100%); }
+                        #ev-right-panel { right: 0; transform: translateX(100%); }
+                        #ev-center-panel { width: 100%; height: 100%; }
+
+                        /* 'Open' states */
+                        #evaluator-v2-container.left-panel-open #ev-left-panel { transform: translateX(0); }
+                        #evaluator-v2-container.right-panel-open #ev-right-panel { transform: translateX(0); }
+                        #evaluator-v2-container.left-panel-open #ev-overlay,
+                        #evaluator-v2-container.right-panel-open #ev-overlay {
+                            opacity: 1; visibility: visible;
+                        }
+                    }
                     """),
         Link(rel="stylesheet", href="https://cdn.jsdelivr.net/npm/vis-timeline@7.7.2/dist/vis-timeline-graph2d.min.css"),
         Script(src="https://cdn.jsdelivr.net/npm/vis-timeline@7.7.2/standalone/umd/vis-timeline-graph2d.min.js"),
@@ -87,6 +119,27 @@ def base_layout(title: str, *content: Any, theme_headers: tuple = Theme.blue.hea
                     window.scrollTo({top: 0, behavior: 'smooth'});
                 }
             });
+
+            /* JavaScript for Evaluator V2 UI */
+            function toggleEvaluatorPanel(panel) {
+                const container = document.getElementById('evaluator-v2-container');
+                if (!container) return;
+
+                if (panel === 'left') {
+                    container.classList.toggle('left-panel-open');
+                    container.classList.remove('right-panel-open'); // Close other panel
+                } else if (panel === 'right') {
+                    container.classList.toggle('right-panel-open');
+                    container.classList.remove('left-panel-open'); // Close other panel
+                }
+            }
+            function closeAllEvaluatorPanels() {
+                const container = document.getElementById('evaluator-v2-container');
+                if (container) {
+                    container.classList.remove('left-panel-open');
+                    container.classList.remove('right-panel-open');
+                }
+            }
         """),
     ])
     return Html( Head( Meta(charset="UTF-8"), Meta(name="viewport", content="width=device-width, initial-scale=1.0"), Title(title, id="page-title"), *all_hdrs ), Body( *content, Div(id="toast-container"), cls="bg-background text-foreground" ), lang="et" )
