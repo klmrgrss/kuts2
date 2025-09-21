@@ -18,7 +18,7 @@ def render_left_panel(applications: List[Dict]) -> FT:
                 hx_get="/evaluator/d/search_applications",
                 hx_trigger="keyup changed delay:500ms, search",
                 hx_target="#application-list-container",
-                hx_swap="innerHTML", # <-- UPDATED to innerHTML
+                hx_swap="innerHTML",
                 hx_include="[name='search']"
             ),
             UkIcon("search", cls="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400"),
@@ -30,7 +30,7 @@ def render_left_panel(applications: List[Dict]) -> FT:
 
     return Div(
         header,
-        # This div is now the permanent target for the swap
+        # This div is the permanent target for the swap
         Div(
             render_application_list(applications),
             id="application-list-container"
