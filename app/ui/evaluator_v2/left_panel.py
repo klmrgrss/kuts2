@@ -5,6 +5,7 @@ from typing import List, Dict
 from .application_list import render_application_list
 
 
+
 def render_left_panel(applications: List[Dict]) -> FT:
     """
     Renders the full left panel, including the search/filter controls
@@ -35,5 +36,5 @@ def render_left_panel(applications: List[Dict]) -> FT:
             render_application_list(applications),
             id="application-list-container"
         ),
-        cls="h-full bg-white border-r"
+        cls="h-full bg-white border-r overflow-auto [scrollbar-width:none]"
     )
