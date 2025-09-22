@@ -2,12 +2,10 @@
 from fasthtml.common import *
 from monsterui.all import *
 from typing import List, Dict
-# NO Fragment import is needed
 
 def render_application_list(applications: List[Dict]) -> FT:
     """Renders just the list of application items as a tuple of elements."""
     if not applications:
-        # Returning a P element is fine here as it's a single component
         return P("No applications found.", cls="p-4 text-center text-gray-500")
 
     application_items = []
@@ -30,7 +28,7 @@ def render_application_list(applications: List[Dict]) -> FT:
         )
         application_items.append(item)
     
-    # --- THIS IS THE CORRECT IMPLEMENTATION ---
-    # Return a tuple of all the generated items.
-    # FastHTML will render them as a sequence of sibling elements.
+    # *** THE FIX IS HERE ***
+    # Return a tuple of the items. This is the simplest and most robust way
+    # to return multiple sibling elements in FastHTML.
     return tuple(application_items)

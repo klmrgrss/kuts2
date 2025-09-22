@@ -324,6 +324,14 @@ def get_v2_application_detail(request: Request, qual_id: int):
 def search_v2_applications(request: Request, search: str = ""):
     return evaluator_controller.search_applications(request, search)
 
+@rt("/evaluator/test", methods=["GET"])
+def get_evaluator_test_page(request: Request):
+    return evaluator_controller.show_test_search_page(request)
+
+@rt("/evaluator/test/search", methods=["POST"])
+def post_evaluator_test_search(request: Request, search: str = ""):
+    return evaluator_controller.handle_test_search(request, search)
+
 @rt("/files/download/{identifier:str}", methods=["GET"])
 async def download_file_route(request: Request, identifier: str):
     print(f"--- DEBUG [Download]: Request received for identifier: {identifier} ---")

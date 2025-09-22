@@ -23,6 +23,7 @@ from ui.evaluator_v2.left_panel import render_left_panel
 from ui.evaluator_v2.center_panel import render_center_panel
 from ui.evaluator_v2.right_panel import render_right_panel
 from ui.evaluator_v2.application_list import render_application_list
+from ui.evaluator_v2.test_search_page import render_test_search_page
 
 # --- Mappings and Allowed Fields (Keep as is) ---
 tegevusalad_abbr_to_full = {
@@ -288,8 +289,68 @@ class EvaluatorController:
                 "submission_date": qual.get('application_date', 'N/A'),
             })
 
-        # This now correctly calls the imported function
-        return render_application_list(filtered_application_data)
+        if not filtered_application_data:
+            return P("No applications found.", cls="p-4 text-center text-gray-500")
+
+        application_items = []
+        for app in filtered_application_data:
+            item = A(
+                Div(
+                    Div(
+                        P(app.get('applicant_name', 'N/A'), cls="font-semibold text-sm truncate"),
+                        Span(app.get('submission_date', ''), cls="text-xs text-gray-500"),
+                        cls="flex justify-between items-baseline"
+                    ),
+                    P(app.get('qualification_name', 'N/A'), cls="text-xs text-gray-600 truncate"),
+                ),
+                hx_get=f"/evaluator/d/application/{app.get('qual_id')}",
+                hx_target="#ev-center-panel",
+                hx_swap="innerHTML",
+                # The hx_swap_oob is INTENTIONALLY OMITTED for the search response
+                _=("on click remove .bg-blue-100 from <a/> in #application-list-container then add .bg-blue-100 to me"),
+                cls="block p-3 border-b hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            )
+            application_items.append(item)
+
+        # Return the clean list as a tuple.
+        return tuple(application_items)
+
+    def show_test_search_page(self, request: Request):
+        """Renders the simple test search page with all applications."""
+        all_apps = self._get_flattened_applications()
+        # This will return a full HTML page via the Titled component
+        return render_test_search_page(all_apps)
+
+    def handle_test_search(self, request: Request, search: str):
+        """Handles the search POST request and returns only the table rows."""
+        all_apps = self._get_flattened_applications()
+        search_term = search.lower().strip()
+
+        if not search_term:
+            filtered_apps = all_apps
+        else:
+            filtered_apps = [
+                app for app in all_apps if
+                search_term in app.get('applicant_name', '').lower() or
+                search_term in app.get('qualification_name', '').lower()
+            ]
+
+        # This helper function needs to be defined inside this method or be accessible
+        # to render just the rows for the HTMX swap.
+        def show_contacts(apps: list[dict]):
+            if not apps:
+                return Tr(Td("No matching applications found.", colspan="3", cls="text-center"))
+            return [
+                Tr(
+                    Td(app.get('applicant_name', 'N/A')),
+                    Td(app.get('qualification_name', 'N/A')),
+                    Td(app.get('submission_date', 'N/A'))
+                ) for app in apps
+            ]
+
+        # Return just the new table rows as a tuple
+        return tuple(show_contacts(filtered_apps))
+
 
     async def update_qualification_status(self, request: Request, user_email: str, record_id: int):
         current_user_email = request.session.get("user_email")
