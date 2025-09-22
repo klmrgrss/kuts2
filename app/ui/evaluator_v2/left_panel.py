@@ -14,14 +14,14 @@ def render_left_panel(applications: List[Dict]) -> FT:
         Div(
             Input(
                 id="search-input", name="search", type="search",
-                placeholder="Otsi nime või kutse järgi...",
+                #placeholder="Otsi nime või kutse järgi...",
                 hx_get="/evaluator/d/search_applications",
                 hx_trigger="keyup changed delay:500ms, search",
                 hx_target="#application-list-container",
                 hx_swap="innerHTML",
                 hx_include="[name='search']"
             ),
-            UkIcon("search", cls="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400"),
+            UkIcon("search", cls="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400"),
             cls="relative"
         ),
         Button(UkIcon("filter", cls="w-5 h-5"), cls="btn btn-ghost btn-square"),
