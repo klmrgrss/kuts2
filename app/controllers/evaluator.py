@@ -1,4 +1,4 @@
-# controllers/evaluator.py
+# klmrgrss/kuts2/kuts2-eval/app/controllers/evaluator.py
 
 from fasthtml.common import *
 from monsterui.all import *
@@ -34,7 +34,7 @@ tegevusalad_abbr_to_full = {
     "JAHUTUS/EH": "jahutussüsteemide ehitamine", "Ventilatsioonilukksepp": "ventilatsioonilukksepp",
     "ÜE/OJV": "üldehitusliku ehitamise omanikujärelevalve tegemine",
     "SKT/OJV": "sisekliima tagamise süsteemide ehitamise omanikujärelevalve tegemine",
-    "VK/OJV": "hoonesisese ja selle juurde kuuluva vee- ja kanalisatsioonisüsteemi ehitamise omanikujärelevalve tegemine",
+    "VK/OJV": "hoonesisese ja selle juurde kuuluva veevarustus- ja kanalisatsioonisüsteemi ehitamise omanikujärelevalve tegemine",
     "Maaler": "maaler", "ÜE/EHTT": "üldehitustööde tegemine",
     "Kaldkatuste/EH": "eriehitustööde tegemine, kaldkatuste ehitamine",
     "Lamekatus/EH": "eriehitustööde tegemine, lamekatuste ehitamine",
@@ -89,6 +89,10 @@ class EvaluatorController:
         return dashboard_data
 
     def _get_flattened_applications(self):
+        """
+        Fetches and flattens application data, now providing 'level' and
+        'qualification_name' as separate fields to match the UI component's needs.
+        """
         print("--- Fetching and flattening data for V2 evaluator dashboard ---")
         all_users = self.users_table()
         all_quals = self.qual_table()
@@ -103,7 +107,8 @@ class EvaluatorController:
             flattened_data.append({
                 "qual_id": qual.get('id'),
                 "applicant_name": applicant_name,
-                "qualification_name": f"{qual.get('level', '')} - {qual.get('qualification_name', '')}",
+                "qualification_name": qual.get('qualification_name', ''),
+                "level": qual.get('level', ''),
                 "submission_date": qual.get('application_date', datetime.date.today().strftime('%Y-%m-%d')),
             })
         return flattened_data
@@ -253,8 +258,8 @@ class EvaluatorController:
 
     def search_applications(self, request: Request, search: str):
         """
-        Handles the live search request from the left panel's search box.
-        Returns only the HTML for the list of applications.
+        Handles the live search request. It now only filters data and delegates
+        rendering to the dedicated 'render_application_list' component.
         """
         print(f"--- Searching applications with term: '{search}' ---")
         
@@ -285,40 +290,17 @@ class EvaluatorController:
             filtered_application_data.append({
                 "qual_id": qual.get('id'),
                 "applicant_name": applicant_name,
-                "qualification_name": f"{qual.get('level', '')} - {qual.get('qualification_name', '')}",
+                "qualification_name": qual.get('qualification_name', ''),
+                "level": qual.get('level', ''),
                 "submission_date": qual.get('application_date', 'N/A'),
             })
 
-        if not filtered_application_data:
-            return P("No applications found.", cls="p-4 text-center text-gray-500")
+        return render_application_list(filtered_application_data, include_oob=False)
 
-        application_items = []
-        for app in filtered_application_data:
-            item = A(
-                Div(
-                    Div(
-                        P(app.get('applicant_name', 'N/A'), cls="font-semibold text-sm truncate"),
-                        Span(app.get('submission_date', ''), cls="text-xs text-gray-500"),
-                        cls="flex justify-between items-baseline"
-                    ),
-                    P(app.get('qualification_name', 'N/A'), cls="text-xs text-gray-600 truncate"),
-                ),
-                hx_get=f"/evaluator/d/application/{app.get('qual_id')}",
-                hx_target="#ev-center-panel",
-                hx_swap="innerHTML",
-                # The hx_swap_oob is INTENTIONALLY OMITTED for the search response
-                _=("on click remove .bg-blue-100 from <a/> in #application-list-container then add .bg-blue-100 to me"),
-                cls="block p-3 border-b hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            )
-            application_items.append(item)
-
-        # Return the clean list as a tuple.
-        return tuple(application_items)
 
     def show_test_search_page(self, request: Request):
         """Renders the simple test search page with all applications."""
         all_apps = self._get_flattened_applications()
-        # This will return a full HTML page via the Titled component
         return render_test_search_page(all_apps)
 
     def handle_test_search(self, request: Request, search: str):
@@ -335,8 +317,6 @@ class EvaluatorController:
                 search_term in app.get('qualification_name', '').lower()
             ]
 
-        # This helper function needs to be defined inside this method or be accessible
-        # to render just the rows for the HTMX swap.
         def show_contacts(apps: list[dict]):
             if not apps:
                 return Tr(Td("No matching applications found.", colspan="3", cls="text-center"))
@@ -348,7 +328,6 @@ class EvaluatorController:
                 ) for app in apps
             ]
 
-        # Return just the new table rows as a tuple
         return tuple(show_contacts(filtered_apps))
 
 

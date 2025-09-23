@@ -107,3 +107,22 @@ kt = {
     }
 }
 
+QUALIFICATION_LEVEL_STYLES = {
+    "Ehitusjuht, TASE 6": {
+        "abbr": "EJ6",
+        "class": "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
+    },
+    "Ehituse tööjuht, TASE 5": {
+        "abbr": "ETJ5", # As seen in evaluator.py
+        "class": "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+    },
+    "Oskustööline, TASE 4": {
+        "abbr": "OT4",
+        "class": "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200"
+    },
+    # Add a fallback for any other cases
+    "default": {
+        "abbr": "N/A",
+        "class": "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200"
+    }
+}
