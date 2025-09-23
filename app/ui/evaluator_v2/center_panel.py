@@ -2,6 +2,7 @@
 from fasthtml.common import *
 from monsterui.all import *
 from typing import Dict, Optional
+from ui.shared_components import LevelPill # Import LevelPill
 
 def ContextButton(
     icon_name: str,
@@ -55,22 +56,43 @@ def render_center_panel(qual_data: Dict, user_data: Dict) -> FT:
     and the argumentation/decision components, based on the Compliance Dashboard UI.
     """
     applicant_name = user_data.get('full_name', 'N/A')
-    qual_name = f"{qual_data.get('level', '')} - {qual_data.get('qualification_name', '')}"
-    specialisation = qual_data.get('specialisation', 'N/A')
+    qual_level = qual_data.get('level', '')
+    qual_name = qual_data.get('qualification_name', '')
+    specialisations = qual_data.get('specialisations', [])
+    selected_count = qual_data.get('selected_specialisations_count', len(specialisations))
+    total_count = qual_data.get('total_specialisations', len(specialisations))
 
     # --- Header ---
-    header = Div(
-        Div(
-            Div( H2(applicant_name, cls="text-md font-semibold"), cls="flex items-center" ),
+    header = Details(
+        # This part is the clickable accordion title
+        Summary(
             Div(
-                P(qual_name, cls="text-base text-gray-500"),
-                P(f"Spetsialiseerumine: {specialisation}", cls="text-xs text-gray-500"),
-                cls="flex flex-col justify-center col-span-3"
+                # Column 1: Applicant Name and Level
+                Div(
+                    LevelPill(qual_level),
+                    H2(applicant_name, cls="text-xl font-bold truncate ml-2"),
+                    cls="flex items-center col-span-1"
+                ),
+                # Column 2 & 3: Activity Name with count
+                P(f"({selected_count}/{total_count}) {qual_name}", cls="text-base text-gray-600 col-start-2 col-span-2 truncate flex items-center"),
+                # Chevron icon for the accordion
+                Div(UkIcon("chevron-down", cls="accordion-marker"), cls="flex items-center justify-end"),
+                cls="grid grid-cols-[1fr_2fr_auto] gap-x-4 w-full items-center"
             ),
-            cls="grid grid-cols-4 gap-x-2"
+            cls="list-none cursor-pointer" # Removes default list marker
         ),
+        # This part is the collapsible content
+        Div(
+            Ul(
+                *[Li(s) for s in specialisations],
+                cls="list-disc list-inside text-xs text-gray-700 col-start-2 col-span-2"
+            ),
+            cls="mt-2 grid grid-cols-3 gap-x-4"
+        ),
+        open=True, # Start with the accordion open
         cls="p-4 border-b bg-gray-50 sticky top-0 z-10"
     )
+
 
     # --- Helper Component for Accordion Sections (Unchanged) ---
     def ComplianceSection(
@@ -191,6 +213,5 @@ def render_center_panel(qual_data: Dict, user_data: Dict) -> FT:
         Div(compliance_dashboard, cls="flex-grow overflow-y-auto [scrollbar-width:none]"),
         final_decision_area,
         id="ev-center-panel",
-        hx_swap_oob="true",
         cls="flex flex-col h-full bg-white"
     )

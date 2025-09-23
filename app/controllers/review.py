@@ -1,3 +1,4 @@
+# app/controllers/review.py
 # gem/controllers/review.py
 
 from fasthtml.common import *
@@ -67,7 +68,8 @@ class ReviewController:
                 processed_list.append({
                     'level': level,
                     'qualification_name': name,
-                    'is_tervik': True # Flag for the view to use
+                    'is_tervik': True, # Flag for the view to use
+                    'specialisation': "Tervikspetsialiseerumine"
                 })
             else:
                 # Otherwise, add back the individual items

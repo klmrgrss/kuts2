@@ -1,3 +1,4 @@
+# app/main.py
 # main.py
 
 # --- Imports ---
@@ -314,8 +315,8 @@ async def post_update_qual_status(request: Request, user_email: str, record_id: 
 def get_evaluator_dashboard_v2(request: Request):
     return evaluator_controller.show_dashboard_v2(request)
 
-@rt("/evaluator/d/application/{qual_id:int}", methods=["GET"])
-def get_v2_application_detail(request: Request, qual_id: int):
+@rt("/evaluator/d/application/{qual_id:str}", methods=["GET"])
+def get_v2_application_detail(request: Request, qual_id: str):
     # This will call a new method in the evaluator_controller
     # which we will create in the next step.
     return evaluator_controller.show_v2_application_detail(request, qual_id)

@@ -1,3 +1,4 @@
+# app/controllers/evaluator.py
 # klmrgrss/kuts2/kuts2-eval/app/controllers/evaluator.py
 
 from fasthtml.common import *
@@ -10,6 +11,8 @@ import datetime
 import json
 import traceback
 from dateutil.relativedelta import relativedelta # For adding months to dates
+from collections import defaultdict
+from config.qualification_data import kt
 
 # Import the UI components used
 from ui.evaluator.references_display import render_references_grid
@@ -96,21 +99,32 @@ class EvaluatorController:
         print("--- Fetching and flattening data for V2 evaluator dashboard ---")
         all_users = self.users_table()
         all_quals = self.qual_table()
-
         user_name_lookup = {user.get('email'): user.get('full_name', 'N/A') for user in all_users}
 
-        flattened_data = []
+        grouped_by_activity = defaultdict(lambda: defaultdict(list))
         for qual in all_quals:
             user_email = qual.get('user_email')
-            applicant_name = user_name_lookup.get(user_email, user_email)
+            level = qual.get('level')
+            activity = qual.get('qualification_name')
+            specialisation = qual.get('specialisation')
+            grouped_by_activity[user_email][(level, activity)].append(specialisation)
 
-            flattened_data.append({
-                "qual_id": qual.get('id'),
-                "applicant_name": applicant_name,
-                "qualification_name": qual.get('qualification_name', ''),
-                "level": qual.get('level', ''),
-                "submission_date": qual.get('application_date', datetime.date.today().strftime('%Y-%m-%d')),
-            })
+        flattened_data = []
+        for user_email, activities in grouped_by_activity.items():
+            for (level, activity), specialisations in activities.items():
+                applicant_name = user_name_lookup.get(user_email, user_email)
+                total_specialisations = len(kt.get(level, {}).get(activity, []))
+                
+                flattened_data.append({
+                    "qual_id": f"{user_email}-{level}-{activity}",
+                    "applicant_name": applicant_name,
+                    "qualification_name": activity,
+                    "level": level,
+                    "submission_date": datetime.date.today().strftime('%Y-%m-%d'),
+                    "selected_specialisations_count": len(specialisations),
+                    "total_specialisations": total_specialisations,
+                    "specialisations": specialisations
+                })
         return flattened_data
 
     def show_dashboard(self, request: Request):
@@ -144,19 +158,33 @@ class EvaluatorController:
             right_panel_content=right_panel
         )
 
-    def show_v2_application_detail(self, request: Request, qual_id: int):
+    def show_v2_application_detail(self, request: Request, qual_id: str):
         """
         Fetches data for a single qualification and returns the HTML partials
         for the center and right panels (for HTMX OOB swap).
         """
         try:
-            qual_data = self.qual_table[qual_id]
-            user_email = qual_data.get('user_email')
-            if not user_email:
-                raise NotFoundError("Applicant email not found in qualification record.")
-
+            user_email, level, activity = qual_id.split('-', 2)
+            
             user_data = self.users_table[user_email]
             
+            all_quals = self.qual_table()
+            user_quals = [q for q in all_quals if q.get('user_email') == user_email and q.get('level') == level and q.get('qualification_name') == activity]
+            
+            if not user_quals:
+                raise NotFoundError("No matching qualifications found for this activity.")
+                
+            specialisations = [q.get('specialisation') for q in user_quals]
+            total_specialisations = len(kt.get(level, {}).get(activity, []))
+            
+            qual_data = {
+                "level": level,
+                "qualification_name": activity,
+                "specialisations": specialisations,
+                "selected_specialisations_count": len(specialisations),
+                "total_specialisations": total_specialisations,
+            }
+
             all_docs = self.db.t.documents(order_by='id')
             user_documents = [doc for doc in all_docs if doc.get('user_email') == user_email]
             
@@ -263,39 +291,20 @@ class EvaluatorController:
         """
         print(f"--- Searching applications with term: '{search}' ---")
         
-        all_quals = self.qual_table()
-        all_users = self.users_table()
-        user_name_lookup = {user.get('email'): user.get('full_name', 'N/A') for user in all_users}
+        all_apps = self._get_flattened_applications()
 
         if search:
             search_lower = search.lower()
-            matching_user_emails = {
-                email for email, name in user_name_lookup.items()
-                if search_lower in name.lower()
-            }
-
-            filtered_quals = [
-                q for q in all_quals if
-                (q.get('user_email') in matching_user_emails) or
-                (search_lower in q.get('qualification_name', '').lower()) or
-                (search_lower in q.get('level', '').lower())
+            filtered_apps = [
+                app for app in all_apps if
+                (search_lower in app.get('applicant_name', '').lower()) or
+                (search_lower in app.get('qualification_name', '').lower()) or
+                (search_lower in app.get('level', '').lower())
             ]
         else:
-            filtered_quals = all_quals
+            filtered_apps = all_apps
 
-        filtered_application_data = []
-        for qual in filtered_quals:
-            user_email = qual.get('user_email')
-            applicant_name = user_name_lookup.get(user_email, user_email)
-            filtered_application_data.append({
-                "qual_id": qual.get('id'),
-                "applicant_name": applicant_name,
-                "qualification_name": qual.get('qualification_name', ''),
-                "level": qual.get('level', ''),
-                "submission_date": qual.get('application_date', 'N/A'),
-            })
-
-        return render_application_list(filtered_application_data, include_oob=False)
+        return render_application_list(filtered_apps, include_oob=False)
 
 
     def show_test_search_page(self, request: Request):

@@ -1,3 +1,4 @@
+# app/ui/review_view.py
 # gem/ui/review_view.py
 
 from fasthtml.common import *
@@ -76,20 +77,11 @@ def render_review_page(data: dict) -> FT:
     qual_items = []
     if qualifications:
         for q in qualifications:
-            # NEW: Check for the 'is_tervik' flag from the controller
-            if q.get('is_tervik'):
-                item_content = Span(
-                    f"{q.get('level', '')} - {q.get('qualification_name', '')}: ",
-                    I("Tervikspetsialiseerumine"), # Italicized text
-                    cls="font-medium text-sm"
-                )
-            else:
-                # Original rendering for individual specializations
-                item_content = Span(
-                    Span(f"{q.get('level', '')} - {q.get('qualification_name', '')}", cls="font-medium text-sm"),
-                    Span(f": {q.get('specialisation', '')}", cls="text-sm text-muted-foreground")
-                )
-            # FIX: Use Spans directly inside Li for correct bullet alignment
+            item_content = Span(
+                f"{q.get('level', '')} - {q.get('qualification_name', '')}: ",
+                I(q.get('specialisation')), 
+                cls="font-medium text-sm"
+            )
             qual_items.append(Li(item_content))
 
     content_sections.append(
