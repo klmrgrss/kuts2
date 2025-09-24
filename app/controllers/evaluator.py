@@ -27,6 +27,9 @@ from ui.evaluator_v2.center_panel import render_center_panel
 from ui.evaluator_v2.right_panel import render_right_panel
 from ui.evaluator_v2.application_list import render_application_list
 from ui.evaluator_v2.test_search_page import render_test_search_page
+from logic.validator import ValidationEngine
+from logic.models import ApplicantData
+from logic.helpers import calculate_total_experience_years
 
 # --- Mappings and Allowed Fields (Keep as is) ---
 tegevusalad_abbr_to_full = {
@@ -67,6 +70,11 @@ class EvaluatorController:
         self.education_table = db.t.education
         self.training_files_table = db.t.training_files
         self.emp_proof_table = db.t.employment_proof
+
+                # V --- INITIALIZE THE VALIDATION ENGINE --- V
+        rules_path = Path(__file__).parent.parent / 'config' / 'rules.toml'
+        self.validation_engine = ValidationEngine(rules_path)
+        # ^ --- END INITIALIZATION --- ^
 
     def _get_dashboard_data(self):
         print("--- Fetching data for evaluator dashboard ---"); users = self.users_table(); all_quals = self.qual_table()
@@ -134,6 +142,7 @@ class EvaluatorController:
         content = Div(ag_grid_dashboard_container, ag_grid_dashboard_script, cls="p-4")
         return evaluator_layout(request=request, title=page_title, content=content)
 
+    # V --- MODIFIED METHOD --- V
     def show_dashboard_v2(self, request: Request):
         """Renders the new V2 dashboard layout, pre-selecting the first item."""
         applications_data = self._get_flattened_applications()
@@ -143,9 +152,11 @@ class EvaluatorController:
         if applications_data:
             selected_qual_id = applications_data[0].get('qual_id')
             try:
+                # Pass the qualification ID to the detail view
                 center_panel, right_panel = self.show_v2_application_detail(request, selected_qual_id)
             except Exception as e:
                 print(f"--- ERROR pre-loading application detail for qual_id {selected_qual_id}: {e} ---")
+                traceback.print_exc()
                 center_panel = Div(f"Error loading application {selected_qual_id}.", cls="p-4 text-red-500")
 
         left_panel = render_left_panel(applications_data)
@@ -157,17 +168,21 @@ class EvaluatorController:
             center_panel_content=center_panel,
             right_panel_content=right_panel
         )
+    # ^ --- END MODIFIED METHOD --- ^
 
     def show_v2_application_detail(self, request: Request, qual_id: str):
         """
-        Fetches data for a single qualification and returns the HTML partials
-        for the center and right panels (for HTMX OOB swap).
+        Fetches data, runs validation, and returns the HTML partials for the center and right panels.
         """
         try:
             user_email, level, activity = qual_id.split('-', 2)
             
+            # --- Run Validation ---
+            applicant_data_for_validation = self._get_applicant_data_for_validation(user_email)
+            validation_results = self.validation_engine.validate(applicant_data_for_validation, "toojuht_tase_5") # Using TJ5 for now
+
+            # --- Fetch Data for UI ---
             user_data = self.users_table[user_email]
-            
             all_quals = self.qual_table()
             user_quals = [q for q in all_quals if q.get('user_email') == user_email and q.get('level') == level and q.get('qualification_name') == activity]
             
@@ -178,11 +193,8 @@ class EvaluatorController:
             total_specialisations = len(kt.get(level, {}).get(activity, []))
             
             qual_data = {
-                "level": level,
-                "qualification_name": activity,
-                "specialisations": specialisations,
-                "selected_specialisations_count": len(specialisations),
-                "total_specialisations": total_specialisations,
+                "level": level, "qualification_name": activity, "specialisations": specialisations,
+                "selected_specialisations_count": len(specialisations), "total_specialisations": total_specialisations,
             }
 
             all_docs = self.db.t.documents(order_by='id')
@@ -191,7 +203,8 @@ class EvaluatorController:
             all_work_exp = self.work_exp_table(order_by='id')
             user_work_experience = [exp for exp in all_work_exp if exp.get('user_email') == user_email]
 
-            center_panel = render_center_panel(qual_data, user_data)
+            # --- Render Panels ---
+            center_panel = render_center_panel(qual_data, user_data, validation_results) # Pass results to view
             right_panel = render_right_panel(user_documents, user_work_experience)
             
             return center_panel, right_panel
@@ -207,6 +220,7 @@ class EvaluatorController:
                 Div(f"An unexpected error occurred: {e}", id="ev-center-panel", hx_swap_oob="true"),
                 Div("", id="ev-right-panel", hx_swap_oob="true")
             )
+    # ^ --- END MODIFIED METHOD --- ^
 
     def _prepare_timeline_data(self, work_experience_list: list) -> list:
         timeline_items = []
@@ -339,6 +353,44 @@ class EvaluatorController:
 
         return tuple(show_contacts(filtered_apps))
 
+    # V --- NEW HELPER METHOD --- V
+    def _get_applicant_data_for_validation(self, user_email: str) -> ApplicantData:
+        """
+        Fetches real data from the DB, calculates experience, and adds placeholders
+        for data that will eventually come from document parsing.
+        """
+        
+        work_experiences = self.work_exp_table("user_email=?", [user_email])
+
+        periods = []
+        for exp in work_experiences:
+            try:
+                start = datetime.datetime.strptime(exp['start_date'], '%Y-%m').date()
+                end_str = exp['end_date'] or datetime.datetime.now().strftime('%Y-%m')
+                end = datetime.datetime.strptime(end_str, '%Y-%m').date()
+                periods.append((start, end))
+            except (ValueError, TypeError):
+                continue
+
+        total_years = calculate_total_experience_years(periods)
+        
+        # --- PSEUDO-DATA SECTION ---
+        pseudo_data = {
+            "education": "upper_secondary",
+            "has_prior_level_4": True,
+            "base_training_hours": 40,
+            "matching_experience_years": total_years
+        }
+        # --- END PSEUDO-DATA SECTION ---
+
+        return ApplicantData(
+            education=pseudo_data["education"],
+            work_experience_years=total_years,
+            matching_experience_years=pseudo_data["matching_experience_years"],
+            has_prior_level_4=pseudo_data["has_prior_level_4"],
+            base_training_hours=pseudo_data["base_training_hours"]
+        )
+    # ^ --- END NEW HELPER METHOD --- ^
 
     async def update_qualification_status(self, request: Request, user_email: str, record_id: int):
         current_user_email = request.session.get("user_email")

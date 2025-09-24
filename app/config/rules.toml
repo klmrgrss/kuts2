@@ -1,0 +1,63 @@
+# app/config/rules.toml
+
+# --- Ehituse tööjuht, tase 5 (TJ5) ---
+[[qualifications]]
+id = "toojuht_tase_5"
+name = "Ehituse tööjuht, tase 5"
+level = 5
+
+  # Corresponds to "Variant I" from DOMAIN_KNOWLEDGE.md
+  [[qualifications.eligibility_packages]]
+  id = "variant_1"
+  education_requirement = "upper_secondary"
+  total_experience_years = 3
+  matching_experience_years = 2
+  requires_prior_level_4 = true
+  base_training_hours = 30
+
+  # Corresponds to "Variant II" from DOMAIN_KNOWLEDGE.md
+  [[qualifications.eligibility_packages]]
+  id = "variant_2"
+  education_requirement = "upper_secondary"
+  total_experience_years = 5
+  matching_experience_years = 2
+  requires_prior_level_4 = false
+  base_training_hours = 30
+
+  # A simplified representation of "Variant IV/V"
+  [[qualifications.eligibility_packages]]
+  id = "variant_4_or_5"
+  education_requirement = "higher_or_technical"
+  total_experience_years = 2
+  matching_experience_years = 1
+  requires_prior_level_4 = false
+  base_training_hours = 30
+
+
+# --- Ehitusjuht, tase 6 (EJ6) ---
+[[qualifications]]
+id = "ehitusjuht_tase_6"
+name = "Ehitusjuht, tase 6"
+level = 6
+
+  # Represents the various higher education routes described in DOMAIN_KNOWLEDGE.md
+  # For simplicity, this combines the EAP-based routes into one package.
+  # The logic can be expanded if different experience windows need to be checked separately.
+  [[qualifications.eligibility_packages]]
+  id = "higher_education_route"
+  education_requirement = "higher_education_degree" # This would be a category covering 180/240/300 EAP degrees
+  total_experience_years = 3 # This is an example, the real value depends on the degree EAP
+  matching_experience_years = 2 # This is an example
+  requires_prior_level_4 = false
+  base_training_hours = 40 # Base training for EJ6 is >=40h
+
+  # This package represents the recertification path for EJ6
+  [[qualifications.eligibility_packages]]
+  id = "recertification_route"
+  education_requirement = "any" # Not the primary check for recertification
+  total_experience_years = 2 # Requires >=2y matching work in last 5y
+  matching_experience_years = 2 # Same as above
+  requires_prior_level_4 = false
+  # Training for recertification is more complex (16h management + 16h specialization)
+  # We'll represent the total minimum here. The validation logic can handle the specifics.
+  base_training_hours = 32

@@ -50,7 +50,34 @@ def ContextButton(
         **kwargs
     )
 
-def render_center_panel(qual_data: Dict, user_data: Dict) -> FT:
+def render_compliance_section_from_data(title: str, icon_name: str, result_details: Dict):
+    """Dynamically renders a compliance section based on validation results."""
+    is_compliant = result_details.get("met", False)
+    status_text = f"Nõutud: {result_details.get('required')}, Esitatud: {result_details.get('provided')}"
+    
+    status_color_class = "border-green-500" if is_compliant else "border-red-500"
+    status_icon = UkIcon("check-circle", cls="w-5 h-5 text-green-500") if is_compliant else UkIcon("x-circle", cls="w-5 h-5 text-red-500")
+
+    return Details(
+        Summary(
+            Div(
+                Div(cls=f"w-1.5 h-full absolute left-0 top-0 bg-{status_color_class.split('-')[1]}-500"),
+                UkIcon(icon_name, cls="w-5 h-5"),
+                H3(title, cls="font-semibold"),
+                status_icon,
+                Span(status_text, cls="text-sm text-gray-500 truncate"),
+                UkIcon("chevron-down", cls="accordion-marker ml-auto"),
+                cls="flex items-center gap-x-3 w-full cursor-pointer p-3 relative"
+            )
+        ),
+        # Content can be expanded later with more rule details
+        Div(P("Details about the rule and analysis can be added here.", cls="text-sm p-4 border-t")),
+        open=not is_compliant, # Open the section if it failed
+        cls=f"border {status_color_class} rounded-lg "
+    )
+# ^ --- END NEW HELPER FUNCTION --- ^
+
+def render_center_panel(qual_data: Dict, user_data: Dict, validation_results: Dict) -> FT:
     """
     Renders the center panel with the details of the selected qualification
     and the argumentation/decision components, based on the Compliance Dashboard UI.
@@ -175,26 +202,36 @@ def render_center_panel(qual_data: Dict, user_data: Dict) -> FT:
             cls=f"border {status_color_class} rounded-lg "
         )
 
-    # --- Main Content Area ---
-    compliance_dashboard = Div(
-        ComplianceSection(
-            title="Haridus", icon_name="book-open", status_text="Ehitusalane rakenduskõrgharidus, 240 EAP",
-            is_compliant=True, rule_text="Nõutav (TJ5, Variant IV): Tehnikaalane rakenduskõrgharidus, ≥2a töökogemus (sh ≥1a vastav) ja ≥30h baaskoolitus.",
-            analysis_items=["Haridustase: Rakenduskõrgharidus (Vastab)"], is_open=True,
-            pdf_path='https://arxiv.org/pdf/1706.03762', doc_filename="diplom_ehitus.pdf"
-        ),
-        ComplianceSection(
-            title="Täiendkoolitus", icon_name="award", status_text="Vastab reeglile: 40h / 30h nõutud",
-            is_compliant=True, rule_text="Nõutav (TJ5, Variant IV): ≥30h baaskoolitus.",
-            analysis_items=["Koolituse maht: 40 tundi (Vastab)"]
-        ),
-        ComplianceSection(
-            title="Töökogemus", icon_name="briefcase", status_text="Ei vasta reeglile: 1.5a / 2a nõutud",
-            is_compliant=False, rule_text="Nõutav (TJ5, Variant IV): ≥2a töökogemus (sh ≥1a vastav).",
-            analysis_items=["Kogemus (kokku): 1.5 aastat (Ei vasta)", "Vastav kogemus: 1.5 aastat (Vastab)"]
-        ),
-        cls="p-4 space-y-4"
-    )
+     # --- Dynamic Compliance Dashboard ---
+    compliance_sections = []
+    # Find the first package the applicant meets
+    met_package = next((res for res in validation_results.get("results", []) if res["is_met"]), None)
+
+    if met_package:
+        # If a package is met, show its details
+        compliance_sections.append(
+            Div(
+                H3(f"Vastab tingimustele (Variant: {met_package['package_id']})", cls="text-lg font-semibold text-green-700 p-2 bg-green-50 rounded-md text-center"),
+                render_compliance_section_from_data("Haridus", "book-open", met_package['details']['education']),
+                render_compliance_section_from_data("Töökogemus (kokku)", "briefcase", met_package['details']['total_experience']),
+                render_compliance_section_from_data("Vastav töökogemus", "briefcase", met_package['details']['matching_experience']),
+                render_compliance_section_from_data("Baaskoolitus", "award", met_package['details']['base_training']),
+            )
+        )
+    else:
+        # If no package is met, show the details of the first (or best-fit) one that failed
+        first_package = validation_results.get("results", [{}])[0]
+        compliance_sections.append(
+             Div(
+                H3(f"Tingimused ei ole täidetud (Variant: {first_package['package_id']})", cls="text-lg font-semibold text-red-700 p-2 bg-red-50 rounded-md text-center"),
+                render_compliance_section_from_data("Haridus", "book-open", first_package['details']['education']),
+                render_compliance_section_from_data("Töökogemus (kokku)", "briefcase", first_package['details']['total_experience']),
+                render_compliance_section_from_data("Vastav töökogemus", "briefcase", first_package['details']['matching_experience']),
+                render_compliance_section_from_data("Baaskoolitus", "award", first_package['details']['base_training']),
+            )
+        )
+
+    compliance_dashboard = Div(*compliance_sections, cls="p-4 space-y-4")
 
     # --- Final Decision & Chat Area ---
     final_decision_area = Div(
