@@ -34,9 +34,9 @@ def render_application_list(applications: List[Dict], include_oob: bool = True) 
         # --- REVISED STRUCTURE for correct truncation ---
         second_line_content = Div(
             # This span takes up the available space and allows the text inside to be truncated
-            Span(f"{level_abbr}/{qual_name}/", cls="truncate"),
+            Span(f"{level_abbr} / {qual_name}", cls="truncate"),
             # This span does not shrink, ensuring the count is always visible
-            Span(count_str, cls="flex-shrink-0"),
+            #Span(count_str, cls="flex-shrink-0"),
             # The parent div is a flex container
             cls="flex justify-between items-baseline text-xs text-gray-600"
         )

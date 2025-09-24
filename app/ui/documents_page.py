@@ -58,6 +58,10 @@ def render_documents_page(existing_documents: list):
             label="Lõpetamise aeg (kuu ja aasta)", name="graduation_date", type="text",
             placeholder="Vali kuu ja aasta...", input_cls="flatpickr-month-input", required=True
         ),
+        Div(Upload("Upload Button!", id='upload1'),
+               UploadZone(DivCentered(Span("Upload Zone"), UkIcon("upload")), id='upload2'),
+               cls='space-y-4'),
+
         LabelInput(
             label="Vali fail (PDF, JPG, PNG)", name="document_file", type="file",
             accept=".pdf,.jpg,.jpeg,.png", required=True

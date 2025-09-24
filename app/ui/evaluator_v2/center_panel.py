@@ -65,33 +65,54 @@ def render_center_panel(qual_data: Dict, user_data: Dict) -> FT:
     # --- Header ---
     header = Details(
         # This part is the clickable accordion title
-        Summary(
-            Div(
-                # Column 1: Applicant Name and Level
-                Div(
-                    LevelPill(qual_level),
-                    H2(applicant_name, cls="text-xl font-bold truncate ml-2"),
-                    cls="flex items-center col-span-1"
-                ),
-                # Column 2 & 3: Activity Name with count
-                P(f"({selected_count}/{total_count}) {qual_name}", cls="text-base text-gray-600 col-start-2 col-span-2 truncate flex items-center"),
-                # Chevron icon for the accordion
-                Div(UkIcon("chevron-down", cls="accordion-marker"), cls="flex items-center justify-end"),
-                cls="grid grid-cols-[1fr_2fr_auto] gap-x-4 w-full items-center"
-            ),
-            cls="list-none cursor-pointer" # Removes default list marker
-        ),
-        # This part is the collapsible content
+    Summary(
+        # Header row
         Div(
-            Ul(
-                *[Li(s) for s in specialisations],
-                cls="list-disc list-inside text-xs text-gray-700 col-start-2 col-span-2"
+            # 1) Pill (fixed width)
+            LevelPill(qual_level),
+
+            # 2) Name + (count · level) — single row; only level may wrap
+            Div(
+                # Make this a flex row that can wrap, but only the level is allowed to wrap
+                H2(applicant_name,
+                cls="text-xl font-bold overflow-hidden text-ellipsis whitespace-nowrap"),
+                
+                P("·", cls="text-gray-400 whitespace-nowrap mx-1"),
+                # Level text is the ONLY thing allowed to wrap to the next line
+                P(f"{qual_name}",
+                cls="text-sm text-gray-700 flex-auto min-w-0 break-words whitespace-normal"),
+                cls="flex flex-wrap items-baseline gap-y-0 min-w-0"
             ),
-            cls="mt-2 grid grid-cols-3 gap-x-4"
+
+            # 3) Chevron (right)
+            DivHStacked(
+                P("Spetsialiseerumised", cls="text-xs"),
+                P(f"({selected_count}/{total_count})",
+                cls="text-xs  font-bold text-gray-600 whitespace-nowrap ml-1"),
+                UkIcon("chevron-down", cls="accordion-marker"),
+                cls="justify-self-end flex items-center"
+            ),
+
+            # Shared 3-col grid for header
+            cls="grid grid-cols-[auto,1fr,auto] items-center gap-x-3"
         ),
-        open=True, # Start with the accordion open
-        cls="p-4 border-b bg-gray-50 sticky top-0 z-10"
+        cls="list-none cursor-pointer col-span-3"
+    ),
+
+    # Collapsible content — aligned under level/name (middle column)
+    Div(
+        Ul(
+            *[Li(s) for s in specialisations],
+            cls="list-disc list-inside text-xs text-gray-700"
+        ),
+        cls="col-start-2 ml-4 mt-2"
+    ),
+
+    # Accordion props + shared grid so row 2 aligns with column 2
+    open=False,
+    cls="border-b bg-gray-50 sticky top-0 z-10 grid grid-cols-[auto,1fr,auto] gap-x-3"
     )
+
 
 
     # --- Helper Component for Accordion Sections (Unchanged) ---

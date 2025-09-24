@@ -30,10 +30,14 @@ kt = {
         "Ühisveevärgi või kanalisatsiooni ehitamine": [
             "Valikkompetentsid puuduvad"
         ],
-        "Omanikujärelevalve tegemine": [
-            "Üldehitusliku ehitamise omanikujärelevalve tegemine",
-            "Sisekliima tagamise süsteemide ehitamise omanikujärelevalve tegemine",
-            "Hoonesisese ja selle juurde kuuluva veevarustus- ja kanalisatsioonisüsteemi ehitamise omanikujärelevalve tegemine"
+        "OJV: Üldehitusliku ehitamise omanikujärelevalve tegemine": [
+            "Valikkompetentsid puuduvad"
+        ],
+        "OJV: Sisekliima tagamise süsteemide ehitamise omanikujärelevalve tegemine": [
+            "Valikkompetentsid puuduvad"
+        ],
+        "OJV: Hoonesisese ja selle juurde kuuluva veevarustus- ja kanalisatsioonisüsteemi ehitamise omanikujärelevalve tegemine": [
+            "Valikkompetentsid puuduvad"
         ]
     },
     "Ehituse tööjuht, TASE 5": {
