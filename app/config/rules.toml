@@ -1,63 +1,234 @@
 # app/config/rules.toml
 
-# --- Ehituse tööjuht, tase 5 (TJ5) ---
+# ---------------------------
+# Ehituse tööjuht, tase 5 (TJ5)
+# Source: EEEL KA-kord, last amended 20.02.2023
+# ---------------------------
 [[qualifications]]
 id = "toojuht_tase_5"
 name = "Ehituse tööjuht, tase 5"
 level = 5
 
-  # Corresponds to "Variant I" from DOMAIN_KNOWLEDGE.md
+  # Variant I — prior level 4 (temporary), upper secondary, 3y total (≥2y matching), 30h base
   [[qualifications.eligibility_packages]]
-  id = "variant_1"
+  id = "tj5_variant_1"
   education_requirement = "upper_secondary"
+  requires_prior_level_4 = "temporary_cert_in_specialization"   # must be level 4 (temporary) in the same specialization
   total_experience_years = 3
+  total_experience_window_years = 10        # implicit; all total periods assumed in last 10 unless specified
   matching_experience_years = 2
-  requires_prior_level_4 = true
-  base_training_hours = 30
+  matching_experience_window_years = 10
+  role_requirement = "team_lead"            # brigadir/meister/tööjuht/etc.
+  base_training_hours = 30                  # ehitusjuhtimise baaskoolitus in last 5y
+  base_training_window_years = 5
 
-  # Corresponds to "Variant II" from DOMAIN_KNOWLEDGE.md
+  # Variant II — upper secondary, 5y total in last 10 (≥2y in last 5 matching), level4 OR tech exam, 30h base
   [[qualifications.eligibility_packages]]
-  id = "variant_2"
+  id = "tj5_variant_2"
   education_requirement = "upper_secondary"
+  requires_prior_level_4_or_specialization_exam = true
   total_experience_years = 5
+  total_experience_window_years = 10
   matching_experience_years = 2
-  requires_prior_level_4 = false
+  matching_experience_window_years = 5
+  role_requirement = "team_lead"
   base_training_hours = 30
+  base_training_window_years = 5
 
-  # A simplified representation of "Variant IV/V"
+  # Variant III — prior EJ6 (within 1y), 2y matching in last 5, 16h CPD
   [[qualifications.eligibility_packages]]
-  id = "variant_4_or_5"
-  education_requirement = "higher_or_technical"
+  id = "tj5_variant_3"
+  education_requirement = "any"
+  requires_prior_ej6_within_years = 1
   total_experience_years = 2
-  matching_experience_years = 1
-  requires_prior_level_4 = false
-  base_training_hours = 30
+  total_experience_window_years = 5
+  matching_experience_years = 2
+  matching_experience_window_years = 5
+  cpd_training_hours = 16
+  cpd_training_window_years = 5
+
+  # Variant IV — higher ed (≥240 EAP) matched OR mismatched +5y matching; conditional 30h base if education is stale/foreign
+  [[qualifications.eligibility_packages]]
+  id = "tj5_variant_4"
+  education_requirement = "higher_education_>=240_eap"
+  higher_ed_field = "matched_or_mismatched"
+  total_experience_years = 0                 # when matched, experience requirement captured under matching_experience if needed by business rules
+  matching_experience_years = 0              # matched case: not explicitly set; see KA-kord; keep 0 to mean “not enforced here”
+  # If mismatched field, require 5y matching (set via conditional below)
+  conditional_rules = [
+    { when = "higher_ed_field == 'mismatched'", set = { matching_experience_years = 5, matching_experience_window_years = 10 } }
+  ]
+  # Education stale/foreign → 30h base in last 5y
+  conditional_training = { trigger = "education_older_than_10y_or_foreign", base_training_hours = 30, base_training_window_years = 5 }
+
+  # Variant V — secondary technical / other relevant secondary OR ≥180 EAP on HE curriculum; 3y total (≥2y matching)
+  [[qualifications.eligibility_packages]]
+  id = "tj5_variant_5"
+  education_requirement = "secondary_technical_or_other_relevant_or_>=180_eap_on_he_curriculum"
+  total_experience_years = 3
+  total_experience_window_years = 5
+  matching_experience_years = 2
+  matching_experience_window_years = 5
+  # Education stale/foreign → 30h base in last 5y
+  conditional_training = { trigger = "education_older_than_10y_or_foreign", base_training_hours = 30, base_training_window_years = 5 }
+
+  # TJ5 Recertification — prior TJ5 valid ≤1y expired, 2y matching/5y, 16h CPD
+  [[qualifications.eligibility_packages]]
+  id = "tj5_recertification"
+  route = "recertification"
+  requires_prior_same_level_within_years = 1
+  total_experience_years = 2
+  total_experience_window_years = 5
+  matching_experience_years = 2
+  matching_experience_window_years = 5
+  cpd_training_hours = 16
+  cpd_training_window_years = 5
 
 
-# --- Ehitusjuht, tase 6 (EJ6) ---
+
+# ---------------------------
+# Ehitusjuht, tase 6 (EJ6)
+# Source: EEEL KA-kord, last amended 13.04.2023
+# ---------------------------
 [[qualifications]]
 id = "ehitusjuht_tase_6"
 name = "Ehitusjuht, tase 6"
 level = 6
 
-  # Represents the various higher education routes described in DOMAIN_KNOWLEDGE.md
-  # For simplicity, this combines the EAP-based routes into one package.
-  # The logic can be expanded if different experience windows need to be checked separately.
-  [[qualifications.eligibility_packages]]
-  id = "higher_education_route"
-  education_requirement = "higher_education_degree" # This would be a category covering 180/240/300 EAP degrees
-  total_experience_years = 3 # This is an example, the real value depends on the degree EAP
-  matching_experience_years = 2 # This is an example
-  requires_prior_level_4 = false
-  base_training_hours = 40 # Base training for EJ6 is >=40h
+  # Common specialization base-course hours map (only applies to routes that require them)
+  [qualifications.specialization_training_hours]
+  general_construction = 30                  # üldehituslik ehitamine
+  hvac_heating = 30                          # küttesüsteemid
+  hvac_ventilation = 30                      # ventilatsioonisüsteemid
+  water_sewer_inside = 30                    # hoonesisene vee/kanalisatsioon
+  water_sewer_network = 30                   # ühisveevärk/-kanalisatsioon
+  owner_supervision = 40                     # omanikujärelevalve
 
-  # This package represents the recertification path for EJ6
+  # Language requirement (may be requested by the issuer)
+  [qualifications.optional_requirements]
+  estonian_b2_may_be_requested = true
+
+  # --- Matched construction higher education ---
+  # 300 EAP matched: 2y/5y; base 30h only if education stale/foreign (no specialization base-courses)
   [[qualifications.eligibility_packages]]
-  id = "recertification_route"
-  education_requirement = "any" # Not the primary check for recertification
-  total_experience_years = 2 # Requires >=2y matching work in last 5y
-  matching_experience_years = 2 # Same as above
-  requires_prior_level_4 = false
-  # Training for recertification is more complex (16h management + 16h specialization)
-  # We'll represent the total minimum here. The validation logic can handle the specifics.
-  base_training_hours = 32
+  id = "ej6_deg_matched_300"
+  education_requirement = "higher_education_matched_300_eap"
+  matching_experience_years = 2
+  matching_experience_window_years = 5
+  conditional_training = { trigger = "education_older_than_10y_or_foreign", manager_base_training_hours = 30, manager_base_training_window_years = 5 }
+
+  # 240 EAP matched: 3y/10y (≥2y/5y); same conditional base
+  [[qualifications.eligibility_packages]]
+  id = "ej6_deg_matched_240"
+  education_requirement = "higher_education_matched_240_eap"
+  total_experience_years = 3
+  total_experience_window_years = 10
+  matching_experience_years = 2
+  matching_experience_window_years = 5
+  conditional_training = { trigger = "education_older_than_10y_or_foreign", manager_base_training_hours = 30, manager_base_training_window_years = 5 }
+
+  # 180 EAP matched: 4y/10y (≥2y/5y); same conditional base
+  [[qualifications.eligibility_packages]]
+  id = "ej6_deg_matched_180"
+  education_requirement = "higher_education_matched_180_eap"
+  total_experience_years = 4
+  total_experience_window_years = 10
+  matching_experience_years = 2
+  matching_experience_window_years = 5
+  conditional_training = { trigger = "education_older_than_10y_or_foreign", manager_base_training_hours = 30, manager_base_training_window_years = 5 }
+
+  # --- Mismatched construction higher education (requires specialization base-courses + exams) ---
+  # 300 EAP mismatched: 3y/10y (≥2y/5y) + specialization base-courses (+ exams) + conditional manager base if stale/foreign
+  [[qualifications.eligibility_packages]]
+  id = "ej6_deg_mismatched_300"
+  education_requirement = "higher_education_mismatched_300_eap"
+  total_experience_years = 3
+  total_experience_window_years = 10
+  matching_experience_years = 2
+  matching_experience_window_years = 5
+  requires_specialization_base_courses = true
+  specialization_exams_required = true
+  conditional_training = { trigger = "education_older_than_10y_or_foreign", manager_base_training_hours = 30, manager_base_training_window_years = 5 }
+
+  # 240 EAP mismatched: 4y/10y (≥2y/5y) + specialization base-courses (+ exams) + conditional manager base if stale/foreign
+  [[qualifications.eligibility_packages]]
+  id = "ej6_deg_mismatched_240"
+  education_requirement = "higher_education_mismatched_240_eap"
+  total_experience_years = 4
+  total_experience_window_years = 10
+  matching_experience_years = 2
+  matching_experience_window_years = 5
+  requires_specialization_base_courses = true
+  specialization_exams_required = true
+  conditional_training = { trigger = "education_older_than_10y_or_foreign", manager_base_training_hours = 30, manager_base_training_window_years = 5 }
+
+  # 180 EAP mismatched: 5y/10y (≥2y/5y) + specialization base-courses (+ exams) + conditional manager base if stale/foreign
+  [[qualifications.eligibility_packages]]
+  id = "ej6_deg_mismatched_180"
+  education_requirement = "higher_education_mismatched_180_eap"
+  total_experience_years = 5
+  total_experience_window_years = 10
+  matching_experience_years = 2
+  matching_experience_window_years = 5
+  requires_specialization_base_courses = true
+  specialization_exams_required = true
+  conditional_training = { trigger = "education_older_than_10y_or_foreign", manager_base_training_hours = 30, manager_base_training_window_years = 5 }
+
+  # --- Technical (engineering) degree in “tehnika ja tootmine” (requires specialization base-courses + exams, always manager base=30h) ---
+  # 300 EAP: 5y/10y (≥2y/5y)
+  [[qualifications.eligibility_packages]]
+  id = "ej6_technical_deg_300"
+  education_requirement = "technical_engineering_300_eap"
+  total_experience_years = 5
+  total_experience_window_years = 10
+  matching_experience_years = 2
+  matching_experience_window_years = 5
+  requires_specialization_base_courses = true
+  specialization_exams_required = true
+  manager_base_training_hours = 30
+
+  # 240 EAP: 6y/10y (≥2y/5y)
+  [[qualifications.eligibility_packages]]
+  id = "ej6_technical_deg_240"
+  education_requirement = "technical_engineering_240_eap"
+  total_experience_years = 6
+  total_experience_window_years = 10
+  matching_experience_years = 2
+  matching_experience_window_years = 5
+  requires_specialization_base_courses = true
+  specialization_exams_required = true
+  manager_base_training_hours = 30
+
+  # 180 EAP: 7y/10y
+  [[qualifications.eligibility_packages]]
+  id = "ej6_technical_deg_180"
+  education_requirement = "technical_engineering_180_eap"
+  total_experience_years = 7
+  total_experience_window_years = 10
+  requires_specialization_base_courses = true
+  specialization_exams_required = true
+  manager_base_training_hours = 30
+
+  # --- Secondary technical (ehitustehnik) / other relevant secondary — requires specialization base-courses + exams, manager base=30h ---
+  [[qualifications.eligibility_packages]]
+  id = "ej6_secondary_technical"
+  education_requirement = "secondary_technical_or_other_relevant"
+  total_experience_years = 6
+  total_experience_window_years = 10
+  matching_experience_years = 2
+  matching_experience_window_years = 5
+  requires_specialization_base_courses = true
+  specialization_exams_required = true
+  manager_base_training_hours = 30
+
+  # EJ6 Recertification — prior EJ6 valid ≤1y expired; 2y/5y matching; training: 16h management + 16h per activity (owner supervision: 16h)
+  [[qualifications.eligibility_packages]]
+  id = "ej6_recertification"
+  route = "recertification"
+  requires_prior_same_level_within_years = 1
+  total_experience_years = 2
+  total_experience_window_years = 5
+  matching_experience_years = 2
+  matching_experience_window_years = 5
+  recert_training = { manager_hours = 16, per_activity_hours = 16, owner_supervision_hours = 16 }
+  cpd_training_window_years = 5
