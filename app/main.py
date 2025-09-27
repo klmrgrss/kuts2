@@ -130,9 +130,8 @@ def get(request: Request):
 # +++ MODIFIED FAVICON ROUTE +++
 @rt("/favicon.ico", methods=["GET"])
 def favicon(request: Request):
-    """Serves the favicon from the app directory."""
-    # --- THE FIX: Changed STATIC_DIR to APP_DIR ---
-    return FileResponse(os.path.join(APP_DIR, 'favicon.ico'))
+    """Serves the favicon from the static directory."""
+    return FileResponse(os.path.join(STATIC_DIR, 'favicon.ico'))
 
 @rt("/test", methods=["GET"])
 def test_route(request: Request):
