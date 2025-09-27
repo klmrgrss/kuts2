@@ -122,14 +122,14 @@ def render_review_page(data: dict) -> FT:
         # Metadata for education is a JSON string, so we need to load it
         edu_meta = json.loads(education_doc.get('metadata', '{}'))
         edu_desc = f"{edu_meta.get('institution')} ({edu_meta.get('specialty')})"
-        doc_items.append(Li(Span("Haridus: ", cls="font-semibold"), A(edu_desc, href=f"/files/download/{education_doc.get('storage_identifier')}", target="_blank", cls="link text-sm")))
+        doc_items.append(Li(Span("Haridus: ", cls="font-semibold"), A(edu_desc, href=f"/files/view/{education_doc.get('storage_identifier')}", target="_blank", cls="link text-sm")))
     
     if training_files:
         for tf in training_files:
-            doc_items.append(Li(Span("Täiendkoolitus: ", cls="font-semibold"), A(tf.get('description', 'Nimetu fail'), href=f"/files/download/{tf.get('storage_identifier')}", target="_blank", cls="link text-sm")))
+            doc_items.append(Li(Span("Täiendkoolitus: ", cls="font-semibold"), A(tf.get('description', 'Nimetu fail'), href=f"/files/view/{tf.get('storage_identifier')}", target="_blank", cls="link text-sm")))
     
     if employment_proof and employment_proof.get('original_filename'):
-        doc_items.append(Li(Span("Töötamise tõend: ", cls="font-semibold"), A(employment_proof['original_filename'], href=f"/files/download/{employment_proof.get('storage_identifier')}", target="_blank", cls="link text-sm")))
+        doc_items.append(Li(Span("Töötamise tõend: ", cls="font-semibold"), A(employment_proof['original_filename'], href=f"/files/view/{employment_proof.get('storage_identifier')}", target="_blank", cls="link text-sm")))
 
     content_sections.append(
         ReviewSection(

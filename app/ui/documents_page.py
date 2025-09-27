@@ -21,8 +21,9 @@ def StatusStrip(docs: list, doc_type: str, title: str):
             cls="p-4 bg-red-100 text-red-800 rounded-lg my-2 flex items-center gap-x-3"
         )
     else:
+        # --- THE FIX: Use the document's integer ID for the link ---
         doc_links = [
-            A(doc.get('original_filename'), href=f"/files/download/{doc.get('storage_identifier')}", target="_blank", cls="link font-semibold underline")
+            A(doc.get('original_filename'), href=f"/files/view/{doc.get('id')}", target="_blank", cls="link font-semibold underline")
             for doc in relevant_docs
         ]
         items = [doc_links[0]]
@@ -36,59 +37,53 @@ def StatusStrip(docs: list, doc_type: str, title: str):
         )
 
 def create_upload_form(doc_type: str, description: str, accept: str, button_text: str):
-    """Helper function to create a standardized document upload form."""
-    file_input_id = f'{doc_type}-document-file'
-    
+    """
+    Helper function to create a simplified, standard file upload form for debugging.
+    """
     return Form(
         P(description, cls="text-sm text-muted-foreground mb-4"),
-        UploadZone(
-            DivCentered(UkIcon("upload", cls="w-6 h-6 mr-2"), Span(f"Lohista siia või klõpsa, et valida")),
-            id=f'{doc_type}-upload-zone',
-            **{'for': file_input_id}
-        ),
-        # This Upload component now acts as the submit trigger
-        Upload(
-            button_text,
-            id=file_input_id,
+        Input(
+            type="file",
+            id=f'{doc_type}-document-file',
             name='document_file',
             accept=accept,
             required=True,
-            # HTMX attributes are now on the Upload component itself
-            hx_post=f"/app/dokumendid/upload?document_type={doc_type}",
-            hx_target="#tab-content-container",
-            hx_swap="innerHTML",
-            hx_encoding="multipart/form-data",
-            cls="" # Styled as a button
+            cls="file-input file-input-bordered w-full max-w-xs"
         ),
-        # The separate Form button is no longer needed
+        Button(
+            button_text, 
+            type="submit", 
+            cls="btn btn-primary mt-4"
+        ),
+        hx_post=f"/app/dokumendid/upload?document_type={doc_type}",
+        hx_target="#tab-content-container",
+        hx_swap="innerHTML",
+        hx_encoding="multipart/form-data",
         cls="space-y-4"
     )
 
 def render_documents_page(existing_documents: list):
     """Renders the main page for the 'Dokumentide lisamine' tab with consistent layout."""
     
-    # --- Section 1: Haridus (Education) ---
     education_form = create_upload_form(
-        doc_type="haridus",
+        doc_type="education",
         description="Palun lae üles oma haridust tõendav(ad) dokument(id) (PDF, JPG, PNG).",
         accept=".pdf,.jpg,.jpeg,.png",
-        button_text="Lisa hariduse dokument"
+        button_text="Lae üles hariduse dokument"
     )
 
-    # --- Section 2: Täiendkoolitus (Training) ---
     training_form = create_upload_form(
-        doc_type="koolitus",
+        doc_type="training",
         description="Palun laadige üles oma täiendkoolituste tunnistused (PDF, max 10MB).",
         accept=".pdf",
-        button_text="Lisa koolituse dokument"
+        button_text="Lae üles koolituse dokument"
     )
 
-    # --- Section 3: Töötamise tõend (Employment Proof) ---
     employment_form = create_upload_form(
-        doc_type="tootamine",
+        doc_type="employment_proof",
         description="Palun laadige üles digitaalselt allkirjastatud dokumendikonteiner (nt. ASiC-E, max 10MB).",
         accept=".asice,.sce",
-        button_text="Lisa töötamise tõend"
+        button_text="Lae üles töötamise tõend"
     )
 
     return Div(

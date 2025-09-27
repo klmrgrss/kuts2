@@ -22,7 +22,8 @@ def render_right_panel(documents: List[Dict], work_experience: List[Dict]) -> FT
         Div(
             *[
                 A(doc.get('original_filename'),
-                  href=f"/files/download/{doc.get('storage_identifier')}",
+                  # --- THE FIX: Use the correct secure route with the document's integer ID ---
+                  href=f"/files/view/{doc.get('id')}",
                   target="_blank",
                   cls="block p-2 hover:bg-gray-100 text-sm link")
                 for doc in education_docs
@@ -43,7 +44,8 @@ def render_right_panel(documents: List[Dict], work_experience: List[Dict]) -> FT
         Div(
             *[
                 A(doc.get('description') or doc.get('original_filename'),
-                  href=f"/files/download/{doc.get('storage_identifier')}",
+                  # --- THE FIX: Use the correct secure route with the document's integer ID ---
+                  href=f"/files/view/{doc.get('id')}",
                   target="_blank",
                   cls="block p-2 hover:bg-gray-100 text-sm link")
                 for doc in training_docs
