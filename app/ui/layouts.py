@@ -43,6 +43,7 @@ def ToastAlert(message: str, alert_type: str = 'info', icon_name: Optional[str] 
 def base_layout(title: str, *content: Any, theme_headers: tuple = Theme.blue.headers()) -> FT:
     all_hdrs = list(theme_headers)
     all_hdrs.extend([
+        Link(rel="icon", href="/static/favicon.ico", type="image/x-icon"),
         Link(rel="stylesheet", href=ag_theme_css_cdn),
         Link(rel="stylesheet", href=flatpickr_css_cdn),
         Link(rel="stylesheet", href=flatpickr_month_plugin_css_cdn),

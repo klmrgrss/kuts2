@@ -94,6 +94,7 @@ if STATIC_DIR.is_dir():
 else:
     raise RuntimeError("Static directory missing")
 
+
 # === Routes ===
 @rt("/")
 def get(request: Request):
@@ -126,9 +127,12 @@ def get(request: Request):
     page_content = Div(public_navbar(), hero_section, info_section)
     return public_layout("Tere tulemast!", page_content)
 
+# +++ MODIFIED FAVICON ROUTE +++
 @rt("/favicon.ico", methods=["GET"])
 def favicon(request: Request):
-    return FileResponse(os.path.join(STATIC_DIR, 'favicon.ico'))
+    """Serves the favicon from the app directory."""
+    # --- THE FIX: Changed STATIC_DIR to APP_DIR ---
+    return FileResponse(os.path.join(APP_DIR, 'favicon.ico'))
 
 @rt("/test", methods=["GET"])
 def test_route(request: Request):
@@ -281,9 +285,11 @@ def view_secure_file(request: Request, doc_id: int):
     print(f"--- LOG [view_secure_file]: Authenticated user: {user_email} ---")
 
     try:
+        # Step 1: Find the document record in the database by its primary key
         doc_record = documents_controller.documents_table[doc_id]
         print(f"--- LOG [view_secure_file]: Found DB record for ID {doc_id}: {doc_record} ---")
 
+        # Step 2: Verify that the document belongs to the logged-in user
         if doc_record.get('user_email') != user_email:
             print(f"--- SECURITY [view_secure_file]: User '{user_email}' attempted to access file belonging to '{doc_record.get('user_email')}'. DENIED. ---")
             return Response("Access Denied", status_code=403)
@@ -298,6 +304,7 @@ def view_secure_file(request: Request, doc_id: int):
         traceback.print_exc()
         return Response("Error validating file access", status_code=500)
 
+    # Step 3: Get the GCS path (storage_identifier) from the record
     gcs_identifier = doc_record.get('storage_identifier')
     if not gcs_identifier:
         print(f"--- ERROR [view_secure_file]: DB record for ID {doc_id} is missing a 'storage_identifier'. ---")
@@ -308,6 +315,7 @@ def view_secure_file(request: Request, doc_id: int):
         return Response("Cloud Storage not configured", status_code=500)
 
     try:
+        # Step 4: Generate the signed URL using the GCS identifier
         blob = documents_controller.bucket.blob(gcs_identifier)
         if not blob.exists():
             print(f"--- ERROR [view_secure_file]: GCS blob not found at path: '{gcs_identifier}' ---")
