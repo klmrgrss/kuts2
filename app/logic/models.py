@@ -37,6 +37,8 @@ class EligibilityPackage:
     This model now includes all possible fields from the rules.toml to prevent initialization errors.
     """
     id: str
+    description_et: Optional[str] = None
+    citation: Optional[str] = None
     education_requirement: Optional[str] = None
     total_experience_years: Optional[int] = None
     matching_experience_years: Optional[int] = None

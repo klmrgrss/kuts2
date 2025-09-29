@@ -41,24 +41,29 @@ class ValidationEngine:
         details = {}
         checks_passed = []
 
-        # 1. Education Check
-        edu_ok = applicant.education == package.education_requirement
+        # --- THE FIX: Default None values to 0 for comparison ---
+        
+        # 1. Education Check (assuming this is always a string and required)
+        edu_ok = applicant.education == package.education_requirement if package.education_requirement else True
         details["education"] = {"met": edu_ok, "required": package.education_requirement, "provided": applicant.education}
         checks_passed.append(edu_ok)
 
         # 2. Total Experience Check
-        exp_ok = applicant.work_experience_years >= package.total_experience_years
-        details["total_experience"] = {"met": exp_ok, "required": package.total_experience_years, "provided": applicant.work_experience_years}
+        required_total_exp = package.total_experience_years or 0
+        exp_ok = applicant.work_experience_years >= required_total_exp
+        details["total_experience"] = {"met": exp_ok, "required": required_total_exp, "provided": applicant.work_experience_years}
         checks_passed.append(exp_ok)
 
         # 3. Matching Experience Check
-        match_exp_ok = applicant.matching_experience_years >= package.matching_experience_years
-        details["matching_experience"] = {"met": match_exp_ok, "required": package.matching_experience_years, "provided": applicant.matching_experience_years}
+        required_matching_exp = package.matching_experience_years or 0
+        match_exp_ok = applicant.matching_experience_years >= required_matching_exp
+        details["matching_experience"] = {"met": match_exp_ok, "required": required_matching_exp, "provided": applicant.matching_experience_years}
         checks_passed.append(match_exp_ok)
         
         # 4. Base Training Check
-        training_ok = applicant.base_training_hours >= package.base_training_hours
-        details["base_training"] = {"met": training_ok, "required": package.base_training_hours, "provided": applicant.base_training_hours}
+        required_training = package.base_training_hours or 0
+        training_ok = applicant.base_training_hours >= required_training
+        details["base_training"] = {"met": training_ok, "required": required_training, "provided": applicant.base_training_hours}
         checks_passed.append(training_ok)
 
         # 5. Prior Level 4 Check (only if required by package)
