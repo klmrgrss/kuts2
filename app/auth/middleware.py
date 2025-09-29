@@ -11,7 +11,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
         super().__init__(app)
         # --- THE FIX: Make the '/files' prefix more specific ---
         # Changed "/files" to "/files/download" to avoid catching "/files/view"
-        self.public_prefixes = ["/static", "/files/download"]
+        self.public_prefixes = ["/static/js/", "/files/download"]
         self.public_exact_paths = ["/", "/login", "/register", "/logout", "/favicon.ico", "/test"]
         self.root_path = "/"
         self.protected_prefix = "/app"

@@ -36,17 +36,8 @@ import datetime
 # --- Load Environment Variables ---
 load_dotenv()
 
-# --- Prevent Duplicate Initialization ---
-APP_DIR = Path(__file__).parent
-INIT_FLAG = APP_DIR / '.app_initialized'
-if INIT_FLAG.exists():
-    print("--- INFO [main.py]: App already initialized, skipping setup ---")
-    serve()
-else:
-    INIT_FLAG.touch()
-    print("--- INFO [main.py]: Initializing app ---")
-
 # --- Path Definitions ---
+APP_DIR = Path(__file__).parent
 STATIC_DIR = APP_DIR / 'static'
 UPLOAD_DIR = APP_DIR.parent / 'Uploads'
 print(f"--- INFO [main.py]: Static directory calculated as: {STATIC_DIR} ---")
@@ -75,6 +66,15 @@ except AttributeError as e:
 # --- Theme Setup ---
 hdrs = Theme.blue.headers()
 
+# +++ THE FIX: Define routes list BEFORE fast_app +++
+route_list = []
+if STATIC_DIR.is_dir():
+    print(f"--- Preparing static mount for route list: {STATIC_DIR} ---")
+    route_list.append(Mount('/static', app=StaticFiles(directory=STATIC_DIR, html=True), name='static'))
+else:
+    raise RuntimeError("Static directory missing")
+# +++ END FIX +++
+
 # --- App Initialization ---
 SESSION_SECRET_KEY = os.environ.get("SESSION_SECRET_KEY", "default-insecure-key-for-local-dev")
 
@@ -84,16 +84,11 @@ app, rt = fast_app(
         Middleware(SessionMiddleware, secret_key=SESSION_SECRET_KEY, max_age=14 * 24 * 60 * 60),
         Middleware(AuthMiddleware)
     ],
+    routes=route_list, # <-- Pass the routes list here
     debug=True
 )
 
-# Mount static directory
-if STATIC_DIR.is_dir():
-    print(f"--- Mounting static directory: {STATIC_DIR} ---")
-    app.mount('/static', StaticFiles(directory=STATIC_DIR, html=True), name='static')
-else:
-    raise RuntimeError("Static directory missing")
-
+# --- REMOVE the redundant app.mount() call ---
 
 # === Routes ===
 @rt("/")
@@ -127,7 +122,6 @@ def get(request: Request):
     page_content = Div(public_navbar(), hero_section, info_section)
     return public_layout("Tere tulemast!", page_content)
 
-# +++ MODIFIED FAVICON ROUTE +++
 @rt("/favicon.ico", methods=["GET"])
 def favicon(request: Request):
     """Serves the favicon from the static directory."""
@@ -284,11 +278,9 @@ def view_secure_file(request: Request, doc_id: int):
     print(f"--- LOG [view_secure_file]: Authenticated user: {user_email} ---")
 
     try:
-        # Step 1: Find the document record in the database by its primary key
         doc_record = documents_controller.documents_table[doc_id]
         print(f"--- LOG [view_secure_file]: Found DB record for ID {doc_id}: {doc_record} ---")
 
-        # Step 2: Verify that the document belongs to the logged-in user
         if doc_record.get('user_email') != user_email:
             print(f"--- SECURITY [view_secure_file]: User '{user_email}' attempted to access file belonging to '{doc_record.get('user_email')}'. DENIED. ---")
             return Response("Access Denied", status_code=403)
@@ -303,7 +295,6 @@ def view_secure_file(request: Request, doc_id: int):
         traceback.print_exc()
         return Response("Error validating file access", status_code=500)
 
-    # Step 3: Get the GCS path (storage_identifier) from the record
     gcs_identifier = doc_record.get('storage_identifier')
     if not gcs_identifier:
         print(f"--- ERROR [view_secure_file]: DB record for ID {doc_id} is missing a 'storage_identifier'. ---")
@@ -314,7 +305,6 @@ def view_secure_file(request: Request, doc_id: int):
         return Response("Cloud Storage not configured", status_code=500)
 
     try:
-        # Step 4: Generate the signed URL using the GCS identifier
         blob = documents_controller.bucket.blob(gcs_identifier)
         if not blob.exists():
             print(f"--- ERROR [view_secure_file]: GCS blob not found at path: '{gcs_identifier}' ---")
@@ -333,13 +323,6 @@ def view_secure_file(request: Request, doc_id: int):
         print(f"--- ERROR [view_secure_file]: GCS signed URL generation failed for '{gcs_identifier}': {e} ---")
         traceback.print_exc()
         return Response("Could not generate secure link for the file.", status_code=500)
-
-# Clean up initialization flag on exit
-import atexit
-def cleanup():
-    if INIT_FLAG.exists():
-        INIT_FLAG.unlink()
-atexit.register(cleanup)
 
 # Start server
 serve()

@@ -109,39 +109,41 @@ def base_layout(title: str, *content: Any, theme_headers: tuple = Theme.blue.hea
                         }
                     }
                     """),
-        Link(rel="stylesheet", href="https://cdn.jsdelivr.net/npm/vis-timeline@7.7.2/dist/vis-timeline-graph2d.min.css"),
-        Script(src="https://cdn.jsdelivr.net/npm/vis-timeline@7.7.2/standalone/umd/vis-timeline-graph2d.min.js"),
-        Script(src="/static/js/vis_timeline_init.js", defer=True),
+        # Link(rel="stylesheet", href="https://cdn.jsdelivr.net/npm/vis-timeline@7.7.2/dist/vis-timeline-graph2d.min.css"),
+        # Script(src="https://cdn.jsdelivr.net/npm/vis-timeline@7.7.2/standalone/umd/vis-timeline-graph2d.min.js"),
+        # Script(src="/static/js/vis_timeline_init.js", defer=True),
         # The scrolling script that will now execute without being blocked by the crash
-        Script("""
-            document.body.addEventListener('htmx:afterSwap', function(event) {
-                const triggerElement = event.detail.requestConfig.elt;
-                if (triggerElement && triggerElement.id === 'qualification-form') {
-                    window.scrollTo({top: 0, behavior: 'smooth'});
-                }
-            });
+        # Script("""
+        #     document.addEventListener('DOMContentLoaded', function() {
+        #         document.body.addEventListener('htmx:afterSwap', function(event) {
+        #             const triggerElement = event.detail.requestConfig.elt;
+        #             if (triggerElement && triggerElement.id === 'qualification-form') {
+        #                 window.scrollTo({top: 0, behavior: 'smooth'});
+        #             }
+        #         });
 
-            /* JavaScript for Evaluator V2 UI */
-            function toggleEvaluatorPanel(panel) {
-                const container = document.getElementById('evaluator-v2-container');
-                if (!container) return;
+        #         /* JavaScript for Evaluator V2 UI */
+        #         function toggleEvaluatorPanel(panel) {
+        #             const container = document.getElementById('evaluator-v2-container');
+        #             if (!container) return;
 
-                if (panel === 'left') {
-                    container.classList.toggle('left-panel-open');
-                    container.classList.remove('right-panel-open'); // Close other panel
-                } else if (panel === 'right') {
-                    container.classList.toggle('right-panel-open');
-                    container.classList.remove('left-panel-open'); // Close other panel
-                }
-            }
-            function closeAllEvaluatorPanels() {
-                const container = document.getElementById('evaluator-v2-container');
-                if (container) {
-                    container.classList.remove('left-panel-open');
-                    container.classList.remove('right-panel-open');
-                }
-            }
-        """),
+        #             if (panel === 'left') {
+        #                 container.classList.toggle('left-panel-open');
+        #                 container.classList.remove('right-panel-open'); // Close other panel
+        #             } else if (panel === 'right') {
+        #                 container.classList.toggle('right-panel-open');
+        #                 container.classList.remove('left-panel-open'); // Close other panel
+        #             }
+        #         }
+        #         function closeAllEvaluatorPanels() {
+        #             const container = document.getElementById('evaluator-v2-container');
+        #             if (container) {
+        #                 container.classList.remove('left-panel-open');
+        #                 container.classList.remove('right-panel-open');
+        #             }
+        #         }
+        #     });
+        # """),
     ])
     return Html( Head( Meta(charset="UTF-8"), Meta(name="viewport", content="width=device-width, initial-scale=1.0"), Title(title, id="page-title"), *all_hdrs ), Body( *content, Div(id="toast-container"), cls="bg-background text-foreground" ), lang="et" )
 
