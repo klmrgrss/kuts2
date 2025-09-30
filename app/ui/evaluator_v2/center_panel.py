@@ -135,25 +135,37 @@ def render_center_panel(qual_data: Dict, user_data: Dict, validation_results: Di
                 Div(
                     H2(applicant_name, cls="text-xl font-bold overflow-hidden text-ellipsis whitespace-nowrap"),
                     P("·", cls="text-gray-400 whitespace-nowrap mx-1"),
-                    P(f"{qual_name}", cls="text-sm text-gray-700 flex-auto min-w-0 break-words whitespace-normal"),
+                    P(
+                        f"{qual_name}",
+                        cls="text-sm text-gray-700 flex-auto min-w-0 break-words whitespace-normal"
+                    ),
                     cls="flex flex-wrap items-baseline gap-y-0 min-w-0"
                 ),
                 DivHStacked(
-                    P("Spetsialiseerumised", cls="text-xs"),
-                    P(f"({selected_count}/{total_count})", cls="text-xs font-bold text-gray-600 whitespace-nowrap ml-1"),
+                    P("Spetsialiseerumised", cls="text-xs truncate"),
+                    P(
+                        f"({selected_count}/{total_count})",
+                        cls="text-xs font-bold text-gray-600 whitespace-nowrap ml-1"
+                    ),
                     UkIcon("chevron-down", cls="accordion-marker"),
-                    cls="justify-self-end flex items-center"
+                    cls="justify-self-end flex items-center min-w-0"
                 ),
-                cls="grid grid-cols-[auto,1fr,auto] items-center gap-x-3"
+                cls=(
+                    "flex flex-col gap-y-2 "
+                    "md:grid md:grid-cols-[auto,1fr,auto] md:items-center md:gap-x-3"
+                )
             ),
-            cls="list-none cursor-pointer col-span-3"
+            cls="list-none cursor-pointer md:col-span-3"
         ),
         Div(
             Ul(*[Li(s) for s in specialisations], cls="list-disc list-inside text-xs text-gray-700"),
-            cls="col-start-2 ml-4 mt-2"
+            cls="md:col-start-2 md:ml-4 md:mt-2"
         ),
         open=False,
-        cls="border-b bg-gray-50 sticky top-0 z-10 grid grid-cols-[auto,1fr,auto] gap-x-3"
+        cls=(
+            "border-b bg-gray-50 sticky top-0 z-10 "
+            "flex flex-col gap-y-2 md:grid md:grid-cols-[auto,1fr,auto] md:gap-x-3"
+        )
     )
 
     compliance_sections = []
