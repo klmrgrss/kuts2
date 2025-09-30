@@ -171,34 +171,60 @@ def evaluator_navbar(request: Request, db: Any) -> FT:
 
     # --- Wide Screen Elements ---
     wide_screen_left = Div(
-        # This LABEL is for the mobile drawer, but hidden on large screens
-        Label(
-            UkIcon("menu", cls="w-6 h-6"),
-            fr="left-drawer-toggle",
-            cls="btn btn-ghost btn-square drawer-button lg:hidden"
-        ),
         A(
             UkIcon("brick-wall", width=24, height=24, cls="inline-block mr-2 align-middle text-blue-500"),
             H4("Kutsekeskkond", cls="inline-block align-middle"),
             Span("Hindaja", cls="ml-2 px-2 py-0.5 text-sm font-semibold rounded-full bg-gray-200 text-gray-800"),
-            href="/dashboard", 
+            href="/dashboard",
             cls="flex items-center"
         ),
-        cls="navbar-start flex items-center"
+        cls="flex items-center"
     )
-    
+
     wide_screen_right = Div(
         A(
             UkIcon("user", cls="inline-block mr-2 align-middle"),
             Span(display_name, cls="text-sm"),
-            href="/dashboard", 
+            href="/dashboard",
             cls="flex items-center mr-4 p-2 rounded hover:bg-muted transition-colors"
         ),
-        cls="navbar-end"
+        cls="flex items-center"
+    )
+
+    wide_screen_container = Div(
+        wide_screen_left,
+        wide_screen_right,
+        cls="hidden md:flex justify-between items-center w-full"
+    )
+
+    # --- Narrow Screen Elements ---
+    MAX_NAME_LEN = 12
+    truncated_name = (display_name[:MAX_NAME_LEN] + '…') if len(display_name) > MAX_NAME_LEN else display_name
+
+    mobile_container = Div(
+        Label(
+            UkIcon("menu", cls="w-6 h-6"),
+            fr="left-drawer-toggle",
+            cls="btn btn-ghost btn-square drawer-button"
+        ),
+        A(
+            UkIcon("brick-wall", width=22, height=22, cls="inline-block mr-2 align-middle text-blue-500"),
+            Span("Kutse", cls="text-base font-semibold align-middle"),
+            Span("hindaja", cls="text-sm text-muted-foreground ml-1 align-middle"),
+            href="/dashboard",
+            cls="flex items-center"
+        ),
+        A(
+            UkIcon("user", cls="inline-block mr-1 align-middle"),
+            Span(truncated_name, cls="text-sm"),
+            href="/dashboard",
+            cls="flex items-center px-2 py-1 rounded hover:bg-muted transition-colors"
+        ),
+        cls="flex md:hidden items-center justify-between w-full space-x-3"
     )
 
     return Div(
-        wide_screen_left,
-        wide_screen_right,
-        cls="navbar bg-base-100 border-b"
+        wide_screen_container,
+        mobile_container,
+        cls="navbar bg-base-100 border-b px-4 w-full"
     )
