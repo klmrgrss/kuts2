@@ -1,3 +1,4 @@
+# app/ui/review_view.py
 # gem/ui/review_view.py
 
 from fasthtml.common import *
@@ -76,20 +77,11 @@ def render_review_page(data: dict) -> FT:
     qual_items = []
     if qualifications:
         for q in qualifications:
-            # NEW: Check for the 'is_tervik' flag from the controller
-            if q.get('is_tervik'):
-                item_content = Span(
-                    f"{q.get('level', '')} - {q.get('qualification_name', '')}: ",
-                    I("Tervikspetsialiseerumine"), # Italicized text
-                    cls="font-medium text-sm"
-                )
-            else:
-                # Original rendering for individual specializations
-                item_content = Span(
-                    Span(f"{q.get('level', '')} - {q.get('qualification_name', '')}", cls="font-medium text-sm"),
-                    Span(f": {q.get('specialisation', '')}", cls="text-sm text-muted-foreground")
-                )
-            # FIX: Use Spans directly inside Li for correct bullet alignment
+            item_content = Span(
+                f"{q.get('level', '')} - {q.get('qualification_name', '')}: ",
+                I(q.get('specialisation')), 
+                cls="font-medium text-sm"
+            )
             qual_items.append(Li(item_content))
 
     content_sections.append(
@@ -130,14 +122,14 @@ def render_review_page(data: dict) -> FT:
         # Metadata for education is a JSON string, so we need to load it
         edu_meta = json.loads(education_doc.get('metadata', '{}'))
         edu_desc = f"{edu_meta.get('institution')} ({edu_meta.get('specialty')})"
-        doc_items.append(Li(Span("Haridus: ", cls="font-semibold"), A(edu_desc, href=f"/files/download/{education_doc.get('storage_identifier')}", target="_blank", cls="link text-sm")))
+        doc_items.append(Li(Span("Haridus: ", cls="font-semibold"), A(edu_desc, href=f"/files/view/{education_doc.get('storage_identifier')}", target="_blank", cls="link text-sm")))
     
     if training_files:
         for tf in training_files:
-            doc_items.append(Li(Span("Täiendkoolitus: ", cls="font-semibold"), A(tf.get('description', 'Nimetu fail'), href=f"/files/download/{tf.get('storage_identifier')}", target="_blank", cls="link text-sm")))
+            doc_items.append(Li(Span("Täiendkoolitus: ", cls="font-semibold"), A(tf.get('description', 'Nimetu fail'), href=f"/files/view/{tf.get('storage_identifier')}", target="_blank", cls="link text-sm")))
     
     if employment_proof and employment_proof.get('original_filename'):
-        doc_items.append(Li(Span("Töötamise tõend: ", cls="font-semibold"), A(employment_proof['original_filename'], href=f"/files/download/{employment_proof.get('storage_identifier')}", target="_blank", cls="link text-sm")))
+        doc_items.append(Li(Span("Töötamise tõend: ", cls="font-semibold"), A(employment_proof['original_filename'], href=f"/files/view/{employment_proof.get('storage_identifier')}", target="_blank", cls="link text-sm")))
 
     content_sections.append(
         ReviewSection(

@@ -5,11 +5,28 @@ function setupFormValidator(formElement) {
         return;
     }
     console.log(`[Validator] Setting up for form: #${formElement.id}`);
-    formElement.dataset.validatorInitialized = 'true';
 
     const formId = formElement.id;
     const actionBar = document.querySelector(`.sticky-action-bar[data-form-id="${formId}"]`);
-    if (!actionBar) return;
+    if (!actionBar) {
+        if (formElement.dataset.validatorRetryScheduled !== 'true') {
+            formElement.dataset.validatorRetryScheduled = 'true';
+
+            const retrySetupListener = () => {
+                setupFormValidator(formElement);
+                if (formElement.dataset.validatorInitialized === 'true') {
+                    formElement.dataset.validatorRetryScheduled = 'false';
+                    document.body.removeEventListener('htmx:oobAfterSwap', retrySetupListener);
+                }
+            };
+
+            requestAnimationFrame(retrySetupListener);
+            document.body.addEventListener('htmx:oobAfterSwap', retrySetupListener);
+        }
+        return;
+    }
+
+    formElement.dataset.validatorInitialized = 'true';
 
     const saveButton = actionBar.querySelector('button[type="submit"]');
     const cancelButton = actionBar.querySelector('a.btn-secondary, button.btn-secondary');
@@ -114,3 +131,4 @@ function initializeAllValidators() {
 
 document.addEventListener('DOMContentLoaded', initializeAllValidators);
 document.body.addEventListener('htmx:afterSettle', initializeAllValidators);
+document.body.addEventListener('htmx:oobAfterSwap', initializeAllValidators);

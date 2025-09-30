@@ -1,0 +1,180 @@
+# app/config/rules.toml
+
+# ---------------------------
+# Ehituse tööjuht, tase 5 (TJ5)
+# Source: EEEL KA-kord, last amended 20.02.2023
+# ---------------------------
+[[qualifications]]
+id = "toojuht_tase_5"
+name = "Ehituse tööjuht, tase 5"
+level = 5
+
+  # Variant I
+  [[qualifications.eligibility_packages]]
+  id = "tj5_variant_1"
+  description_et = "Nõutav on varasem 4. taseme tähtajaline kutse, keskharidus, 3a töökogemus (millest 2a vastaval erialal) ning 30-tunnine baaskoolitus."
+  citation = "KA kord p. 2.1.1"
+  education_requirement = "keskharidus"
+  requires_prior_level_4 = "tähtajaline"
+  total_experience_years = 3
+  matching_experience_years = 2
+  role_requirement = "töökollektiivi_juht"
+  base_training_hours = 30
+  base_training_window_years = 5
+
+  # Variant II
+  [[qualifications.eligibility_packages]]
+  id = "tj5_variant_2"
+  description_et = "Nõutav on keskharidus, 5a töökogemus viimase 10a jooksul (millest 2a viimase 5a jooksul), 4. taseme esmane kutse või sooritatud tehnoloogiaeksam ning 30-tunnine baaskoolitus."
+  citation = "KA kord p. 2.1.2"
+  education_requirement = "keskharidus"
+  requires_prior_level_4_or_specialization_exam = true
+  total_experience_years = 5
+  total_experience_window_years = 10
+  matching_experience_years = 2
+  matching_experience_window_years = 5
+  role_requirement = "töökollektiivi_juht"
+  base_training_hours = 30
+  base_training_window_years = 5
+
+  # Variant III
+  [[qualifications.eligibility_packages]]
+  id = "tj5_variant_3"
+  description_et = "Nõutav on varasem Ehitusjuht, tase 6 kutse (kehtivuse lõpust möödas kuni 1a), 2a töökogemus viimase 5a jooksul ning 16-tunnine täiendkoolitus."
+  citation = "KA kord p. 2.1.3"
+  education_requirement = "any"
+  requires_prior_ej6_within_years = 1
+  matching_experience_years = 2
+  matching_experience_window_years = 5
+  cpd_training_hours = 16
+  cpd_training_window_years = 5
+
+  # Variant IV
+  [[qualifications.eligibility_packages]]
+  id = "tj5_variant_4"
+  description_et = "Nõutav on erialane kõrgharidus (vähemalt 240 EAP). Mittevastava eriala puhul lisandub 5a töökogemuse nõue. Tingimuslik 30-tunnine baaskoolitus."
+  citation = "KA kord p. 2.1.4"
+  education_requirement = "kõrgharidus_vähemalt_240_eap"
+  higher_ed_field = "vastav_või_mittevastav"
+  conditional_rules = [
+    { when = "higher_ed_field == 'mittevastav'", set = { matching_experience_years = 5 } }
+  ]
+  conditional_training = { trigger = "haridus_vanem_kui_10a_või_välisriik", base_training_hours = 30, base_training_window_years = 5 }
+
+  # Variant V
+  [[qualifications.eligibility_packages]]
+  id = "tj5_variant_5"
+  description_et = "Nõutav on ehitustehniline keskeriharidus või muu vastav keskeriharidus või vähemalt 180 EAP mahus ehitusalaseid õppeaineid. Lisaks 3a töökogemus (millest 2a vastaval erialal) ning tingimuslik 30-tunnine baaskoolitus."
+  citation = "KA kord p. 2.1.5"
+  education_requirement = "ehitustehniline_keskeriharidus_või_muu_vastav_keskeriharidus_või_vähemalt_180_eap"
+  total_experience_years = 3
+  matching_experience_years = 2
+  matching_experience_window_years = 5
+  conditional_training = { trigger = "haridus_vanem_kui_10a_või_välisriik", base_training_hours = 30, base_training_window_years = 5 }
+
+  # Taastõendamine (Recertification)
+  [[qualifications.eligibility_packages]]
+  id = "tj5_taastõendamine"
+  description_et = "Nõutav on varasem Tööjuht, tase 5 kutse (kehtivuse lõpust möödas kuni 1a), 2a töökogemus viimase 5a jooksul ning 16-tunnine täiendkoolitus."
+  citation = "KA kord p. 2.4"
+  route = "taastõendamine"
+  requires_prior_same_level_within_years = 1
+  matching_experience_years = 2
+  matching_experience_window_years = 5
+  cpd_training_hours = 16
+  cpd_training_window_years = 5
+
+# ---------------------------
+# Ehitusjuht, tase 6 (EJ6)
+# Source: EEEL KA-kord, last amended 13.04.2023
+# ---------------------------
+[[qualifications]]
+id = "ehitusjuht_tase_6"
+name = "Ehitusjuht, tase 6"
+level = 6
+
+  # --- Matched construction higher education ---
+  [[qualifications.eligibility_packages]]
+  id = "ej6_deg_matched_300"
+  description_et = "Nõutav on erialale vastav magister (300 EAP) ja 2a erialast töökogemust viimase 5a jooksul. Tingimuslik baaskoolitus."
+  citation = "KA kord p. 2.2.1 a"
+  education_requirement = "vastav_kõrgharidus_300_eap"
+  matching_experience_years = 2
+  matching_experience_window_years = 5
+  conditional_training = { trigger = "haridus_vanem_kui_10a_või_välisriik", manager_base_training_hours = 30, manager_base_training_window_years = 5 }
+
+  [[qualifications.eligibility_packages]]
+  id = "ej6_deg_matched_240"
+  description_et = "Nõutav on erialale vastav rakenduskõrgharidus (240 EAP), 3a töökogemust (millest 2a viimase 5a jooksul). Tingimuslik baaskoolitus."
+  citation = "KA kord p. 2.2.1 b"
+  education_requirement = "vastav_kõrgharidus_240_eap"
+  total_experience_years = 3
+  total_experience_window_years = 10
+  matching_experience_years = 2
+  matching_experience_window_years = 5
+  conditional_training = { trigger = "haridus_vanem_kui_10a_või_välisriik", manager_base_training_hours = 30, manager_base_training_window_years = 5 }
+
+  [[qualifications.eligibility_packages]]
+  id = "ej6_deg_matched_180"
+  description_et = "Nõutav on erialale vastav bakalaureus (180 EAP), 4a töökogemust (millest 2a viimase 5a jooksul). Tingimuslik baaskoolitus."
+  citation = "KA kord p. 2.2.1 c"
+  education_requirement = "vastav_kõrgharidus_180_eap"
+  total_experience_years = 4
+  total_experience_window_years = 10
+  matching_experience_years = 2
+  matching_experience_window_years = 5
+  conditional_training = { trigger = "haridus_vanem_kui_10a_või_välisriik", manager_base_training_hours = 30, manager_base_training_window_years = 5 }
+
+  # --- Mismatched construction higher education ---
+  [[qualifications.eligibility_packages]]
+  id = "ej6_deg_mismatched_300"
+  description_et = "Nõutav on erialale mittevastav magister (300 EAP), 3a töökogemust, eriala baaskoolitus ja eksam. Tingimuslik ehitusjuhi baaskoolitus."
+  citation = "KA kord p. 2.2.2 a"
+  education_requirement = "mittevastav_kõrgharidus_300_eap"
+  total_experience_years = 3
+  total_experience_window_years = 10
+  matching_experience_years = 2
+  matching_experience_window_years = 5
+  requires_specialization_base_courses = true
+  specialization_exams_required = true
+  conditional_training = { trigger = "haridus_vanem_kui_10a_või_välisriik", manager_base_training_hours = 30, manager_base_training_window_years = 5 }
+
+  # --- Technical (engineering) degree ---
+  [[qualifications.eligibility_packages]]
+  id = "ej6_technical_deg_300"
+  description_et = "Nõutav on tehniline magister (300 EAP), 5a töökogemust ning ehitusjuhi ja eriala baaskoolitused koos eksamitega."
+  citation = "KA kord p. 2.2.3 a"
+  education_requirement = "tehniline_kõrgharidus_300_eap"
+  total_experience_years = 5
+  total_experience_window_years = 10
+  matching_experience_years = 2
+  matching_experience_window_years = 5
+  requires_specialization_base_courses = true
+  specialization_exams_required = true
+  manager_base_training_hours = 30
+
+  # --- Secondary technical education ---
+  [[qualifications.eligibility_packages]]
+  id = "ej6_secondary_technical"
+  description_et = "Nõutav on ehitustehniline keskeriharidus, 6a töökogemust ning ehitusjuhi ja eriala baaskoolitused koos eksamitega."
+  citation = "KA kord p. 2.2.4"
+  education_requirement = "ehitustehniline_keskeriharidus"
+  total_experience_years = 6
+  total_experience_window_years = 10
+  matching_experience_years = 2
+  matching_experience_window_years = 5
+  requires_specialization_base_courses = true
+  specialization_exams_required = true
+  manager_base_training_hours = 30
+
+  # --- Recertification ---
+  [[qualifications.eligibility_packages]]
+  id = "ej6_taastõendamine"
+  description_et = "Nõutav on varasem Ehitusjuht, tase 6 kutse (kehtivuse lõpust möödas kuni 1a), 2a töökogemust viimase 5a jooksul ning 16+16 tundi täiendkoolitusi."
+  citation = "KA kord p. 2.8"
+  route = "taastõendamine"
+  requires_prior_same_level_within_years = 1
+  matching_experience_years = 2
+  matching_experience_window_years = 5
+  recert_training = { manager_hours = 16, per_activity_hours = 16 }
+  cpd_training_window_years = 5

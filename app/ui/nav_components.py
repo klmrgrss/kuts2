@@ -27,6 +27,8 @@ def app_navbar(request: Request, db: Any) -> FT:
     """
     user_email = request.session.get("user_email", "")
     is_authenticated = request.session.get("authenticated", False)
+    # --- ADDED: Get user role from session ---
+    user_role = request.session.get("role", "")
 
     # --- Fetch user's full name from DB ---
     display_name = user_email # Fallback to email
@@ -39,16 +41,36 @@ def app_navbar(request: Request, db: Any) -> FT:
         except Exception as e:
             print(f"--- ERROR [app_navbar]: DB lookup failed for '{user_email}'. Error: {e} ---")
 
+    # --- ADDED: Conditionally create the evaluator chip link ---
+    evaluator_chip = ""
+    if user_role == 'evaluator':
+        evaluator_chip = A(
+            Label("Ava hindaja vaade", cls=LabelT.primary), # Using MonsterUI Label as a chip
+            href="/evaluator/d",
+            cls="mr-4 no-underline hover:opacity-80 transition-opacity"
+        )
+
 
     # --- Wide Screen Elements ---
-    wide_screen_left = Div( A( UkIcon( "brick-wall", width=24, height=24, cls="inline-block mr-2 align-middle text-pink-500" ), H4("Ehitamise valdkonna kutsete taotlemine", cls="inline-block align-middle"), href="/app", cls="flex items-center" ), cls="flex items-center" )
+    # --- MODIFICATION: Shortened title and added chip ---
+    wide_screen_left = Div(
+        A(
+            UkIcon("brick-wall", width=24, height=24, cls="inline-block mr-2 align-middle text-pink-500"),
+            H4("Kutsekeskkond", cls="inline-block align-middle"),
+            Span("Taotleja", cls="ml-2 px-2 py-0.5 text-sm font-semibold rounded-full bg-blue-100 text-blue-800"),
+            href="/dashboard", # <-- MODIFIED: Point to dashboard
+            cls="flex items-center"
+        ),
+        cls="flex items-center"
+    )
     
-    # MODIFIED: Use name, remove logout button
+    # MODIFIED: Use name, remove logout button, and add evaluator chip
     wide_screen_right = Div(
+        evaluator_chip, # <-- Add the chip here
         A(
             UkIcon("user", cls="inline-block mr-2 align-middle"),
             Span(display_name, cls="text-sm"),
-            href="/app/taotleja",
+            href="/dashboard", # <-- MODIFIED: Point to dashboard
             cls="flex items-center mr-4 p-2 rounded hover:bg-muted transition-colors"
         ) if is_authenticated else Span(),
         cls="flex items-center"
@@ -64,13 +86,13 @@ def app_navbar(request: Request, db: Any) -> FT:
             A(
                 UkIcon("user", cls="inline-block mr-1 align-middle"),
                 Span(truncated_name, cls="text-sm"),
-                href="/app/taotleja",
+                href="/dashboard", # <-- MODIFIED: Point to dashboard
                 cls="flex items-center"
             ),
             cls="flex-1 text-left"
         ),
 
-        Div( A(UkIcon("brick-wall", width=28, height=28, cls="text-pink-500"), href="/app"), cls="flex-none text-center" ),
+        Div( A(UkIcon("brick-wall", width=28, height=28, cls="text-pink-500"), href="/dashboard"), cls="flex-none text-center" ), # <-- MODIFIED: Point to dashboard
         Div( Button(UkIcon("ellipsis-vertical", width=20, height=20), cls=ButtonT.ghost), cls="flex-1 text-right" ),
         cls="flex items-center justify-between w-full space-x-2"
     )
@@ -130,14 +152,53 @@ def render_sticky_header(request: Request, active_tab: str, db: Any, badge_count
         cls="sticky top-0 z-50 bg-background shadow-md"
     )
 
-# --- evaluator_navbar (remains the same) ---
-def evaluator_navbar(request: Request) -> FT:
-    user_email = request.session.get("user_email", "evaluator@example.com")
+# --- evaluator_navbar (MODIFIED) ---
+def evaluator_navbar(request: Request, db: Any) -> FT:
+    """ Renders the evaluator navbar with a consistent UI. """
+    user_email = request.session.get("user_email", "")
     is_authenticated = request.session.get("authenticated", False)
-    evaluator_title = "Ehitamise valdkonna kutsete taotluste HINDAMISKESKKOND"
-    wide_screen_left = Div( A( UkIcon( "brick-wall", width=24, height=24, cls="inline-block mr-2 align-middle text-blue-500" ), H4(evaluator_title, cls="inline-block align-middle"), href="/evaluator/dashboard", cls="flex items-center" ), cls="flex items-center" )
-    wide_screen_right = Div( Span(f"Logged in as: {user_email}", cls="text-sm mr-4") if is_authenticated else Span(), A(Button("Logout", cls=ButtonT.ghost), href="/logout") if is_authenticated else Span(), cls="flex items-center" )
-    MAX_EMAIL_LEN = 15
-    display_email = (user_email[:MAX_EMAIL_LEN] + '…') if len(user_email) > MAX_EMAIL_LEN else user_email
-    narrow_screen_content = Div( Div(Span(display_email, cls="text-sm"), cls="flex-1 text-left"), Div(A(UkIcon("brick-wall", width=28, height=28, cls="text-blue-500"), href="/evaluator/dashboard"), cls="flex-none text-center"), Div(Button(UkIcon("ellipsis-vertical", width=20, height=20), cls=ButtonT.ghost), cls="flex-1 text-right"), cls="flex items-center justify-between w-full space-x-2" )
-    return Div( Div( wide_screen_left, wide_screen_right, cls="hidden md:flex justify-between items-center w-full" ), Div( narrow_screen_content, cls="flex md:hidden items-center w-full" ), cls="flex items-center p-4 bg-background border-b border-border shadow-sm" )
+
+    # Fetch user's full name from DB
+    display_name = user_email
+    if is_authenticated and db:
+        try:
+            user_data = db.t.users[user_email]
+            display_name = user_data.get('full_name') or user_email
+        except NotFoundError:
+            print(f"--- WARN [evaluator_navbar]: User '{user_email}' not found. ---")
+        except Exception as e:
+            print(f"--- ERROR [evaluator_navbar]: DB lookup failed for '{user_email}'. Error: {e} ---")
+
+    # --- Wide Screen Elements ---
+    wide_screen_left = Div(
+        # This LABEL is for the mobile drawer, but hidden on large screens
+        Label(
+            UkIcon("menu", cls="w-6 h-6"),
+            fr="left-drawer-toggle",
+            cls="btn btn-ghost btn-square drawer-button lg:hidden"
+        ),
+        A(
+            UkIcon("brick-wall", width=24, height=24, cls="inline-block mr-2 align-middle text-blue-500"),
+            H4("Kutsekeskkond", cls="inline-block align-middle"),
+            Span("Hindaja", cls="ml-2 px-2 py-0.5 text-sm font-semibold rounded-full bg-gray-200 text-gray-800"),
+            href="/dashboard", 
+            cls="flex items-center"
+        ),
+        cls="navbar-start flex items-center"
+    )
+    
+    wide_screen_right = Div(
+        A(
+            UkIcon("user", cls="inline-block mr-2 align-middle"),
+            Span(display_name, cls="text-sm"),
+            href="/dashboard", 
+            cls="flex items-center mr-4 p-2 rounded hover:bg-muted transition-colors"
+        ),
+        cls="navbar-end"
+    )
+
+    return Div(
+        wide_screen_left,
+        wide_screen_right,
+        cls="navbar bg-base-100 border-b"
+    )
