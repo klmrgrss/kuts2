@@ -140,7 +140,8 @@ class EvaluatorController:
         ag_grid_dashboard_container = Div( id="ag-grid-dashboard", cls="ag-theme-quartz", style="height: 600px; width: 100%;", data_applications=table_data_json )
         ag_grid_dashboard_script = Script(src="/static/js/ag_grid_dashboard.js", defer=True)
         content = Div(ag_grid_dashboard_container, ag_grid_dashboard_script, cls="p-4")
-        return evaluator_layout(request=request, title=page_title, content=content)
+        # --- MODIFIED: Pass db to the layout ---
+        return evaluator_layout(request=request, title=page_title, content=content, db=self.db)
 
     # V --- MODIFIED METHOD --- V
     def show_dashboard_v2(self, request: Request):
@@ -161,12 +162,14 @@ class EvaluatorController:
 
         left_panel = render_left_panel(applications_data)
 
+        # --- MODIFIED: Pass db to the layout ---
         return ev_layout(
             request=request,
             title="Hindamiskeskkond v2",
             left_panel_content=left_panel,
             center_panel_content=center_panel,
-            right_panel_content=right_panel
+            right_panel_content=right_panel,
+            db=self.db
         )
     # ^ --- END MODIFIED METHOD --- ^
 
@@ -290,13 +293,14 @@ class EvaluatorController:
             grid = Div(Div(work_exp_objects, cls="lg:col-span-2"), Div(references, cls="lg:col-span-1"), cls="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-4 items-start")
             content = Div(summary, qual_table, grid, timeline, Hr(cls="my-6"), A("Tagasi töölauale", href="/evaluator/dashboard", cls="btn btn-secondary mt-4"))
             
-            return evaluator_layout(request=request, title=page_title, content=content)
+            # --- MODIFIED: Pass db to the layout ---
+            return evaluator_layout(request=request, title=page_title, content=content, db=self.db)
 
         except NotFoundError:
-            return evaluator_layout(request=request, title="Not Found", content=Div(H2("Applicant Not Found"), P(f"No base user record found for user: {user_email}"), cls="text-red-500 text-center p-4"))
+            return evaluator_layout(request=request, title="Not Found", content=Div(H2("Applicant Not Found"), P(f"No base user record found for user: {user_email}"), cls="text-red-500 text-center p-4"), db=self.db)
         except Exception as e:
             traceback.print_exc()
-            return evaluator_layout(request=request, title="Error", content=Div(H2("Error Loading Data"), P("An unexpected error occurred."), cls="text-red-500 text-center p-4"))
+            return evaluator_layout(request=request, title="Error", content=Div(H2("Error Loading Data"), P("An unexpected error occurred."), cls="text-red-500 text-center p-4"), db=self.db)
 
     def search_applications(self, request: Request, search: str):
         """

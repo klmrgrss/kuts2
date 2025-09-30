@@ -171,10 +171,12 @@ def app_layout(request: Request, title: str, content: Any, active_tab: str, db: 
 
     return base_layout(title, sticky_header, main_content_container, footer_container)
 
-# --- evaluator_layout ---
-def evaluator_layout(request: Request, title: str, content: Any) -> FT:
+# --- evaluator_layout (MODIFIED) ---
+def evaluator_layout(request: Request, title: str, content: Any, db: Any) -> FT:
+    """ Renders the V1 evaluator layout, now accepting and passing the db object. """
     page_title = f"{title} | Hindamiskeskkond"
     MAX_WIDTH_CLASS = "md:max-w-screen-xl"
-    navbar_container = Div( evaluator_navbar(request), cls=f"w-full {MAX_WIDTH_CLASS} md:mx-auto" )
+    # --- MODIFIED: Pass db to the navbar ---
+    navbar_container = Div( evaluator_navbar(request, db), cls=f"w-full {MAX_WIDTH_CLASS} md:mx-auto" )
     main_content_container = Container( content, cls=f"{ContainerT.xl} pt-8 {MAX_WIDTH_CLASS} md:mx-auto" )
     return base_layout(page_title, navbar_container, main_content_container)

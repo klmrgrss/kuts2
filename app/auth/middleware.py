@@ -39,9 +39,24 @@ class AuthMiddleware(BaseHTTPMiddleware):
              print(f"--- DEBUG [Middleware]: Allowing exact public path '{path}' ---")
              return await call_next(request)
 
+        # --- RBAC IMPLEMENTATION ---
         if path.startswith("/evaluator"):
-            print("--- DEBUG [Middleware]: Allowing /evaluator path during development ---")
+            print("--- DEBUG [Middleware]: Path is under /evaluator, requires 'evaluator' role ---")
+            is_authenticated = request.session.get("authenticated", False)
+            user_role = request.session.get("role")
+
+            if not is_authenticated:
+                print("--- DEBUG [Middleware]: User NOT authenticated for evaluator route, redirecting to login ---")
+                return RedirectResponse(url="/login", status_code=303)
+
+            if user_role != 'evaluator':
+                print(f"--- SECURITY [Middleware]: User '{request.session.get('user_email')}' with role '{user_role}' tried to access evaluator route. DENIED. ---")
+                # Redirect non-evaluators to their app dashboard
+                return RedirectResponse(url="/app", status_code=303)
+            
+            print("--- DEBUG [Middleware]: User is an evaluator, proceeding ---")
             return await call_next(request)
+        # --- END RBAC IMPLEMENTATION ---
 
         # The request for '/files/view/...' does not start with '/app',
         # so we need to add a condition to let it pass through to the router.

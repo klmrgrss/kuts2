@@ -4,13 +4,15 @@ from monsterui.all import *
 from starlette.requests import Request
 from ui.layouts import base_layout
 from ui.nav_components import evaluator_navbar
+from typing import Any # <-- Import Any
 
 def ev_layout(
     request: Request,
     title: str,
     left_panel_content: Any,
     center_panel_content: Any,
-    right_panel_content: Any
+    right_panel_content: Any,
+    db: Any # <-- ADDED: Accept db object
 ) -> FT:
     """
     Renders the new three-panel layout for the evaluator dashboard.
@@ -51,7 +53,8 @@ def ev_layout(
     # These buttons will only be visible on narrow screens due to CSS
     navbar_with_toggles = Div(
         # Standard evaluator navbar
-        evaluator_navbar(request),
+        # --- MODIFIED: Pass db to the navbar ---
+        evaluator_navbar(request, db),
         # Mobile-only toggle buttons
         Div(
             Button(

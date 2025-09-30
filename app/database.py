@@ -52,8 +52,25 @@ def setup_database():
     if users not in db.t:
         print("--- Creating 'users' table ---")
         # Schema uses TEXT for birthday (YYYY-MM-DD from flatpickr)
-        users.create(email=str, hashed_password=str, full_name=str, birthday=str, pk='email')
+        users.create(
+            email=str, 
+            hashed_password=str, 
+            full_name=str, 
+            birthday=str, 
+            role=str, # <-- ADDED ROLE COLUMN
+            pk='email'
+        )
         print("--- 'users' table created ---")
+    else:
+        # --- ADDED: Logic to add the column if the table already exists ---
+        print("--- Checking/Adding 'role' column to existing 'users' table ---")
+        existing_cols = [col[1] for col in db.execute("PRAGMA table_info(users)").fetchall()]
+        if 'role' not in existing_cols:
+            try:
+                print("    Adding column: role")
+                db.execute("ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'applicant'")
+            except Exception as e:
+                print(f"    Error adding column role: {e}")
 
     # === Create Applicant Profile Table ===
     if applicant_profile not in db.t:

@@ -57,6 +57,23 @@ class ApplicantController:
             print(f"--- ERROR [ApplicantController]: Could not fetch data for {user_email}. Error: {e} ---")
             db_data["Taotluse seisund"] = "Viga andmete laadimisel"
 
+        # --- MODIFICATION START ---
+        # Conditionally create the evaluator button based on the user's role
+        user_role = request.session.get("role")
+        action_buttons = [A(Button("Jätka taotluse täitmist", cls=ButtonT.primary), href="/app/kutsed")]
+        
+        if user_role == 'evaluator':
+            action_buttons.append(
+                A(Button("Ava hindaja vaade", cls=ButtonT.secondary), href="/evaluator/d")
+            )
+
+        actions_bar = Div(
+            Div(*action_buttons, cls="flex items-center space-x-2"),
+            A("Logi välja", href="/logout", cls="text-sm text-muted-foreground hover:underline"),
+            cls="flex justify-between items-center"
+        )
+        # --- MODIFICATION END ---
+
         applicant_content = Div(
             Span( applicant_name, cls="absolute -top-3 left-4 bg-background px-2 text-lg font-semibold text-gray-600 dark:text-gray-300" ),
             Div(
@@ -65,11 +82,7 @@ class ApplicantController:
                     cls="space-y-3"
                 ),
                 Hr(cls="my-6 border-border"),
-                Div(
-                    A( Button("Jätka taotluse täitmist", cls=ButtonT.primary), href="/app/kutsed" ),
-                    A("Logi välja", href="/logout", cls="text-sm text-muted-foreground hover:underline"),
-                    cls="flex justify-between items-center"
-                ),
+                actions_bar, # <-- USE THE NEW ACTIONS BAR
                 cls="p-6"
             ),
             cls="relative mt-8 rounded-lg border-2 border-border dark:border-gray-600"

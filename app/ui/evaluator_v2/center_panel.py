@@ -90,7 +90,7 @@ def DropdownContextButton(
                 style="border: none; background: none;"
             ) for option in dropdown_options],
             id=dropdown_id,
-            cls="absolute bottom-full left-0 mb-1 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-md shadow-lg z-50 w-auto whitespace-nowrap",
+            cls="absolute bottom-full left-0 mb-1 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-md shadow-md z-50 w-auto whitespace-nowrap",
             style="display: none;"
         ),
         cls="relative inline-flex",
@@ -210,7 +210,8 @@ def render_center_panel(qual_data: Dict, user_data: Dict, validation_results: Di
                     ContextButton(icon_name="send", label_text=""),
                     cls="flex items-center gap-x-2 p-2 bg-base-100"
                 ),
-                cls="border-2 rounded-lg"
+                # --- TWEAK: Moved shadow-xl class to this inner Div ---
+                cls="border-2 rounded-lg shadow-xl"
             ),
             cls="px-4 "
         ),
@@ -274,7 +275,8 @@ def render_center_panel(qual_data: Dict, user_data: Dict, validation_results: Di
                 }
             });
         """),
-        cls="pb-4 pt-2 shadow-xl"
+        # --- TWEAK: Removed shadow-xl from the outer container ---
+        cls="pb-4 pt-2 bg-white"
     )
 
     return Div(
