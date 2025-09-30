@@ -58,7 +58,7 @@ def app_navbar(request: Request, db: Any) -> FT:
             UkIcon("brick-wall", width=24, height=24, cls="inline-block mr-2 align-middle text-pink-500"),
             H4("Kutsekeskkond", cls="inline-block align-middle"),
             Span("Taotleja", cls="ml-2 px-2 py-0.5 text-sm font-semibold rounded-full bg-blue-100 text-blue-800"),
-            href="/app",
+            href="/dashboard", # <-- MODIFIED: Point to dashboard
             cls="flex items-center"
         ),
         cls="flex items-center"
@@ -70,7 +70,7 @@ def app_navbar(request: Request, db: Any) -> FT:
         A(
             UkIcon("user", cls="inline-block mr-2 align-middle"),
             Span(display_name, cls="text-sm"),
-            href="/app/taotleja",
+            href="/dashboard", # <-- MODIFIED: Point to dashboard
             cls="flex items-center mr-4 p-2 rounded hover:bg-muted transition-colors"
         ) if is_authenticated else Span(),
         cls="flex items-center"
@@ -86,13 +86,13 @@ def app_navbar(request: Request, db: Any) -> FT:
             A(
                 UkIcon("user", cls="inline-block mr-1 align-middle"),
                 Span(truncated_name, cls="text-sm"),
-                href="/app/taotleja",
+                href="/dashboard", # <-- MODIFIED: Point to dashboard
                 cls="flex items-center"
             ),
             cls="flex-1 text-left"
         ),
 
-        Div( A(UkIcon("brick-wall", width=28, height=28, cls="text-pink-500"), href="/app"), cls="flex-none text-center" ),
+        Div( A(UkIcon("brick-wall", width=28, height=28, cls="text-pink-500"), href="/dashboard"), cls="flex-none text-center" ), # <-- MODIFIED: Point to dashboard
         Div( Button(UkIcon("ellipsis-vertical", width=20, height=20), cls=ButtonT.ghost), cls="flex-1 text-right" ),
         cls="flex items-center justify-between w-full space-x-2"
     )
@@ -171,56 +171,34 @@ def evaluator_navbar(request: Request, db: Any) -> FT:
 
     # --- Wide Screen Elements ---
     wide_screen_left = Div(
+        # This LABEL is for the mobile drawer, but hidden on large screens
+        Label(
+            UkIcon("menu", cls="w-6 h-6"),
+            fr="left-drawer-toggle",
+            cls="btn btn-ghost btn-square drawer-button lg:hidden"
+        ),
         A(
             UkIcon("brick-wall", width=24, height=24, cls="inline-block mr-2 align-middle text-blue-500"),
             H4("Kutsekeskkond", cls="inline-block align-middle"),
             Span("Hindaja", cls="ml-2 px-2 py-0.5 text-sm font-semibold rounded-full bg-gray-200 text-gray-800"),
-            href="/evaluator/d",
+            href="/dashboard", 
             cls="flex items-center"
         ),
-        cls="flex items-center"
+        cls="navbar-start flex items-center"
     )
     
     wide_screen_right = Div(
         A(
-            Label("Ava taotleja vaade", cls=LabelT.secondary),
-            href="/app/taotleja",
-            cls="mr-4 no-underline hover:opacity-80 transition-opacity"
-        ),
-        A(
             UkIcon("user", cls="inline-block mr-2 align-middle"),
             Span(display_name, cls="text-sm"),
-            # This could be a link to a future evaluator profile page
-            # href="/evaluator/profile", 
+            href="/dashboard", 
             cls="flex items-center mr-4 p-2 rounded hover:bg-muted transition-colors"
         ),
-        A(Button("Logi välja", cls=ButtonT.ghost), href="/logout"),
-        cls="flex items-center"
-    )
-
-    # --- Narrow Screen Elements ---
-    MAX_NAME_LEN = 15
-    truncated_name = (display_name[:MAX_NAME_LEN] + '…') if len(display_name) > MAX_NAME_LEN else display_name
-    narrow_screen_content = Div(
-        Div(
-            A(
-                UkIcon("user", cls="inline-block mr-1 align-middle"),
-                Span(truncated_name, cls="text-sm"),
-                # href="/evaluator/profile",
-                cls="flex items-center"
-            ),
-            cls="flex-1 text-left"
-        ),
-        Div(A(UkIcon("brick-wall", width=28, height=28, cls="text-blue-500"), href="/evaluator/d"), cls="flex-none text-center"),
-        Div(
-            A(Button(UkIcon("log-out", width=20, height=20), cls=ButtonT.ghost), href="/logout"),
-            cls="flex-1 text-right"
-        ),
-        cls="flex items-center justify-between w-full space-x-2"
+        cls="navbar-end"
     )
 
     return Div(
-        Div(wide_screen_left, wide_screen_right, cls="hidden md:flex justify-between items-center w-full"),
-        Div(narrow_screen_content, cls="flex md:hidden items-center w-full"),
-        cls="flex items-center p-4 bg-background border-b border-border shadow-sm"
+        wide_screen_left,
+        wide_screen_right,
+        cls="navbar bg-base-100 border-b"
     )

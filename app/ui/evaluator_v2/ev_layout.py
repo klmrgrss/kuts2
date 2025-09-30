@@ -4,7 +4,7 @@ from monsterui.all import *
 from starlette.requests import Request
 from ui.layouts import base_layout
 from ui.nav_components import evaluator_navbar
-from typing import Any # <-- Import Any
+from typing import Any
 
 def ev_layout(
     request: Request,
@@ -12,74 +12,69 @@ def ev_layout(
     left_panel_content: Any,
     center_panel_content: Any,
     right_panel_content: Any,
-    db: Any # <-- ADDED: Accept db object
+    db: Any
 ) -> FT:
     """
-    Renders the new three-panel layout for the evaluator dashboard.
-    Includes slide-out functionality for narrow screens.
+    Renders the evaluator layout using a responsive approach:
+    - A three-column grid on large screens (desktop).
+    - A DaisyUI Drawer component for slide-out panels on smaller screens (mobile).
     """
     page_title = f"{title} | Hindamiskeskkond"
 
-    # --- Main Content with Three-Panel Layout ---
-    main_content = Div(
-        # --- Left Panel (Applications List) ---
-        Aside(
-            left_panel_content,
-            id="ev-left-panel",
-            cls="ev-panel"
-        ),
+    # --- THE FIX: Use a single drawer that CONTAINS the grid ---
+    # This structure allows for responsive layout changes.
 
-        # --- Center Panel (Decision Making) ---
-        Main(
-            center_panel_content,
-            id="ev-center-panel",
-            cls="ev-panel"
-        ),
+    layout = Div(
+        # The checkbox to control the drawer on mobile
+        Input(id="left-drawer-toggle", type="checkbox", cls="drawer-toggle"),
 
-        # --- Right Panel (Applicant Details) ---
-        Aside(
-            right_panel_content,
-            id="ev-right-panel",
-            cls="ev-panel"
-        ),
-
-        # This ID is used by the JS to toggle the slide-out classes
-        id="evaluator-v2-container",
-        # The core of the desktop layout
-        cls="grid grid-cols-[1fr_3fr_1fr] h-[calc(100vh-65px)]"
-    )
-
-    # --- Navbar with Toggle Buttons for Mobile ---
-    # These buttons will only be visible on narrow screens due to CSS
-    navbar_with_toggles = Div(
-        # Standard evaluator navbar
-        # --- MODIFIED: Pass db to the navbar ---
-        evaluator_navbar(request, db),
-        # Mobile-only toggle buttons
+        # --- DRAWER CONTENT ---
+        # This area contains the navbar and the main grid layout.
         Div(
-            Button(
-                UkIcon("menu", cls="w-6 h-6"),
-                # JS onclick to toggle the left panel
-                onclick="toggleEvaluatorPanel('left')",
-                cls="btn btn-ghost lg:hidden"
+            # 1. Navbar: It is sticky and contains the mobile toggle.
+            Div(
+                evaluator_navbar(request, db),
+                cls="sticky top-0 z-30"
             ),
-            Button(
-                UkIcon("user", cls="w-6 h-6"),
-                # JS onclick to toggle the right panel
-                onclick="toggleEvaluatorPanel('right')",
-                cls="btn btn-ghost lg:hidden"
+
+            # 2. Main Grid: This defines the 3-column desktop layout.
+            #    On mobile, this grid collapses, and the panels are handled by the drawer.
+            Div(
+                # Left Panel (visible on desktop, part of drawer on mobile)
+                Div(
+                    left_panel_content,
+                    cls="hidden lg:block h-full"
+                ),
+
+                # Center Panel
+                center_panel_content,
+
+                # Right Panel (visible on desktop, part of drawer on mobile)
+                Div(
+                    right_panel_content,
+                    cls="hidden lg:block h-full"
+                ),
+
+                cls="grid lg:grid-cols-[minmax(280px,1.2fr)_3fr_minmax(280px,1.2fr)] h-[calc(100vh-68px)]"
             ),
-            cls="absolute top-3 right-4 z-20 flex gap-x-2"
+            cls="drawer-content"
         ),
-        cls="relative" # Needed for absolute positioning of toggles
+
+        # --- DRAWER SIDE ---
+        # This holds the content for the slide-out panels on mobile.
+        Div(
+            Label(fr="left-drawer-toggle", aria_label="close sidebar", cls="drawer-overlay"),
+            # On mobile, we show BOTH panels in the drawer, stacked.
+            Div(
+                left_panel_content,
+                right_panel_content,
+                cls="lg:hidden flex flex-col divide-y h-full" # Only show on mobile
+            ),
+            cls="drawer-side z-40"
+        ),
+        cls="drawer"
     )
 
-
-    # Use the main base_layout to get all the necessary headers and scripts
-    return base_layout(
-        page_title,
-        navbar_with_toggles,
-        main_content,
-        # Semi-transparent overlay for mobile view when a panel is open
-        Div(id="ev-overlay", onclick="closeAllEvaluatorPanels()"),
-    )
+    # Note: We are now using a single drawer. The right-side panel on mobile
+    # will appear in the same drawer as the left, which is a common mobile pattern.
+    return base_layout(page_title, layout)

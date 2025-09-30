@@ -20,6 +20,7 @@ from controllers.education import EducationController
 from controllers.documents import DocumentsController
 from controllers.training import TrainingController
 from controllers.evaluator import EvaluatorController
+from controllers.dashboard import DashboardController # <-- IMPORT NEW CONTROLLER
 from ui.layouts import public_layout, app_layout
 from ui.nav_components import public_navbar
 from starlette.middleware import Middleware
@@ -60,6 +61,7 @@ try:
     documents_controller = DocumentsController(db)
     review_controller = ReviewController(db)
     evaluator_controller = EvaluatorController(db)
+    dashboard_controller = DashboardController(db) # <-- INSTANTIATE NEW CONTROLLER
 except AttributeError as e:
     raise RuntimeError("Controller initialization failed due to database setup issue.") from e
 
@@ -139,7 +141,11 @@ def get_login_form_page(request: Request):
 
 @rt("/login", methods=["POST"])
 async def post_login(request: Request, email: str, password: str):
-    return await auth_controller.process_login(request, email, password)
+    # --- MODIFIED: Point login redirect to /dashboard ---
+    response = await auth_controller.process_login(request, email, password)
+    if isinstance(response, Response) and 'HX-Redirect' in response.headers:
+        response.headers['HX-Redirect'] = '/dashboard'
+    return response
 
 @rt("/register", methods=["GET"])
 def get_register_form_page(request: Request):
@@ -149,15 +155,25 @@ def get_register_form_page(request: Request):
 
 @rt("/register", methods=["POST"])
 async def post_register(request: Request, email: str, password: str, confirm_password: str, full_name: str, birthday: str):
-    return await auth_controller.process_registration(request, email, password, confirm_password, full_name, birthday)
+    # --- MODIFIED: Point register redirect to /dashboard ---
+    response = await auth_controller.process_registration(request, email, password, confirm_password, full_name, birthday)
+    if isinstance(response, Response) and 'HX-Redirect' in response.headers:
+        response.headers['HX-Redirect'] = '/dashboard'
+    return response
 
 @rt("/logout", methods=["GET"])
 def get_logout(request: Request):
     return auth_controller.logout(request)
 
+# --- NEW DASHBOARD ROUTE ---
+@rt("/dashboard", methods=["GET"])
+def get_dashboard(request: Request):
+    return dashboard_controller.show_dashboard(request)
+
+# --- MODIFIED: /app now redirects to dashboard ---
 @rt("/app", methods=["GET"])
 def get_app_root(request: Request):
-    return RedirectResponse("/app/taotleja", status_code=303)
+    return RedirectResponse("/dashboard", status_code=303)
 
 @rt("/app/taotleja", methods=["GET"])
 def get_applicant(request: Request):
