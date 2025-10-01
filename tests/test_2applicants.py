@@ -19,14 +19,19 @@ def successful_applicant_client(client: TestClient):
     This fixture yields the authenticated client and then cleans up the user's data.
     """
     email = "successful.applicant@example.com"
-    
+
     # --- Setup ---
+    users_table.delete_where("email = ?", [email])
+    qualifications_table.delete_where("user_email = ?", [email])
+    experience_table.delete_where("user_email = ?", [email])
+    documents_table.delete_where("user_email = ?", [email])
     client.post("/register", data={
         "email": email, "password": "password123", "confirm_password": "password123",
         "full_name": "Success Applicant", "birthday": "1990-05-15"
     })
     client.post("/login", data={"email": email, "password": "password123"})
-    
+    client.get("/dashboard")
+
     # Add qualifications to make work experience tab available
     client.post("/app/kutsed/submit", data={"qual_1_0": "on"})
 
@@ -46,13 +51,17 @@ def overlapping_applicant_client(client: TestClient):
     Creates, authenticates, and sets up an applicant with overlapping experience.
     """
     email = "overlapping.applicant@example.com"
-    
+
     # --- Setup ---
+    users_table.delete_where("email = ?", [email])
+    qualifications_table.delete_where("user_email = ?", [email])
+    experience_table.delete_where("user_email = ?", [email])
     client.post("/register", data={
         "email": email, "password": "password123", "confirm_password": "password123",
         "full_name": "Overlapping Applicant", "birthday": "1985-10-20"
     })
     client.post("/login", data={"email": email, "password": "password123"})
+    client.get("/dashboard")
     client.post("/app/kutsed/submit", data={"qual_1_0": "on"})
 
 

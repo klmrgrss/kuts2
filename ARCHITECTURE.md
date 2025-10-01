@@ -41,6 +41,25 @@ The application follows a Model-View-Controller (MVC) like architecture:
 4.  The controller then uses components from `app/ui/` to construct an HTML response.
 5.  The response is sent back to the user's browser.
 
+## Default Accounts
+
+The application can automatically provision evaluator or applicant accounts on
+start-up.  Set the `DEFAULT_USERS` environment variable to a JSON array, for
+example:
+
+```json
+[
+  {"email": "evaluator@example.com", "password": "Secret123!", "role": "evaluator"},
+  {"email": "applicant@example.com", "password": "Secret456!"}
+]
+```
+
+Entries may also be supplied in a simple `email|password|role` format separated
+by commas, semicolons, or newlines for environments where JSON is awkward.  For
+legacy compatibility the `EVALUATOR_EMAILS` / `DEFAULT_EVALUATOR_PASSWORD`
+variables continue to work.  Password resets for existing accounts can be
+disabled by setting `DEFAULT_USERS_FORCE_RESET=false`.
+
 ## Domain-Specific Concepts
 
 *(This section is a placeholder for you to add more details about the business logic.)*
