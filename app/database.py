@@ -19,6 +19,7 @@ def setup_database():
     """
     try:
         os.makedirs(DATA_DIR, exist_ok=True)
+        print(f"--- INFO: Attempting to connect to DB at absolute path: {os.path.abspath(DB_FILE)} ---")
         print(f"--- Ensured data directory exists: {DATA_DIR} ---")
     except OSError as e:
         print(f"--- ERROR: Could not create data directory '{DATA_DIR}': {e} ---")
