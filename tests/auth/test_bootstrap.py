@@ -86,3 +86,29 @@ def test_default_users_do_not_override_password_when_disabled(monkeypatch, isola
     assert user["role"] == "evaluator"
     assert verify_password("OldSecret!1", user["hashed_password"])
     assert not verify_password("NewPassword!2", user["hashed_password"])
+
+
+def test_newline_separated_json_users(monkeypatch, isolated_db):
+    db = isolated_db
+
+    raw = "\n".join(
+        [
+            '{"email": "first@example.com", "password": "FirstPass!1", "role": "evaluator"}',
+            '{"email": "second@example.com", "password": "SecondPass!2"}',
+        ]
+    )
+
+    monkeypatch.setenv("DEFAULT_USERS", raw)
+
+    from auth.bootstrap import ensure_default_users
+
+    ensure_default_users(db)
+
+    users = db.t.users
+    first = users["first@example.com"]
+    second = users["second@example.com"]
+
+    assert first["role"] == "evaluator"
+    assert second["role"] == "applicant"
+    assert verify_password("FirstPass!1", first["hashed_password"])
+    assert verify_password("SecondPass!2", second["hashed_password"])

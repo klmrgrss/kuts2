@@ -141,7 +141,39 @@ def _parse_default_users(raw: str) -> List[DefaultUser]:
     try:
         loaded = json.loads(raw)
     except json.JSONDecodeError:
-        return _parse_simple_default_users(raw)
+        decoder = json.JSONDecoder()
+        index = 0
+        parsed_objects = []
+        raw_length = len(raw)
+
+        while index < raw_length:
+            while index < raw_length and raw[index] in " \t\r\n;":
+                index += 1
+
+            if index >= raw_length:
+                break
+
+            if raw[index] != "{":
+                parsed_objects = []
+                break
+
+            try:
+                obj, next_index = decoder.raw_decode(raw, index)
+            except json.JSONDecodeError:
+                parsed_objects = []
+                break
+
+            parsed_objects.append(obj)
+            index = next_index
+
+        if parsed_objects:
+            loaded = parsed_objects
+        else:
+            if "{" in raw:
+                print(
+                    "--- Default user bootstrap: no valid JSON objects found in DEFAULT_USERS ---"
+                )
+            return _parse_simple_default_users(raw)
 
     if isinstance(loaded, dict):
         loaded = [loaded]
@@ -171,6 +203,8 @@ def _parse_default_users(raw: str) -> List[DefaultUser]:
 def _parse_simple_default_users(raw: str) -> List[DefaultUser]:
     users: List[DefaultUser] = []
     for entry in _split_entries(raw):
+        if entry.strip().startswith("{"):
+            continue
         delimiter = "|" if "|" in entry else ":"
         parts = [part.strip() for part in entry.split(delimiter) if part.strip()]
         if len(parts) < 2:
