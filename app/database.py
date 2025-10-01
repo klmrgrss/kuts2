@@ -5,26 +5,23 @@ import os
 import traceback # Added for potentially more robust error handling if needed later
 
 # --- Path Definition ---
-script_dir = os.path.dirname(__file__)
-project_root = os.path.abspath(os.path.join(script_dir, '..'))
-DATA_DIR = os.path.join(project_root, 'data')
-DB_FILE = os.path.join(DATA_DIR, 'applicant_data.db')
-# ---
+# Use an environment variable for the database file path.
+# Default to the old relative path for local development convenience.
+DB_FILE = os.environ.get("DATABASE_FILE_PATH", os.path.join(os.path.dirname(__file__), '..', 'data', 'applicant_data.db'))
+# The directory is derived from the file path
+DATA_DIR = os.path.dirname(DB_FILE)
+
 
 def setup_database():
     """
     Sets up the SQLite database connection and ensures tables are created.
-    Includes data migration logic for work_experience date fields.
-    Uses fastlite library. Uses raw SQL for index creation as workaround.
     """
     try:
         os.makedirs(DATA_DIR, exist_ok=True)
-        print(f"--- INFO: Attempting to connect to DB at absolute path: {os.path.abspath(DB_FILE)} ---")
         print(f"--- Ensured data directory exists: {DATA_DIR} ---")
     except OSError as e:
         print(f"--- ERROR: Could not create data directory '{DATA_DIR}': {e} ---")
-        # RAISE AN EXCEPTION INSTEAD OF RETURNING NONE
-        raise RuntimeError(f"Failed to create data directory: {DATA_DIR}") from e # Added this line
+        raise RuntimeError(f"Failed to create data directory: {DATA_DIR}") from e
 
     print(f"--- Setting up database at: {DB_FILE} ---")
     print(f"--- Absolute DB Path Attempting: {os.path.abspath(DB_FILE)} ---")
@@ -34,8 +31,7 @@ def setup_database():
     except Exception as e:
         print(f"--- FATAL ERROR: Could not open database file '{DB_FILE}': {e} ---")
         traceback.print_exc()
-        # RAISE AN EXCEPTION INSTEAD OF RETURNING NONE
-        raise RuntimeError(f"Failed to open database: {DB_FILE}") from e # Added this line
+        raise RuntimeError(f"Failed to open database: {DB_FILE}") from e
 
 
 
