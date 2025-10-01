@@ -15,17 +15,15 @@ if str(APP_PATH) not in sys.path:
 load_dotenv()
 
 from database import setup_database
-from auth.utils import get_password_hash # Import the password hashing utility
+from auth.utils import get_password_hash
 from fastlite import NotFoundError
 
 def sync_evaluator_roles():
     """
-    Reads evaluator emails from the environment variable 'EVALUATOR_EMAILS'.
+    Reads evaluator emails from 'EVALUATOR_EMAILS' environment variable.
     For each email, it ensures the user exists (creating them if necessary)
-    and that their role is set to 'evaluator'.
+    and that their role is 'evaluator' and their password is reset to the default.
     """
-    # Wait for 5 seconds to give the volume time to mount. This is a pragmatic
-    # fix for the race condition on Railway.
     print("--- Starting role sync. Waiting 5 seconds for volume to mount... ---")
     time.sleep(5)
 
@@ -45,20 +43,19 @@ def sync_evaluator_roles():
     db = setup_database()
     users_table = db.t.users
     
-    # Use a secure, default password for any newly created evaluators.
-    # The user should be instructed to change this after their first login.
     default_password = os.getenv("DEFAULT_EVALUATOR_PASSWORD", "Password123!")
     hashed_password = get_password_hash(default_password)
 
     for email in evaluator_emails:
         try:
             user = users_table[email]
-            # User exists, check if they need promotion
-            if user['role'] != 'evaluator':
-                users_table.update({"role": "evaluator"}, pk=email)
-                print(f"  - ✅ PROMOTED: User '{email}' role updated to 'evaluator'.")
-            else:
-                print(f"  - OK: User '{email}' already has the 'evaluator' role.")
+            # --- THE FIX: Always update the password and role for existing users ---
+            update_data = {
+                "role": "evaluator",
+                "hashed_password": hashed_password
+            }
+            users_table.update(update_data, pk=email)
+            print(f"  - ✅ SYNCED: Ensured user '{email}' has 'evaluator' role and default password.")
 
         except NotFoundError:
             # User does NOT exist, so we create them
@@ -67,7 +64,7 @@ def sync_evaluator_roles():
                 new_user = {
                     "email": email,
                     "hashed_password": hashed_password,
-                    "full_name": email.split('@')[0], # Use a sensible default for the name
+                    "full_name": email.split('@')[0],
                     "birthday": "1900-01-01",
                     "role": "evaluator"
                 }
