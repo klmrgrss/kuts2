@@ -112,3 +112,29 @@ def test_newline_separated_json_users(monkeypatch, isolated_db):
     assert second["role"] == "applicant"
     assert verify_password("FirstPass!1", first["hashed_password"])
     assert verify_password("SecondPass!2", second["hashed_password"])
+
+
+def test_comma_separated_json_users(monkeypatch, isolated_db):
+    db = isolated_db
+
+    raw = ",".join(
+        [
+            '{"email": "comma1@example.com", "password": "CommaPass!1", "role": "evaluator"}',
+            '{"email": "comma2@example.com", "password": "CommaPass!2", "role": "applicant"}',
+        ]
+    )
+
+    monkeypatch.setenv("DEFAULT_USERS", raw)
+
+    from auth.bootstrap import ensure_default_users
+
+    ensure_default_users(db)
+
+    users = db.t.users
+    first = users["comma1@example.com"]
+    second = users["comma2@example.com"]
+
+    assert first["role"] == "evaluator"
+    assert second["role"] == "applicant"
+    assert verify_password("CommaPass!1", first["hashed_password"])
+    assert verify_password("CommaPass!2", second["hashed_password"])
