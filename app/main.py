@@ -1,11 +1,22 @@
 # app/main.py
 # main.py
 
+# --- FIX: Add project root to Python path ---
+import sys
+from pathlib import Path
+
+# This ensures that when main.py is run, Python can find other modules
+# in the 'app' directory, like 'controllers', 'ui', etc.
+APP_ROOT = str(Path(__file__).parent)
+if APP_ROOT not in sys.path:
+    sys.path.insert(0, APP_ROOT)
+# --- END FIX ---
+
 # --- Imports ---
 import os
-from pathlib import Path
 from dotenv import load_dotenv
 from fasthtml.common import *
+# ... (the rest of the file is unchanged) ...
 from monsterui.all import *
 from controllers.employment_proof import EmploymentProofController
 from controllers.review import ReviewController
