@@ -153,6 +153,10 @@ def _parse_default_users(raw: str) -> List[DefaultUser]:
             if index >= raw_length:
                 break
 
+            if raw[index] == ",":
+                index += 1
+                continue
+
             if raw[index] != "{":
                 parsed_objects = []
                 break
