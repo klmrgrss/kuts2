@@ -380,7 +380,7 @@ class EvaluatorController:
         
         # --- PSEUDO-DATA SECTION ---
         pseudo_data = {
-            "education": "upper_secondary",
+            "education": "keskharidus",
             "has_prior_level_4": True,
             "base_training_hours": 40,
             "matching_experience_years": total_years

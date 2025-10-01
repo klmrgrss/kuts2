@@ -2,12 +2,23 @@
 
 from fastlite import database
 import os
+from pathlib import Path
 import traceback # Added for potentially more robust error handling if needed later
 
 # --- Path Definition ---
 # Use an environment variable for the database file path.
 # Default to the old relative path for local development convenience.
-DB_FILE = os.environ.get("DATABASE_FILE_PATH", os.path.join(os.path.dirname(__file__), '..', 'data', 'applicant_data.db'))
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent
+_DB_FILE_ENV = os.environ.get("DATABASE_FILE_PATH")
+
+if _DB_FILE_ENV:
+    db_path = Path(_DB_FILE_ENV)
+    if not db_path.is_absolute():
+        db_path = (_PROJECT_ROOT / db_path).resolve()
+else:
+    db_path = (_PROJECT_ROOT / 'data' / 'applicant_data.db').resolve()
+
+DB_FILE = str(db_path)
 # The directory is derived from the file path
 DATA_DIR = os.path.dirname(DB_FILE)
 

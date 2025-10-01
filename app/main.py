@@ -21,6 +21,7 @@ from monsterui.all import *
 from controllers.employment_proof import EmploymentProofController
 from controllers.review import ReviewController
 from database import setup_database
+from auth.bootstrap import ensure_default_users
 from auth.middleware import AuthMiddleware
 from auth.utils import *
 from controllers.auth import AuthController
@@ -59,6 +60,8 @@ print(f"--- INFO [main.py]: Upload directory calculated as: {UPLOAD_DIR} ---")
 db = setup_database()
 if db is None:
     raise RuntimeError("Database setup failed, cannot start application.")
+
+ensure_default_users(db)
 
 # --- Controller Instantiation ---
 try:

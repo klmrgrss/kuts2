@@ -46,6 +46,7 @@ def authenticated_client(client):
     }
     # Perform the login. The TestClient will automatically manage the session cookie.
     client.post("/login", data=login_data)
+    client.get("/dashboard")
 
     # --- NEW: Select some qualifications for the test user ---
     # This data needs to match the expected format for /app/kutsed/submit
