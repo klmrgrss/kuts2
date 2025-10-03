@@ -441,4 +441,5 @@ def view_secure_file(request: Request, doc_id: int):
         return Response("Could not generate secure link for the file.", status_code=500)
 
 # Start server
-serve()
+if __name__ == "__main__":
+    serve()
