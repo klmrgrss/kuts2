@@ -2,7 +2,7 @@ anyio==4.9.0
 apsw==3.49.1.0
 apswutils==0.0.2
 beautifulsoup4==4.13.3
-bcrypt==4.1.2
+bcrypt==3.2.2
 certifi==2025.1.31
 click==8.1.8
 fastcore==1.8.0
