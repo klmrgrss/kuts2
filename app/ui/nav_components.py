@@ -1,10 +1,13 @@
 # gem/ui/nav_components.py
 
 from fasthtml.common import *
-from monsterui.all import *
-from typing import Optional, Dict, Any
-from starlette.requests import Request
+from typing import Any, Dict
+
 from fastlite import NotFoundError
+from monsterui.all import *
+from starlette.requests import Request
+
+from auth.roles import ROLE_LABELS, is_admin, is_evaluator, normalize_role
 
 # --- TABS Dictionary ---
 TABS = { 
@@ -28,7 +31,7 @@ def app_navbar(request: Request, db: Any) -> FT:
     user_email = request.session.get("user_email", "")
     is_authenticated = request.session.get("authenticated", False)
     # --- ADDED: Get user role from session ---
-    user_role = request.session.get("role", "")
+    user_role = normalize_role(request.session.get("role"))
 
     # --- Fetch user's full name from DB ---
     display_name = user_email # Fallback to email
@@ -43,7 +46,7 @@ def app_navbar(request: Request, db: Any) -> FT:
 
     # --- ADDED: Conditionally create the evaluator chip link ---
     evaluator_chip = ""
-    if user_role == 'evaluator':
+    if is_evaluator(user_role):
         evaluator_chip = A(
             Label("Ava hindaja vaade", cls=LabelT.primary), # Using MonsterUI Label as a chip
             href="/evaluator/d",
@@ -53,11 +56,18 @@ def app_navbar(request: Request, db: Any) -> FT:
 
     # --- Wide Screen Elements ---
     # --- MODIFICATION: Shortened title and added chip ---
+    if is_admin(user_role):
+        badge_text = ROLE_LABELS.admin
+    elif is_evaluator(user_role):
+        badge_text = ROLE_LABELS.evaluator
+    else:
+        badge_text = ROLE_LABELS.applicant
+
     wide_screen_left = Div(
         A(
             UkIcon("brick-wall", width=24, height=24, cls="inline-block mr-2 align-middle text-pink-500"),
             H4("Kutsekeskkond", cls="inline-block align-middle"),
-            Span("Taotleja", cls="ml-2 px-2 py-0.5 text-sm font-semibold rounded-full bg-blue-100 text-blue-800"),
+            Span(badge_text, cls="ml-2 px-2 py-0.5 text-sm font-semibold rounded-full bg-blue-100 text-blue-800"),
             href="/dashboard", # <-- MODIFIED: Point to dashboard
             cls="flex items-center"
         ),
@@ -157,6 +167,7 @@ def evaluator_navbar(request: Request, db: Any) -> FT:
     """ Renders the evaluator navbar with a consistent UI. """
     user_email = request.session.get("user_email", "")
     is_authenticated = request.session.get("authenticated", False)
+    user_role = normalize_role(request.session.get("role"))
 
     # Fetch user's full name from DB
     display_name = user_email
@@ -170,6 +181,8 @@ def evaluator_navbar(request: Request, db: Any) -> FT:
             print(f"--- ERROR [evaluator_navbar]: DB lookup failed for '{user_email}'. Error: {e} ---")
 
     # --- Wide Screen Elements ---
+    role_label = ROLE_LABELS.evaluator if not is_admin(user_role) else ROLE_LABELS.admin
+
     wide_screen_left = Div(
         # This LABEL is for the mobile drawer, but hidden on large screens
         Label(
@@ -180,8 +193,8 @@ def evaluator_navbar(request: Request, db: Any) -> FT:
         A(
             UkIcon("brick-wall", width=24, height=24, cls="inline-block mr-2 align-middle text-blue-500"),
             H4("Kutsekeskkond", cls="inline-block align-middle"),
-            Span("Hindaja", cls="ml-2 px-2 py-0.5 text-sm font-semibold rounded-full bg-gray-200 text-gray-800"),
-            href="/dashboard", 
+            Span(role_label, cls="ml-2 px-2 py-0.5 text-sm font-semibold rounded-full bg-gray-200 text-gray-800"),
+            href="/dashboard",
             cls="flex items-center"
         ),
         cls="navbar-start flex items-center"

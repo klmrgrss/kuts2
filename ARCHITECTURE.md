@@ -60,6 +60,28 @@ legacy compatibility the `EVALUATOR_EMAILS` / `DEFAULT_EVALUATOR_PASSWORD`
 variables continue to work.  Password resets for existing accounts can be
 disabled by setting `DEFAULT_USERS_FORCE_RESET=false`.
 
+The bootstrapper always ensures an administrator account exists. The fallback
+credentials default to `admin@example.com` / `ChangeMe123!` when no explicit
+configuration is provided; update these values via `DEFAULT_ADMIN_EMAIL` and
+`DEFAULT_ADMIN_PASSWORD` before deploying to production.
+
+## Role-Based Access Control
+
+Roles are centralised in `app/auth/roles.py`. Guards in `app/auth/guards.py`
+expose a `guard_request()` helper that routes use to enforce allowlists while
+granting administrators full access. The guard also stores the resolved user on
+`request.state.current_user` so controllers can consume a hydrated user object
+without relying on raw session state.
+
+## Database Operations
+
+`app/database.py` configures SQLite with WAL mode, a `busy_timeout` of 10
+seconds, and foreign keys enabled. Migrations are discovered from the
+`migrations/` directory and applied via `app/utils/migrations.py` before the
+FastLite connection is returned. For operational backups use
+`app/utils/backup.py.vacuum_into()` which executes `VACUUM INTO` against the
+configured database file.
+
 ## Domain-Specific Concepts
 
 *(This section is a placeholder for you to add more details about the business logic.)*

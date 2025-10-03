@@ -1,9 +1,13 @@
 # database.py
 
-from fastlite import database
 import os
+import sqlite3
+import traceback  # Added for potentially more robust error handling if needed later
 from pathlib import Path
-import traceback # Added for potentially more robust error handling if needed later
+
+from fastlite import database
+
+from utils.migrations import run_pending_migrations
 
 # --- Path Definition ---
 # Use an environment variable for the database file path.
@@ -23,10 +27,15 @@ DB_FILE = str(db_path)
 DATA_DIR = os.path.dirname(DB_FILE)
 
 
+def _configure_connection(connection: sqlite3.Connection) -> None:
+    connection.execute("PRAGMA journal_mode=WAL;")
+    connection.execute("PRAGMA synchronous=NORMAL;")
+    connection.execute("PRAGMA foreign_keys=ON;")
+    connection.execute("PRAGMA busy_timeout=10000;")
+
+
 def setup_database():
-    """
-    Sets up the SQLite database connection and ensures tables are created.
-    """
+    """Initialise the SQLite database file, run migrations, and return a FastLite handle."""
     try:
         os.makedirs(DATA_DIR, exist_ok=True)
         print(f"--- Ensured data directory exists: {DATA_DIR} ---")
@@ -38,13 +47,23 @@ def setup_database():
     print(f"--- Absolute DB Path Attempting: {os.path.abspath(DB_FILE)} ---")
 
     try:
+        with sqlite3.connect(DB_FILE) as connection:
+            _configure_connection(connection)
+    except Exception as e:
+        print(f"--- FATAL ERROR: Could not prepare SQLite pragmas for '{DB_FILE}': {e} ---")
+        traceback.print_exc()
+        raise RuntimeError(f"Failed to configure database: {DB_FILE}") from e
+
+    run_pending_migrations(DB_FILE)
+
+    try:
         db = database(DB_FILE)
+        db.execute("PRAGMA foreign_keys=ON;")
+        db.execute("PRAGMA busy_timeout=10000;")
     except Exception as e:
         print(f"--- FATAL ERROR: Could not open database file '{DB_FILE}': {e} ---")
         traceback.print_exc()
         raise RuntimeError(f"Failed to open database: {DB_FILE}") from e
-
-
 
     # Define tables
     users = db.t.users

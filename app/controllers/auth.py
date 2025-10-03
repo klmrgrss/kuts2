@@ -6,6 +6,7 @@ from starlette.requests import Request
 from starlette.responses import RedirectResponse, Response
 from fastlite import NotFoundError # Make sure NotFoundError is imported if using fastlite < 0.1.5
 from monsterui.all import *
+from auth.roles import APPLICANT, normalize_role
 from auth.utils import get_password_hash, verify_password
 import traceback # Import traceback
 
@@ -101,7 +102,7 @@ class AuthController:
             request.session['authenticated'] = True
             request.session['user_email'] = user_data['email']
             # --- ADDED: Store user's role in the session ---
-            request.session['role'] = user_data.get('role', 'applicant') 
+            request.session['role'] = normalize_role(user_data.get('role'), default=APPLICANT)
             print(f"--- DEBUG [AuthController]: Session set for {email} with role '{request.session['role']}'. Returning HX-Redirect. ---")
             # Return Response with HX-Redirect header for HTMX
             return Response(headers={'HX-Redirect': '/app'})
@@ -145,12 +146,12 @@ class AuthController:
 
             hashed_password = get_password_hash(password)
             # --- ADDED: Include 'role' field on creation ---
-            new_user = { 
-                "email": email, 
-                "hashed_password": hashed_password, 
-                "full_name": full_name, 
+            new_user = {
+                "email": email,
+                "hashed_password": hashed_password,
+                "full_name": full_name,
                 "birthday": birthday,
-                "role": "applicant" # Set default role
+                "role": APPLICANT # Set default role
             }
 
             print(f"--- DEBUG [AuthController]: Inserting new user: {email} with role 'applicant' ---")
@@ -160,7 +161,7 @@ class AuthController:
             request.session['authenticated'] = True
             request.session['user_email'] = email
             # --- ADDED: Set role in session immediately after registration ---
-            request.session['role'] = 'applicant'
+            request.session['role'] = APPLICANT
             print(f"--- DEBUG [AuthController]: Session set for {email}. Returning HX-Redirect. ---")
             # Return Response with HX-Redirect header for HTMX
             return Response(headers={'HX-Redirect': '/app'})
