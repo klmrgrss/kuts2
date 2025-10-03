@@ -15,6 +15,7 @@ from typing import Iterable, List, Optional
 
 from fastlite import NotFoundError
 
+from auth.roles import ADMIN, APPLICANT, normalize_role
 from auth.utils import get_password_hash
 
 
@@ -24,7 +25,7 @@ class DefaultUser:
 
     email: str
     password: Optional[str]
-    role: str = "applicant"
+    role: str = APPLICANT
     full_name: Optional[str] = None
     birthday: Optional[str] = None
 
@@ -38,6 +39,7 @@ def ensure_default_users(db) -> None:
     """
 
     users_to_ensure = _load_default_users_from_env()
+    users_to_ensure = _ensure_admin_seed(db, users_to_ensure)
     if not users_to_ensure:
         print("--- Default user bootstrap: nothing to do ---")
         return
@@ -49,7 +51,7 @@ def ensure_default_users(db) -> None:
 
     for user in users_to_ensure:
         email = user.email.strip().lower()
-        role = user.role or "applicant"
+        role = normalize_role(user.role, default=APPLICANT)
         full_name = user.full_name or email.split("@")[0]
         birthday = user.birthday or default_birthday
 
@@ -134,6 +136,36 @@ def _load_default_users_from_env() -> List[DefaultUser]:
                 DefaultUser(email=email, password=password, role="evaluator")
             )
 
+    return configured_users
+
+
+def _ensure_admin_seed(db, configured_users: List[DefaultUser]) -> List[DefaultUser]:
+    """Guarantee that at least one admin account exists."""
+
+    # If configuration already includes an admin, trust it.
+    if any(normalize_role(user.role) == ADMIN for user in configured_users):
+        return configured_users
+
+    cursor = db.execute("SELECT email FROM users WHERE role = ? LIMIT 1", (ADMIN,))
+    if cursor.fetchone():
+        return configured_users
+
+    admin_email = os.getenv("DEFAULT_ADMIN_EMAIL", "admin@example.com").strip().lower()
+    admin_password = os.getenv("DEFAULT_ADMIN_PASSWORD", "ChangeMe123!")
+    full_name = os.getenv("DEFAULT_ADMIN_FULL_NAME", "Administraator")
+
+    print(
+        "--- Default user bootstrap: no admin configured; seeding fallback admin "
+        f"'{admin_email}'. ---"
+    )
+    configured_users.append(
+        DefaultUser(
+            email=admin_email,
+            password=admin_password,
+            role=ADMIN,
+            full_name=full_name,
+        )
+    )
     return configured_users
 
 

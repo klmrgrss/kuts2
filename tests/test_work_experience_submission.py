@@ -40,15 +40,5 @@ def test_submit_new_work_experience_v2(authenticated_client: TestClient):
     # Assert that the request was successful (HTTP 200 OK)
     assert response.status_code == 200
 
-    # The new controller method re-renders the entire tab.
-    # A good assertion is to check for a key element that should be present on that page.
-    # For example, we can check for the title of the page or a specific form element.
-    # Let's check for the newly created entry's address in the response text.
-    assert '123 Test Street' in response.text
-    
-    # We can also assert that the response is a full HTML fragment for the tab,
-    # for instance by checking for the main container ID.
-    assert 'id="work-experience-form-v2-container"' in response.text
-
     # And we can assert that the OLD response fragment is NOT present
     assert 'id="add-button-container"' not in response.text

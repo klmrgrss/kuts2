@@ -2,6 +2,7 @@
 from fasthtml.common import *
 from starlette.requests import Request
 from starlette.responses import RedirectResponse
+from auth.roles import is_admin, is_evaluator, normalize_role
 from ui.layouts import dashboard_layout
 from .applicant import ApplicantController # Re-use the data fetching logic
 from .evaluator import EvaluatorController # Re-use the data fetching logic
@@ -14,24 +15,25 @@ class DashboardController:
         self.applicant_controller = ApplicantController(db)
         self.evaluator_controller = EvaluatorController(db)
 
-    def show_dashboard(self, request: Request):
+    def show_dashboard(self, request: Request, current_user: dict | None = None):
         """
         Shows a role-specific dashboard to the user.
         This is the main landing page after login.
         """
-        user_email = request.session.get("user_email")
+        current_user = current_user or getattr(request.state, "current_user", {})
+        user_email = current_user.get("email")
         if not user_email:
             return RedirectResponse("/login", status_code=303)
 
-        user_role = request.session.get("role")
+        user_role = normalize_role(current_user.get("role"))
 
-        if user_role == 'evaluator':
+        if is_evaluator(user_role):
             # For evaluators, fetch summary data
             evaluator_apps = self.evaluator_controller._get_flattened_applications()
             evaluator_data = {"applications_to_review": len(evaluator_apps)}
             content = render_evaluator_dashboard(evaluator_data)
-            title = "Hindaja Töölaud"
-        
+            title = "Hindaja Töölaud" if not is_admin(user_role) else "Administraatori Töölaud"
+
         else: # Default to applicant view
             # For applicants, fetch their application status
             applicant_data, applicant_name = self.applicant_controller._get_applicant_data(user_email)

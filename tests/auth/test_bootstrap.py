@@ -138,3 +138,18 @@ def test_comma_separated_json_users(monkeypatch, isolated_db):
     assert second["role"] == "applicant"
     assert verify_password("CommaPass!1", first["hashed_password"])
     assert verify_password("CommaPass!2", second["hashed_password"])
+
+
+def test_admin_seed_created_when_missing(isolated_db):
+    from auth.bootstrap import ensure_default_users
+
+    ensure_default_users(isolated_db)
+
+    admin_row = isolated_db.execute(
+        "SELECT email, role, hashed_password FROM users WHERE role = 'admin'"
+    ).fetchone()
+
+    assert admin_row is not None
+    email, role, hashed_password = admin_row
+    assert email
+    assert hashed_password

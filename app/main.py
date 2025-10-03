@@ -22,7 +22,9 @@ from controllers.employment_proof import EmploymentProofController
 from controllers.review import ReviewController
 from database import setup_database
 from auth.bootstrap import ensure_default_users
+from auth.guards import guard_request
 from auth.middleware import AuthMiddleware
+from auth.roles import ADMIN, APPLICANT, EVALUATOR
 from auth.utils import *
 from controllers.auth import AuthController
 from controllers.qualifications import QualificationController
@@ -98,7 +100,7 @@ app, rt = fast_app(
     hdrs=hdrs,
     middleware=[
         Middleware(SessionMiddleware, secret_key=SESSION_SECRET_KEY, max_age=14 * 24 * 60 * 60),
-        Middleware(AuthMiddleware)
+        Middleware(AuthMiddleware, db=db)
     ],
     routes=route_list, # <-- Pass the routes list here
     debug=True
@@ -182,115 +184,199 @@ def get_logout(request: Request):
 # --- NEW DASHBOARD ROUTE ---
 @rt("/dashboard", methods=["GET"])
 def get_dashboard(request: Request):
-    return dashboard_controller.show_dashboard(request)
+    guard = guard_request(request, APPLICANT, EVALUATOR, ADMIN)
+    if isinstance(guard, Response):
+        return guard
+    return dashboard_controller.show_dashboard(request, guard)
 
 # --- MODIFIED: /app now redirects to dashboard ---
 @rt("/app", methods=["GET"])
 def get_app_root(request: Request):
+    guard = guard_request(request, APPLICANT, EVALUATOR, ADMIN)
+    if isinstance(guard, Response):
+        return guard
     return RedirectResponse("/dashboard", status_code=303)
 
 @rt("/app/taotleja", methods=["GET"])
 def get_applicant(request: Request):
+    guard = guard_request(request, APPLICANT, EVALUATOR, ADMIN)
+    if isinstance(guard, Response):
+        return guard
     return applicant_controller.show_applicant_tab(request)
 
 @rt("/app/kutsed", methods=["GET"])
 def get_qualifications(request: Request):
+    guard = guard_request(request, APPLICANT, EVALUATOR, ADMIN)
+    if isinstance(guard, Response):
+        return guard
     return qualification_controller.show_qualifications_tab(request)
 
 @rt('/app/kutsed/toggle', methods=["POST"])
 async def post_qual_toggle(request: Request, section_id: int, app_id: str):
+    guard = guard_request(request, APPLICANT, EVALUATOR, ADMIN)
+    if isinstance(guard, Response):
+        return guard
     return await qualification_controller.handle_toggle(request, section_id, app_id)
 
 @rt('/app/kutsed/submit', methods=["POST"])
 async def post_qual_submit(request: Request):
+    guard = guard_request(request, APPLICANT, EVALUATOR, ADMIN)
+    if isinstance(guard, Response):
+        return guard
     return await qualification_controller.submit_qualifications(request)
 
 @rt("/app/workex", methods=["GET"])
 def get_workex(request: Request):
+    guard = guard_request(request, APPLICANT, EVALUATOR, ADMIN)
+    if isinstance(guard, Response):
+        return guard
     return work_experience_controller.show_workex_tab(request)
 
 @rt("/app/workex/{experience_id:int}/edit", methods=["GET"])
 def get_workex_edit_form(request: Request, experience_id: int):
+    guard = guard_request(request, APPLICANT, EVALUATOR, ADMIN)
+    if isinstance(guard, Response):
+        return guard
     return work_experience_controller.show_workex_edit_form(request, experience_id)
 
 @rt("/app/workex/save", methods=["POST"])
 async def post_save_workex_experience(request: Request):
+    guard = guard_request(request, APPLICANT, EVALUATOR, ADMIN)
+    if isinstance(guard, Response):
+        return guard
     return await work_experience_controller.save_workex_experience(request)
 
 @rt("/app/workex/{experience_id:int}/delete", methods=["DELETE"])
 def delete_workex_experience(request: Request, experience_id: int):
+    guard = guard_request(request, APPLICANT, EVALUATOR, ADMIN)
+    if isinstance(guard, Response):
+        return guard
     return work_experience_controller.delete_workex_experience(request, experience_id)
 
 @rt("/app/haridus", methods=["GET"])
 def get_education(request: Request):
+    guard = guard_request(request, APPLICANT, EVALUATOR, ADMIN)
+    if isinstance(guard, Response):
+        return guard
     return education_controller.show_education_tab(request)
 
 @rt("/app/haridus/submit", methods=['POST'])
 async def post_edu_submit(request: Request):
+    guard = guard_request(request, APPLICANT, EVALUATOR, ADMIN)
+    if isinstance(guard, Response):
+        return guard
     return await education_controller.submit_education_form(request)
 
 @rt("/app/taiendkoolitus", methods=["GET"])
 def get_training(request: Request):
+    guard = guard_request(request, APPLICANT, EVALUATOR, ADMIN)
+    if isinstance(guard, Response):
+        return guard
     return training_controller.show_training_tab(request)
 
 @rt("/app/taiendkoolitus/upload", methods=['POST'])
 async def post_training_upload(request: Request):
+    guard = guard_request(request, APPLICANT, EVALUATOR, ADMIN)
+    if isinstance(guard, Response):
+        return guard
     return await training_controller.upload_training_files(request)
 
 @rt("/app/tootamise_toend", methods=["GET"])
 def get_employment_proof(request: Request):
+    guard = guard_request(request, APPLICANT, EVALUATOR, ADMIN)
+    if isinstance(guard, Response):
+        return guard
     return employment_proof_controller.show_employment_proof_tab(request)
 
 @rt("/app/tootamise_toend/upload", methods=['POST'])
 async def post_emp_proof_upload(request: Request):
+    guard = guard_request(request, APPLICANT, EVALUATOR, ADMIN)
+    if isinstance(guard, Response):
+        return guard
     return await employment_proof_controller.upload_employment_proof(request)
 
 @rt("/app/dokumendid", methods=["GET"])
 def get_documents(request: Request):
+    guard = guard_request(request, APPLICANT, EVALUATOR, ADMIN)
+    if isinstance(guard, Response):
+        return guard
     return documents_controller.show_documents_tab(request)
 
 @rt("/app/dokumendid/upload", methods=['POST'])
 async def post_document_upload(request: Request, document_type: str):
+    guard = guard_request(request, APPLICANT, EVALUATOR, ADMIN)
+    if isinstance(guard, Response):
+        return guard
     return await documents_controller.upload_document(request, document_type)
 
 @rt("/app/ulevaatamine", methods=["GET"])
 def get_review(request: Request):
+    guard = guard_request(request, APPLICANT, EVALUATOR, ADMIN)
+    if isinstance(guard, Response):
+        return guard
     return review_controller.show_review_tab(request)
 
 @rt("/app/ulevaatamine/submit", methods=['POST'])
 async def post_review_submit(request: Request):
+    guard = guard_request(request, APPLICANT, EVALUATOR, ADMIN)
+    if isinstance(guard, Response):
+        return guard
     return await review_controller.submit_application(request)
 
 @rt("/evaluator/dashboard", methods=["GET"])
 def get_evaluator_dashboard(request: Request):
+    guard = guard_request(request, EVALUATOR, ADMIN)
+    if isinstance(guard, Response):
+        return guard
     return evaluator_controller.show_dashboard(request)
 
 @rt("/evaluator/application/{user_email}", methods=["GET"])
 def get_evaluator_application(request: Request, user_email: str):
+    guard = guard_request(request, EVALUATOR, ADMIN)
+    if isinstance(guard, Response):
+        return guard
     return evaluator_controller.show_application_detail(request, user_email)
 
 @rt("/evaluator/application/{user_email}/qualification/{record_id:int}/update", methods=["POST"])
 async def post_update_qual_status(request: Request, user_email: str, record_id: int):
+    guard = guard_request(request, EVALUATOR, ADMIN)
+    if isinstance(guard, Response):
+        return guard
     return await evaluator_controller.update_qualification_status(request, user_email, record_id)
 
 @rt("/evaluator/d", methods=["GET"])
 def get_evaluator_dashboard_v2(request: Request):
+    guard = guard_request(request, EVALUATOR, ADMIN)
+    if isinstance(guard, Response):
+        return guard
     return evaluator_controller.show_dashboard_v2(request)
 
 @rt("/evaluator/d/application/{qual_id:str}", methods=["GET"])
 def get_v2_application_detail(request: Request, qual_id: str):
+    guard = guard_request(request, EVALUATOR, ADMIN)
+    if isinstance(guard, Response):
+        return guard
     return evaluator_controller.show_v2_application_detail(request, qual_id)
 
 @rt("/evaluator/d/search_applications", methods=["GET"])
 def search_v2_applications(request: Request, search: str = ""):
+    guard = guard_request(request, EVALUATOR, ADMIN)
+    if isinstance(guard, Response):
+        return guard
     return evaluator_controller.search_applications(request, search)
 
 @rt("/evaluator/test", methods=["GET"])
 def get_evaluator_test_page(request: Request):
+    guard = guard_request(request, EVALUATOR, ADMIN)
+    if isinstance(guard, Response):
+        return guard
     return evaluator_controller.show_test_search_page(request)
 
 @rt("/evaluator/test/search", methods=["POST"])
 def post_evaluator_test_search(request: Request, search: str = ""):
+    guard = guard_request(request, EVALUATOR, ADMIN)
+    if isinstance(guard, Response):
+        return guard
     return evaluator_controller.handle_test_search(request, search)
 
 @rt("/files/view/{doc_id:int}", methods=["GET"])
@@ -300,11 +386,11 @@ def view_secure_file(request: Request, doc_id: int):
     generates a secure GCS URL, and redirects the user.
     """
     print(f"\n--- LOG [view_secure_file]: Route entered for document ID: {doc_id} ---")
-    user_email = request.session.get("user_email")
-    if not user_email:
-        print(f"--- SECURITY [view_secure_file]: No user in session. Denying access. ---")
-        return Response("Authentication Required", status_code=403)
-    
+    guard = guard_request(request, APPLICANT, EVALUATOR, ADMIN)
+    if isinstance(guard, Response):
+        return guard
+
+    user_email = guard.get("email")
     print(f"--- LOG [view_secure_file]: Authenticated user: {user_email} ---")
 
     try:

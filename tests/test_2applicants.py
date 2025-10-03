@@ -1,16 +1,39 @@
 import pytest
 from starlette.testclient import TestClient
-from app.database import setup_database
+import time
+
 from app.controllers.evaluator import EvaluatorController
 from app.logic.helpers import calculate_total_experience_years
 from datetime import date
+from main import db
 
 # Get a direct handle to the database for setup and assertions
-db = setup_database()
 users_table = db.t.users
 qualifications_table = db.t.applied_qualifications
 experience_table = db.t.work_experience
 documents_table = db.t.documents
+
+
+def _safe_delete(table, clause, params):
+    for attempt in range(5):
+        try:
+            table.delete_where(clause, params)
+            return
+        except Exception as exc:
+            if attempt == 4:
+                print(f"--- ERROR [cleanup]: {exc} ---")
+                raise
+            time.sleep(0.1)
+
+
+def _fetch_experience(email):
+    for attempt in range(5):
+        try:
+            return experience_table("user_email = ?", [email])
+        except Exception as exc:
+            if attempt == 4:
+                raise
+            time.sleep(0.1)
 
 @pytest.fixture
 def successful_applicant_client(client: TestClient):
@@ -21,10 +44,10 @@ def successful_applicant_client(client: TestClient):
     email = "successful.applicant@example.com"
 
     # --- Setup ---
-    users_table.delete_where("email = ?", [email])
-    qualifications_table.delete_where("user_email = ?", [email])
-    experience_table.delete_where("user_email = ?", [email])
-    documents_table.delete_where("user_email = ?", [email])
+    _safe_delete(users_table, "email = ?", [email])
+    _safe_delete(qualifications_table, "user_email = ?", [email])
+    _safe_delete(experience_table, "user_email = ?", [email])
+    _safe_delete(documents_table, "user_email = ?", [email])
     client.post("/register", data={
         "email": email, "password": "password123", "confirm_password": "password123",
         "full_name": "Success Applicant", "birthday": "1990-05-15"
@@ -39,10 +62,10 @@ def successful_applicant_client(client: TestClient):
 
     # --- Teardown ---
     print(f"\n--- Cleaning up data for {email} ---")
-    users_table.delete_where("email = ?", [email])
-    qualifications_table.delete_where("user_email = ?", [email])
-    experience_table.delete_where("user_email = ?", [email])
-    documents_table.delete_where("user_email = ?", [email])
+    _safe_delete(users_table, "email = ?", [email])
+    _safe_delete(qualifications_table, "user_email = ?", [email])
+    _safe_delete(experience_table, "user_email = ?", [email])
+    _safe_delete(documents_table, "user_email = ?", [email])
 
 
 @pytest.fixture
@@ -53,9 +76,9 @@ def overlapping_applicant_client(client: TestClient):
     email = "overlapping.applicant@example.com"
 
     # --- Setup ---
-    users_table.delete_where("email = ?", [email])
-    qualifications_table.delete_where("user_email = ?", [email])
-    experience_table.delete_where("user_email = ?", [email])
+    _safe_delete(users_table, "email = ?", [email])
+    _safe_delete(qualifications_table, "user_email = ?", [email])
+    _safe_delete(experience_table, "user_email = ?", [email])
     client.post("/register", data={
         "email": email, "password": "password123", "confirm_password": "password123",
         "full_name": "Overlapping Applicant", "birthday": "1985-10-20"
@@ -99,8 +122,9 @@ def test_successful_applicant_scenario(successful_applicant_client: TestClient):
     response = client.post("/app/workex/save", data=exp2)
 
     assert response.status_code == 200
-    assert "Success St 1" in response.text
-    assert "Success St 2" in response.text
+
+    saved_addresses = {row["object_address"] for row in _fetch_experience(email)}
+    assert {"Success St 1", "Success St 2"}.issubset(saved_addresses)
 
     # --- 2. Simulate document uploads ---
     # We insert directly to bypass complex GCS mocking for this scenario test

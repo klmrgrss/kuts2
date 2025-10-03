@@ -21,7 +21,7 @@ def client():
     with TestClient(app) as client:
         yield client
 
-@pytest.fixture(scope="session")
+@pytest.fixture
 def authenticated_client(client):
     """
     Provides an authenticated TestClient.
@@ -61,3 +61,4 @@ def authenticated_client(client):
     # --- END NEW ---
 
     yield client # Yield the client, which is now authenticated
+    client.get("/logout")
