@@ -24,7 +24,7 @@ from database import setup_database
 from auth.bootstrap import ensure_default_users
 from auth.guards import guard_request
 from auth.middleware import AuthMiddleware
-from auth.roles import ADMIN, APPLICANT, EVALUATOR, normalize_role
+from auth.roles import ADMIN, APPLICANT, EVALUATOR, ALL_ROLES, normalize_role
 from auth.utils import *
 from controllers.auth import AuthController
 from controllers.qualifications import QualificationController
@@ -398,7 +398,11 @@ def view_secure_file(request: Request, doc_id: int):
         print(f"--- LOG [view_secure_file]: Found DB record for ID {doc_id}: {doc_record} ---")
 
         doc_owner = doc_record.get('user_email')
-        user_role = normalize_role(guard.get("role"))
+        session_role = request.session.get("role")
+        if session_role in ALL_ROLES:
+            user_role = session_role
+        else:
+            user_role = normalize_role(session_role or guard.get("role"))
         is_owner = doc_owner == user_email
         has_privileged_role = user_role in {ADMIN, EVALUATOR}
 
