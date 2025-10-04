@@ -1,6 +1,6 @@
 import io
 
-from main import documents_controller
+from main import db, documents_controller
 
 
 class FakeBlob:
@@ -108,3 +108,65 @@ def test_document_upload_and_view_uses_signed_url(authenticated_client):
     )
     assert admin_view.status_code == 307
     assert admin_view.headers.get("location") == f"https://fake.storage/{storage_identifier}"
+
+
+def test_localised_evaluator_can_view_other_users_document(authenticated_client):
+    controller = documents_controller
+
+    original_bucket = controller.bucket
+    original_local_dir = controller.local_storage_dir
+    original_fallback = controller._local_fallback_enabled
+
+    fake_bucket = FakeBucket()
+    controller.bucket = fake_bucket
+    controller.local_storage_dir = None
+    controller._local_fallback_enabled = False
+
+    existing_ids = {
+        doc.get("id")
+        for doc in controller.documents_table(order_by="id")
+    }
+
+    storage_identifier = "other.user/doc.pdf"
+    fake_bucket.storage[storage_identifier] = (b"data", "application/pdf")
+
+    controller.documents_table.insert({
+        "user_email": "other.user@example.com",
+        "document_type": "other",
+        "description": "Other user document",
+        "metadata": "{}",
+        "original_filename": "doc.pdf",
+        "storage_identifier": storage_identifier,
+        "upload_timestamp": "2024-01-01T00:00:00",
+    })
+
+    new_docs = [
+        doc
+        for doc in controller.documents_table(order_by="id")
+        if doc.get("id") not in existing_ids
+    ]
+    assert new_docs, "Expected seeded document to exist"
+    document = new_docs[-1]
+
+    users_table = db.t.users
+    original_role = users_table["test_user@example.com"].get("role")
+
+    try:
+        authenticated_client.get("/logout")
+        users_table.update({"role": "Hindaja"}, pk_values="test_user@example.com")
+
+        login_data = {"email": "test_user@example.com", "password": "test_password"}
+        authenticated_client.post("/login", data=login_data)
+        authenticated_client.get("/dashboard")
+
+        view_response = authenticated_client.get(
+            f"/files/view/{document['id']}", follow_redirects=False
+        )
+
+        assert view_response.status_code == 307
+        assert view_response.headers.get("location") == f"https://fake.storage/{storage_identifier}"
+    finally:
+        users_table.update({"role": original_role}, pk_values="test_user@example.com")
+        controller.bucket = original_bucket
+        controller.local_storage_dir = original_local_dir
+        controller._local_fallback_enabled = original_fallback

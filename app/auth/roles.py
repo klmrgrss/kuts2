@@ -10,14 +10,26 @@ ADMIN: str = 'admin'
 
 ALL_ROLES: Tuple[str, ...] = (APPLICANT, EVALUATOR, ADMIN)
 
+_ROLE_ALIASES: dict[str, str] = {
+    APPLICANT: APPLICANT,
+    EVALUATOR: EVALUATOR,
+    ADMIN: ADMIN,
+    'taotleja': APPLICANT,
+    'hindaja': EVALUATOR,
+    'administraator': ADMIN,
+    'administrator': ADMIN,
+}
+
 
 def normalize_role(value: str | None, default: str = APPLICANT) -> str:
     """Normalise arbitrary role values to the canonical vocabulary."""
     if not value:
         return default
-    lowered = value.strip().lower()
+    lowered = value.strip().casefold()
     if lowered in ALL_ROLES:
         return lowered
+    if lowered in _ROLE_ALIASES:
+        return _ROLE_ALIASES[lowered]
     return default
 
 
