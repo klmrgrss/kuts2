@@ -411,19 +411,41 @@ def view_secure_file(request: Request, doc_id: int):
         traceback.print_exc()
         return Response("Error validating file access", status_code=500)
 
-    gcs_identifier = doc_record.get('storage_identifier')
-    if not gcs_identifier:
+    storage_identifier = doc_record.get('storage_identifier')
+    if not storage_identifier:
         print(f"--- ERROR [view_secure_file]: DB record for ID {doc_id} is missing a 'storage_identifier'. ---")
         return Response("File record is incomplete.", status_code=500)
+
+    if storage_identifier.startswith("local:"):
+        if not documents_controller.local_storage_dir:
+            print("--- ERROR [view_secure_file]: Local storage directory is not configured. ---")
+            return Response("Local storage not available", status_code=500)
+
+        relative_path = storage_identifier.split("local:", 1)[1]
+        safe_relative_path = Path(relative_path)
+        local_base = documents_controller.local_storage_dir.resolve()
+        target_path = (local_base / safe_relative_path).resolve()
+
+        if local_base not in target_path.parents and local_base != target_path:
+            print(f"--- SECURITY [view_secure_file]: Attempted path traversal for document ID {doc_id}. ---")
+            return Response("Invalid file path", status_code=400)
+
+        if not target_path.exists():
+            print(f"--- ERROR [view_secure_file]: Local file missing at path: '{target_path}'. ---")
+            return Response("File not found", status_code=404)
+
+        filename = doc_record.get('original_filename') or target_path.name
+        print(f"--- LOG [view_secure_file]: Serving local file '{target_path}' for user '{user_email}'. ---")
+        return FileResponse(target_path, filename=filename, media_type='application/octet-stream')
 
     if not documents_controller.bucket:
         print(f"--- ERROR [view_secure_file]: GCS bucket is not configured. ---")
         return Response("Cloud Storage not configured", status_code=500)
 
     try:
-        blob = documents_controller.bucket.blob(gcs_identifier)
+        blob = documents_controller.bucket.blob(storage_identifier)
         if not blob.exists():
-            print(f"--- ERROR [view_secure_file]: GCS blob not found at path: '{gcs_identifier}' ---")
+            print(f"--- ERROR [view_secure_file]: GCS blob not found at path: '{storage_identifier}' ---")
             return Response("File not found in cloud storage", status_code=404)
 
         print(f"--- LOG [view_secure_file]: GCS blob found. Generating signed URL... ---")
@@ -436,7 +458,7 @@ def view_secure_file(request: Request, doc_id: int):
         return RedirectResponse(url=signed_url, status_code=307)
 
     except Exception as e:
-        print(f"--- ERROR [view_secure_file]: GCS signed URL generation failed for '{gcs_identifier}': {e} ---")
+        print(f"--- ERROR [view_secure_file]: GCS signed URL generation failed for '{storage_identifier}': {e} ---")
         traceback.print_exc()
         return Response("Could not generate secure link for the file.", status_code=500)
 
