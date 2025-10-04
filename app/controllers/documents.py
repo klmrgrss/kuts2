@@ -11,6 +11,7 @@ import uuid
 import json
 import traceback
 import datetime
+from pathlib import Path
 # --- Add GCS and security imports ---
 from google.cloud import storage
 from werkzeug.utils import secure_filename
@@ -24,17 +25,31 @@ class DocumentsController:
     def __init__(self, db):
         self.db = db
         self.documents_table = db.t.documents
-        # --- Initialize the GCS client ---
-        # This will automatically use the credentials from your .env file
+        self.storage_client = None
+        self.bucket = None
+        self.local_storage_dir: Path | None = None
+
+        bucket_name = GCS_BUCKET_NAME
         try:
+            if not bucket_name or bucket_name == "your-gcs-bucket-name-here":
+                raise ValueError("GCS bucket name is not configured.")
+
             self.storage_client = storage.Client()
-            self.bucket = self.storage_client.bucket(GCS_BUCKET_NAME)
-            # --- ADD THIS LINE FOR CONFIRMATION ---
-            print(f"--- SUCCESS: Successfully connected to GCS and bucket '{GCS_BUCKET_NAME}'. ---")
+            self.bucket = self.storage_client.bucket(bucket_name)
+            print(f"--- SUCCESS: Successfully connected to GCS and bucket '{bucket_name}'. ---")
         except Exception as e:
-            print(f"--- FATAL ERROR: Could not connect to GCS. Is GOOGLE_APPLICATION_CREDENTIALS set? Error: {e} ---")
+            print(f"--- WARNING: Falling back to local storage. GCS unavailable: {e} ---")
             self.storage_client = None
             self.bucket = None
+
+            fallback_dir = Path(__file__).resolve().parents[2] / "Uploads"
+            try:
+                fallback_dir.mkdir(parents=True, exist_ok=True)
+                self.local_storage_dir = fallback_dir
+                print(f"--- INFO: Using local upload directory at '{self.local_storage_dir}'. ---")
+            except Exception as dir_err:
+                print(f"--- FATAL ERROR: Could not prepare local upload directory: {dir_err} ---")
+                self.local_storage_dir = None
 
 
     def show_documents_tab(self, request: Request):
@@ -66,8 +81,10 @@ class DocumentsController:
 
     async def upload_document(self, request: Request, document_type: str):
         user_email = request.session.get("user_email")
-        if not user_email: return Response("Authentication Error", status_code=403)
-        if not self.bucket: return Response("Cloud Storage is not configured correctly.", status_code=500)
+        if not user_email:
+            return Response("Authentication Error", status_code=403)
+        if not self.bucket and not self.local_storage_dir:
+            return Response("Storage is not configured correctly.", status_code=500)
 
         try:
             form_data = await request.form()
@@ -79,18 +96,33 @@ class DocumentsController:
 
             # --- Secure File Handling ---
             original_filename = secure_filename(doc_file.filename)
+            if not original_filename:
+                return Response("Invalid filename", status_code=400)
             file_content = await doc_file.read()
             file_extension = os.path.splitext(original_filename)[1]
             # Create a unique identifier for storage to prevent filename collisions
             storage_identifier = f"{user_email}/{uuid.uuid4()}{file_extension}"
 
-            # --- Upload to Google Cloud Storage ---
-            blob = self.bucket.blob(storage_identifier)
-            blob.upload_from_string(
-                file_content,
-                content_type=doc_file.content_type
-            )
-            print(f"--- SUCCESS [GCS Upload]: Uploaded '{original_filename}' to '{storage_identifier}' in bucket '{GCS_BUCKET_NAME}'.")
+            if self.bucket:
+                # --- Upload to Google Cloud Storage ---
+                blob = self.bucket.blob(storage_identifier)
+                blob.upload_from_string(
+                    file_content,
+                    content_type=doc_file.content_type
+                )
+                print(f"--- SUCCESS [GCS Upload]: Uploaded '{original_filename}' to '{storage_identifier}' in bucket '{GCS_BUCKET_NAME}'.")
+            else:
+                sanitized_email = secure_filename(user_email)
+                if not sanitized_email:
+                    sanitized_email = uuid.uuid4().hex
+                user_folder = self.local_storage_dir / sanitized_email
+                user_folder.mkdir(parents=True, exist_ok=True)
+                unique_name = f"{uuid.uuid4()}{file_extension}"
+                local_path = user_folder / unique_name
+                with open(local_path, "wb") as out_file:
+                    out_file.write(file_content)
+                storage_identifier = f"local:{(Path(sanitized_email) / unique_name).as_posix()}"
+                print(f"--- SUCCESS [Local Upload]: Stored '{original_filename}' at '{local_path}'. ---")
 
 
             # --- Prepare Data for DB ---
@@ -110,7 +142,7 @@ class DocumentsController:
                 "description": description,
                 "metadata": json.dumps(metadata),
                 "original_filename": original_filename,
-                "storage_identifier": storage_identifier, # Save the GCS path
+                "storage_identifier": storage_identifier,
                 "upload_timestamp": str(datetime.datetime.now())
             }
 
