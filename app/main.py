@@ -24,7 +24,7 @@ from database import setup_database
 from auth.bootstrap import ensure_default_users
 from auth.guards import guard_request
 from auth.middleware import AuthMiddleware
-from auth.roles import ADMIN, APPLICANT, EVALUATOR
+from auth.roles import ADMIN, APPLICANT, EVALUATOR, normalize_role
 from auth.utils import *
 from controllers.auth import AuthController
 from controllers.qualifications import QualificationController
@@ -397,11 +397,19 @@ def view_secure_file(request: Request, doc_id: int):
         doc_record = documents_controller.documents_table[doc_id]
         print(f"--- LOG [view_secure_file]: Found DB record for ID {doc_id}: {doc_record} ---")
 
-        if doc_record.get('user_email') != user_email:
-            print(f"--- SECURITY [view_secure_file]: User '{user_email}' attempted to access file belonging to '{doc_record.get('user_email')}'. DENIED. ---")
+        doc_owner = doc_record.get('user_email')
+        user_role = normalize_role(guard.get("role"))
+        is_owner = doc_owner == user_email
+        has_privileged_role = user_role in {ADMIN, EVALUATOR}
+
+        if not is_owner and not has_privileged_role:
+            print(f"--- SECURITY [view_secure_file]: User '{user_email}' attempted to access file belonging to '{doc_owner}'. DENIED. ---")
             return Response("Access Denied", status_code=403)
-        
-        print(f"--- LOG [view_secure_file]: Ownership confirmed for user '{user_email}'. ---")
+
+        if not is_owner:
+            print(f"--- LOG [view_secure_file]: Privileged user '{user_email}' with role '{user_role}' granted access to '{doc_owner}'. ---")
+        else:
+            print(f"--- LOG [view_secure_file]: Ownership confirmed for user '{user_email}'. ---")
 
     except NotFoundError:
         print(f"--- ERROR [view_secure_file]: No document record found in DB for ID: {doc_id} ---")

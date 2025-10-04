@@ -16,6 +16,8 @@ from pathlib import Path
 from google.cloud import storage
 from werkzeug.utils import secure_filename
 
+ALLOW_LOCAL_FALLBACK = os.environ.get("ALLOW_LOCAL_STORAGE_FALLBACK", "").lower() in {"1", "true", "yes"}
+
 # --- Define the GCS bucket name (replace with your actual bucket name) ---
 # It's best practice to load this from an environment variable.
 GCS_BUCKET_NAME = os.environ.get("GCS_BUCKET_NAME", "your-gcs-bucket-name-here")
@@ -28,6 +30,7 @@ class DocumentsController:
         self.storage_client = None
         self.bucket = None
         self.local_storage_dir: Path | None = None
+        self._local_fallback_enabled = False
 
         bucket_name = GCS_BUCKET_NAME
         try:
@@ -38,18 +41,23 @@ class DocumentsController:
             self.bucket = self.storage_client.bucket(bucket_name)
             print(f"--- SUCCESS: Successfully connected to GCS and bucket '{bucket_name}'. ---")
         except Exception as e:
-            print(f"--- WARNING: Falling back to local storage. GCS unavailable: {e} ---")
+            print(f"--- WARNING: GCS unavailable: {e} ---")
             self.storage_client = None
             self.bucket = None
 
-            fallback_dir = Path(__file__).resolve().parents[2] / "Uploads"
-            try:
-                fallback_dir.mkdir(parents=True, exist_ok=True)
-                self.local_storage_dir = fallback_dir
-                print(f"--- INFO: Using local upload directory at '{self.local_storage_dir}'. ---")
-            except Exception as dir_err:
-                print(f"--- FATAL ERROR: Could not prepare local upload directory: {dir_err} ---")
-                self.local_storage_dir = None
+            if ALLOW_LOCAL_FALLBACK:
+                fallback_dir = Path(__file__).resolve().parents[2] / "Uploads"
+                try:
+                    fallback_dir.mkdir(parents=True, exist_ok=True)
+                    self.local_storage_dir = fallback_dir
+                    self._local_fallback_enabled = True
+                    print(f"--- INFO: Using local upload directory at '{self.local_storage_dir}'. ---")
+                except Exception as dir_err:
+                    print(f"--- FATAL ERROR: Could not prepare local upload directory: {dir_err} ---")
+                    self.local_storage_dir = None
+                    self._local_fallback_enabled = False
+            else:
+                print("--- ERROR: Cloud storage is required and local fallback is disabled. ---")
 
 
     def show_documents_tab(self, request: Request):
@@ -83,8 +91,8 @@ class DocumentsController:
         user_email = request.session.get("user_email")
         if not user_email:
             return Response("Authentication Error", status_code=403)
-        if not self.bucket and not self.local_storage_dir:
-            return Response("Storage is not configured correctly.", status_code=500)
+        if not self.bucket and not self._local_fallback_enabled:
+            return Response("Cloud storage is currently unavailable. Please try again later.", status_code=503)
 
         try:
             form_data = await request.form()
