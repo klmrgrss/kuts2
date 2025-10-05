@@ -14,6 +14,7 @@ import datetime
 from pathlib import Path
 # --- Add GCS and security imports ---
 from google.cloud import storage
+from google.oauth2 import service_account
 from werkzeug.utils import secure_filename
 
 ALLOW_LOCAL_FALLBACK = os.environ.get("ALLOW_LOCAL_STORAGE_FALLBACK", "").lower() in {"1", "true", "yes"}
@@ -37,7 +38,25 @@ class DocumentsController:
             if not bucket_name or bucket_name == "your-gcs-bucket-name-here":
                 raise ValueError("GCS bucket name is not configured.")
 
-            self.storage_client = storage.Client()
+            credentials = None
+            raw_service_account = os.environ.get("GCS_SA_JSON")
+            if raw_service_account:
+                try:
+                    service_account_info = json.loads(raw_service_account)
+                    credentials = service_account.Credentials.from_service_account_info(service_account_info)
+                    project_id = service_account_info.get("project_id")
+                    print("--- INFO: Loaded GCS credentials from GCS_SA_JSON environment variable. ---")
+                except Exception as cred_err:
+                    print(f"--- WARNING: Failed to parse GCS_SA_JSON credentials: {cred_err}. Falling back to default credentials. ---")
+                    credentials = None
+                    project_id = None
+            else:
+                project_id = None
+
+            if credentials:
+                self.storage_client = storage.Client(credentials=credentials, project=project_id)
+            else:
+                self.storage_client = storage.Client()
             self.bucket = self.storage_client.bucket(bucket_name)
             print(f"--- SUCCESS: Successfully connected to GCS and bucket '{bucket_name}'. ---")
         except Exception as e:
