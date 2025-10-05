@@ -358,7 +358,7 @@ def get_v2_application_detail(request: Request, qual_id: str):
         return guard
     return evaluator_controller.show_v2_application_detail(request, qual_id)
 
-@rt("/evaluator/d/search_applications", methods=["GET"])
+@rt("/evaluator/d/search_applications", methods=["POST"])
 def search_v2_applications(request: Request, search: str = ""):
     guard = guard_request(request, EVALUATOR, ADMIN)
     if isinstance(guard, Response):

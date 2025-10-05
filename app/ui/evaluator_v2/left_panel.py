@@ -17,11 +17,10 @@ def render_left_panel(applications: List[Dict]) -> FT:
             Input(
                 id="search-input", name="search", type="search",
                 placeholder="Otsi nime või kutse järgi...",
-                hx_get="/evaluator/d/search_applications",
+                hx_post="/evaluator/d/search_applications",
                 hx_trigger="keyup changed delay:500ms, search",
                 hx_target="#application-list-container",
-                hx_swap="innerHTML",
-                hx_include="[name='search']"
+                hx_swap="innerHTML"
             ),
             UkIcon("search", cls="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none"),
             cls="relative w-full"
