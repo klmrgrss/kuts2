@@ -86,18 +86,23 @@ def app_navbar(request: Request, db: Any) -> FT:
 
     narrow_screen_content = Div(
         Div(
+            Button(UkIcon("ellipsis-vertical", width=20, height=20), cls=ButtonT.ghost),
+            cls="flex-1"
+        ),
+        Div(
+            A(UkIcon("brick-wall", width=28, height=28, cls="text-pink-500"), href="/dashboard"),
+            cls="flex-none"
+        ),
+        Div(
             A(
                 UkIcon("user", cls="inline-block mr-1 align-middle"),
                 Span(truncated_name, cls="text-sm"),
                 href="/dashboard",
                 cls="flex items-center"
             ),
-            cls="flex-1 text-left"
+            cls="flex-1 flex justify-end"
         ),
-
-        Div( A(UkIcon("brick-wall", width=28, height=28, cls="text-pink-500"), href="/dashboard"), cls="flex-none text-center" ),
-        Div( Button(UkIcon("ellipsis-vertical", width=20, height=20), cls=ButtonT.ghost), cls="flex-1 text-right" ),
-        cls="flex items-center justify-between w-full space-x-2"
+        cls="flex items-center w-full"
     )
 
     return Div(
@@ -134,7 +139,7 @@ def tab_nav(active_tab: str, request: Request, badge_counts: Dict = None) -> FT:
         nav_items.append(Li(link, role='presentation', cls="flex-shrink-0"))
 
     tab_list = Ul( *nav_items, id="tab-list-container", cls="flex flex-nowrap -mb-px text-sm font-medium text-center text-muted-foreground" )
-    nav_container = Div( tab_list, cls="flex justify-center border-b border-border overflow-x-auto overflow-y-hidden" )
+    nav_container = Div( tab_list, cls="flex justify-center md:justify-s border-b border-border overflow-x-auto overflow-y-hidden" )
     return Nav(nav_container, aria_label="Application Tabs", cls="bg-background")
 
 
@@ -174,22 +179,17 @@ def evaluator_navbar(request: Request, db: Any) -> FT:
     # --- Wide Screen (Desktop) View ---
     wide_screen_view = Div(
         Div(
-            Label(
-                UkIcon("menu", cls="w-6 h-6"),
-                fr="left-drawer-toggle",
-                cls="btn btn-ghost btn-square drawer-button lg:hidden"
-            ),
             A(
                 UkIcon("brick-wall", width=24, height=24, cls="inline-block mr-2 align-middle text-blue-500"),
                 H4("Kutsekeskkond", cls="inline-block align-middle"),
                 Span(
                     role_label,
-                    cls="ml-2 px-2 py-0.5 text-sm font-semibold rounded-full bg-gray-200 text-gray-800 hidden lg:inline-block"
+                    cls="ml-2 px-2 py-0.5 text-sm font-semibold rounded-full bg-gray-200 text-gray-800"
                 ),
                 href="/dashboard",
                 cls="flex items-center"
             ),
-            cls="navbar-start flex items-center"
+            cls="flex items-center"
         ),
         Div(
             A(
@@ -198,36 +198,38 @@ def evaluator_navbar(request: Request, db: Any) -> FT:
                 href="/dashboard",
                 cls="flex items-center mr-4 p-2 rounded hover:bg-muted transition-colors"
             ),
-            cls="navbar-end"
+            cls="flex items-center"
         ),
-        # This whole div is hidden on mobile, shown on desktop
-        cls="hidden lg:flex justify-between items-center w-full"
+        cls="hidden md:flex justify-between items-center w-full"
     )
 
-    # --- THE FIX: Simplified Narrow Screen (Mobile) View ---
+    MAX_NAME_LEN = 15
+    truncated_name = (display_name[:MAX_NAME_LEN] + '…') if len(display_name) > MAX_NAME_LEN else display_name
+
+    # --- Narrow Screen (Mobile) View ---
     narrow_screen_view = Div(
-        # Left: Hamburger Menu Icon
         Div(
             Label(
                 UkIcon("menu", cls="w-6 h-6"),
                 fr="left-drawer-toggle",
                 cls="btn btn-ghost btn-square drawer-button"
             ),
-            cls="flex-none"
+            cls="flex-1"
         ),
-        # Center: Blue Brick Icon
-
         Div(
             A(UkIcon("brick-wall", width=28, height=28, cls="text-blue-500"), href="/dashboard"),
-            cls="flex flex-1 justify-center"
+            cls="flex-none"
         ),
-        # Right: User Icon
         Div(
-             A(UkIcon("user", width=24, height=24), href="/dashboard"),
-             cls="flex-none"
+             A(
+                UkIcon("user", width=24, height=24, cls="inline-block mr-1 align-middle"),
+                Span(truncated_name, cls="text-sm"),
+                href="/dashboard",
+                cls="flex items-center"
+            ),
+             cls="flex-1 flex justify-end"
         ),
-        # This div is shown on mobile, hidden on desktop
-        cls="flex lg:hidden justify-between items-center w-full"
+        cls="flex md:hidden items-center w-full"
     )
 
     return Div(

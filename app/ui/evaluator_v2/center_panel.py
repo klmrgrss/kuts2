@@ -215,7 +215,7 @@ def render_center_panel(qual_data: Dict, user_data: Dict, validation_results: Di
                     ContextButton(icon_name="send", label_text=""),
                     cls="flex flex-wrap items-center justify-between gap-x-2 p-2 bg-base-100 rounded-b-lg"
                 ),
-                cls="border-2 rounded-lg shadow-xl"
+                cls="border-2 rounded-lg shadow-lg"
             ),
             cls="px-4 "
         ),
