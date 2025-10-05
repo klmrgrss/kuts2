@@ -23,7 +23,7 @@ def ContextButton(
         "h-8 px-3 "
         "gap-x-2 "
         "rounded-full "
-        "text-sm font-normal normal-case "
+        "text-sm font-bold normal-case "
         "transition-colors duration-150"
     )
     if color in color_map:
@@ -32,7 +32,6 @@ def ContextButton(
         style_classes = "bg-transparent hover:bg-gray-200 dark:hover:bg-gray-700"
     return Button(
         UkIcon(icon_name, cls="w-4 h-4"),
-        # --- THE FIX: Hide text on xs screens, show from sm upwards ---
         Span(label_text, cls="hidden sm:inline"),
         cls=f"{base_classes} {style_classes} {kwargs.pop('cls', '')}",
         **kwargs
@@ -61,7 +60,7 @@ def DropdownContextButton(
         "h-8 px-3 "
         "gap-x-2 "
         "rounded-full "
-        "text-sm font-normal normal-case "
+        "text-sm font-bold normal-case "
         "transition-colors duration-150"
     )
     if color in color_map:
@@ -72,7 +71,6 @@ def DropdownContextButton(
     return Div(
         Button(
             UkIcon(icon_name, cls="w-4 h-4"),
-            # --- THE FIX: Hide text on xs screens, show from sm upwards ---
             Span(label_text, cls="hidden sm:inline"),
             id=button_id,
             onclick=f"toggleButton('{button_id}')",
@@ -89,11 +87,12 @@ def DropdownContextButton(
             *[Button(
                 option,
                 onclick=f"selectDropdownOption('{button_id}', '{option}')",
-                cls="block w-full text-left px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-600",
+                cls="block w-full text-left px-3 py-2 text-sm hover:bg-base-300",
                 style="border: none; background: none;"
             ) for option in dropdown_options],
             id=dropdown_id,
-            cls="absolute bottom-full left-0 mb-1 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-md shadow-md z-50 w-auto whitespace-nowrap",
+            cls=("absolute bottom-full left-0 mb-1 bg-base-200 border border-base-300 "
+                 "rounded-xl shadow-lg z-50 w-auto whitespace-nowrap overflow-hidden"),
             style="display: none;"
         ),
         cls="relative inline-flex",
@@ -194,24 +193,27 @@ def render_center_panel(qual_data: Dict, user_data: Dict, validation_results: Di
                     cls="textarea w-full resize-none border-0 focus:outline-none focus:ring-0"
                 ),
                 Div(
-                    DropdownContextButton(
-                        icon_name="book-open",
-                        label_text="Haridus",
-                        dropdown_options=[
-                            "Keskharidus", "Keskeriharidus", "180 Bak",
-                            "240 RakendusKH", "300 Mag", "Muu kõrgh"
-                        ]
-                    ),
-                    ContextButton(icon_name="briefcase", label_text="Töökogemus"),
-                    ContextButton(icon_name="award", label_text="Täiendkoolitus"),
-                    DropdownContextButton(
-                        icon_name="list-checks",
-                        label_text="Otsus",
-                        dropdown_options=["Anda", "Mitte anda"],
-                        cls="ml-auto"
+                    # --- THE FIX: Group left-side buttons and use justify-between ---
+                    Div(
+                        DropdownContextButton(
+                            icon_name="book-open",
+                            label_text="Haridus",
+                            dropdown_options=[
+                                "Keskharidus", "Keskeriharidus", "180 Bak",
+                                "240 RakendusKH", "300 Mag", "Muu kõrgh"
+                            ]
+                        ),
+                        ContextButton(icon_name="briefcase", label_text="Töökogemus"),
+                        ContextButton(icon_name="award", label_text="Täiendkoolitus"),
+                        DropdownContextButton(
+                            icon_name="list-checks",
+                            label_text="Otsus",
+                            dropdown_options=["Anda", "Mitte anda"]
+                        ),
+                        cls="flex flex-wrap items-center gap-x-2" # Group for the left side
                     ),
                     ContextButton(icon_name="send", label_text=""),
-                    cls="flex flex-wrap items-center gap-x-2 p-2 bg-base-100"
+                    cls="flex flex-wrap items-center justify-between gap-x-2 p-2 bg-base-100 rounded-b-lg"
                 ),
                 cls="border-2 rounded-lg shadow-xl"
             ),

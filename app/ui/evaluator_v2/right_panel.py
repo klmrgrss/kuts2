@@ -49,7 +49,8 @@ def render_right_panel(documents: List[Dict], work_experience: List[Dict]) -> FT
                   cls="block p-2 hover:bg-gray-100 text-sm link truncate")
                 for doc in training_docs
             ] if training_docs else [P("Täiendkoolituse dokumente ei leitud.", cls="p-3 text-sm text-gray-500")],
-        )
+        ),
+        open=True
     )
 
     # --- Work Experience Section ---
@@ -63,13 +64,14 @@ def render_right_panel(documents: List[Dict], work_experience: List[Dict]) -> FT
         Div(
             *[
                 Div(
-                    P(exp.get('object_address', 'Aadress puudub'), cls="font-medium text-sm truncate"),
-                    P(f"{exp.get('role', '')} | {exp.get('start_date', '')} - {exp.get('end_date', '...')}", cls="text-xs text-gray-500"),
+                    P(exp.get('object_address', 'Aadress puudub'), cls="italic font-medium text-sm truncate"),
+                    P(f"{exp.get('role', '')} | {exp.get('start_date', '')} - {exp.get('end_date', '...')}", cls="italic text-xs text-gray-500"),
                     cls="p-2 border-b"
                 )
                 for exp in work_experience
             ] if work_experience else [P("Töökogemusi ei leitud.", cls="p-3 text-sm text-gray-500")],
-        )
+        ),
+        open=True
     )
 
     return Div(
