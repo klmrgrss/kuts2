@@ -12,7 +12,7 @@ def ContextButton(
 ) -> FT:
     """
     Creates a contemporary, minimalistic button with precise vertical alignment.
-    Can be colored green or red, otherwise defaults to a ghost style.
+    The text label is hidden on extra-small screens.
     """
     color_map = {
         'green': "bg-green-100 text-green-800 hover:bg-green-200 dark:bg-green-900 dark:text-green-200 dark:hover:bg-green-800",
@@ -32,7 +32,8 @@ def ContextButton(
         style_classes = "bg-transparent hover:bg-gray-200 dark:hover:bg-gray-700"
     return Button(
         UkIcon(icon_name, cls="w-4 h-4"),
-        Span(label_text),
+        # --- THE FIX: Hide text on xs screens, show from sm upwards ---
+        Span(label_text, cls="hidden sm:inline"),
         cls=f"{base_classes} {style_classes} {kwargs.pop('cls', '')}",
         **kwargs
     )
@@ -45,11 +46,12 @@ def DropdownContextButton(
     **kwargs
 ) -> FT:
     """
-    Creates a context button with dropdown functionality that maintains its own toggle state.
+    Creates a context button with dropdown functionality.
+    The text label is hidden on extra-small screens.
     """
     button_id = f"btn-{label_text.lower().replace(' ', '-')}"
     dropdown_id = f"dropdown-{label_text.lower().replace(' ', '-')}"
-    
+
     color_map = {
         'green': "bg-green-100 text-green-800 hover:bg-green-200 dark:bg-green-900 dark:text-green-200 dark:hover:bg-green-800",
         'red': "bg-red-100 text-red-800 hover:bg-red-200 dark:bg-red-900 dark:text-red-200 dark:hover:bg-red-800",
@@ -66,11 +68,12 @@ def DropdownContextButton(
         style_classes = color_map[color]
     else:
         style_classes = "bg-transparent hover:bg-gray-200 dark:hover:bg-gray-700"
-    
+
     return Div(
         Button(
             UkIcon(icon_name, cls="w-4 h-4"),
-            Span(label_text),
+            # --- THE FIX: Hide text on xs screens, show from sm upwards ---
+            Span(label_text, cls="hidden sm:inline"),
             id=button_id,
             onclick=f"toggleButton('{button_id}')",
             cls=f"{base_classes} {style_classes} {kwargs.pop('cls', '')} border-r border-gray-300",
@@ -181,7 +184,7 @@ def render_center_panel(qual_data: Dict, user_data: Dict, validation_results: Di
         )
     compliance_dashboard = Div(*compliance_sections, cls="p-4 space-y-4")
 
-    # --- Final Decision & Chat Area (UPDATED) ---
+    # --- Final Decision & Chat Area ---
     final_decision_area = Div(
         Div(
             Div(
@@ -192,7 +195,7 @@ def render_center_panel(qual_data: Dict, user_data: Dict, validation_results: Di
                 ),
                 Div(
                     DropdownContextButton(
-                        icon_name="book-open", 
+                        icon_name="book-open",
                         label_text="Haridus",
                         dropdown_options=[
                             "Keskharidus", "Keskeriharidus", "180 Bak",
@@ -208,16 +211,15 @@ def render_center_panel(qual_data: Dict, user_data: Dict, validation_results: Di
                         cls="ml-auto"
                     ),
                     ContextButton(icon_name="send", label_text=""),
-                    cls="flex items-center gap-x-2 p-2 bg-base-100"
+                    cls="flex flex-wrap items-center gap-x-2 p-2 bg-base-100"
                 ),
-                # --- TWEAK: Moved shadow-xl class to this inner Div ---
                 cls="border-2 rounded-lg shadow-xl"
             ),
             cls="px-4 "
         ),
         Script("""
             let buttonStates = {};
-            
+
             function toggleButton(buttonId) {
                 const button = document.getElementById(buttonId);
                 const isActive = buttonStates[buttonId] || false;
@@ -231,7 +233,7 @@ def render_center_panel(qual_data: Dict, user_data: Dict, validation_results: Di
                     buttonStates[buttonId] = true;
                 }
             }
-            
+
             function toggleDropdown(dropdownId) {
                 const dropdown = document.getElementById(dropdownId);
                 const isVisible = dropdown.style.display !== 'none';
@@ -240,12 +242,12 @@ def render_center_panel(qual_data: Dict, user_data: Dict, validation_results: Di
                 });
                 dropdown.style.display = isVisible ? 'none' : 'block';
             }
-            
+
             function selectDropdownOption(buttonId, option) {
                 const button = document.getElementById(buttonId);
                 const span = button.querySelector('span');
                 span.textContent = option;
-                
+
                 button.classList.remove('bg-transparent', 'bg-red-100', 'text-red-800', 'bg-green-100', 'text-green-800', 'bg-blue-100', 'text-blue-800');
 
                 if (buttonId === 'btn-otsus') {
@@ -258,16 +260,16 @@ def render_center_panel(qual_data: Dict, user_data: Dict, validation_results: Di
                     button.classList.add('bg-blue-100', 'text-blue-800');
                 }
                 buttonStates[buttonId] = true;
-                
+
                 const dropdownId = buttonId.replace('btn-', 'dropdown-');
                 document.getElementById(dropdownId).style.display = 'none';
             }
-            
+
             document.addEventListener('click', function(event) {
-                const isDropdownButton = event.target.closest('button') && 
-                                         event.target.closest('button').onclick && 
+                const isDropdownButton = event.target.closest('button') &&
+                                         event.target.closest('button').onclick &&
                                          event.target.closest('button').onclick.toString().includes('toggleDropdown');
-                
+
                 if (!isDropdownButton && !event.target.closest('[id^="dropdown-"]')) {
                     document.querySelectorAll('[id^="dropdown-"]').forEach(d => {
                         d.style.display = 'none';
@@ -275,7 +277,6 @@ def render_center_panel(qual_data: Dict, user_data: Dict, validation_results: Di
                 }
             });
         """),
-        # --- TWEAK: Removed shadow-xl from the outer container ---
         cls="pb-4 pt-2 bg-white"
     )
 

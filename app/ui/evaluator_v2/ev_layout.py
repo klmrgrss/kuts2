@@ -21,26 +21,19 @@ def ev_layout(
     """
     page_title = f"{title} | Hindamiskeskkond"
 
-    # --- THE FIX: Use a single drawer that CONTAINS the grid ---
-    # This structure allows for responsive layout changes.
-
     layout = Div(
-        # The checkbox to control the drawer on mobile
         Input(id="left-drawer-toggle", type="checkbox", cls="drawer-toggle"),
 
-        # --- DRAWER CONTENT ---
-        # This area contains the navbar and the main grid layout.
+        # --- DRAWER CONTENT (Main Viewport Area) ---
         Div(
-            # 1. Navbar: It is sticky and contains the mobile toggle.
             Div(
                 evaluator_navbar(request, db),
-                cls="sticky top-0 z-30"
+                cls="sticky top-0 z-30 flex-shrink-0"
             ),
 
-            # 2. Main Grid: This defines the 3-column desktop layout.
-            #    On mobile, this grid collapses, and the panels are handled by the drawer.
+            # --- THE FIX: Applying the advanced overflow prevention classes ---
             Div(
-                # Left Panel (visible on desktop, part of drawer on mobile)
+                # Left Panel
                 Div(
                     left_panel_content,
                     cls="hidden lg:block h-full"
@@ -49,32 +42,35 @@ def ev_layout(
                 # Center Panel
                 center_panel_content,
 
-                # Right Panel (visible on desktop, part of drawer on mobile)
+                # Right Panel
                 Div(
                     right_panel_content,
                     cls="hidden lg:block h-full"
                 ),
 
-                cls="grid lg:grid-cols-[minmax(280px,1.2fr)_3fr_minmax(280px,1.2fr)] h-[calc(100vh-68px)]"
+                # This class list now contains the robust solution from your notes.
+                cls=("grid w-full max-w-full min-h-0 flex-grow overflow-x-hidden "
+                     "grid-cols-[minmax(0,1fr)] "
+                     "lg:grid-cols-[minmax(280px,1.2fr)_3fr_minmax(280px,1.2fr)] "
+                     "[&>*]:min-w-0")
             ),
-            cls="drawer-content"
+            cls="drawer-content flex flex-col h-screen overflow-hidden"
         ),
 
-        # --- DRAWER SIDE ---
-        # This holds the content for the slide-out panels on mobile.
+        # --- DRAWER SIDE (Slide-out mobile menu) ---
         Div(
             Label(fr="left-drawer-toggle", aria_label="close sidebar", cls="drawer-overlay"),
-            # On mobile, we show BOTH panels in the drawer, stacked.
             Div(
                 left_panel_content,
-                right_panel_content,
-                cls="lg:hidden flex flex-col divide-y h-full" # Only show on mobile
+                Div(
+                    right_panel_content,
+                    cls="border-t"
+                ),
+                cls="lg:hidden flex flex-col h-full bg-base-100 w-80"
             ),
             cls="drawer-side z-40"
         ),
         cls="drawer"
     )
 
-    # Note: We are now using a single drawer. The right-side panel on mobile
-    # will appear in the same drawer as the left, which is a common mobile pattern.
     return base_layout(page_title, layout)

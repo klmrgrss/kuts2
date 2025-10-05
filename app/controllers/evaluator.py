@@ -15,11 +15,11 @@ from collections import defaultdict
 from config.qualification_data import kt
 
 # Import the UI components used
-from ui.evaluator.references_display import render_references_grid
-from ui.evaluator.applicant_summary import render_applicant_summary
-from ui.evaluator.qualifications_table import render_qualifications_table
-from ui.evaluator.work_exp_objects import render_work_experience_objects
-from ui.evaluator.timeline_display import render_timeline_display
+# from ui.evaluator.references_display import render_references_grid
+# from ui.evaluator.applicant_summary import render_applicant_summary
+# from ui.evaluator.qualifications_table import render_qualifications_table
+# from ui.evaluator.work_exp_objects import render_work_experience_objects
+# from ui.evaluator.timeline_display import render_timeline_display
 # V2 UI Imports
 from ui.evaluator_v2.ev_layout import ev_layout
 from ui.evaluator_v2.left_panel import render_left_panel

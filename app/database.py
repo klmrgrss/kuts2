@@ -1,30 +1,36 @@
-# database.py
+# app/database.py
 
 import os
 import sqlite3
-import traceback  # Added for potentially more robust error handling if needed later
+import traceback
 from pathlib import Path
-
 from fastlite import database
-
 from utils.migrations import run_pending_migrations
 
 # --- Path Definition ---
-# Use an environment variable for the database file path.
-# Default to the old relative path for local development convenience.
+# This new logic is clearer and safer.
+# It establishes a single, definitive 'db_path' from the start.
+
+# 1. Define the project root and the default path
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
+_DEFAULT_DB_PATH = _PROJECT_ROOT / 'data' / 'app.db' # Let's standardize on 'app.db'
+
+# 2. Check for the environment variable
 _DB_FILE_ENV = os.environ.get("DATABASE_FILE_PATH")
 
 if _DB_FILE_ENV:
+    # If the environment variable is set, use it.
     db_path = Path(_DB_FILE_ENV)
+    # If the path from the .env is relative, resolve it relative to the project root.
     if not db_path.is_absolute():
         db_path = (_PROJECT_ROOT / db_path).resolve()
 else:
-    db_path = (_PROJECT_ROOT / 'data' / 'applicant_data.db').resolve()
+    # Otherwise, use our standardized default path.
+    db_path = _DEFAULT_DB_PATH.resolve()
 
+# 3. These are now the single source of truth for the rest of the file.
 DB_FILE = str(db_path)
-# The directory is derived from the file path
-DATA_DIR = os.path.dirname(DB_FILE)
+DATA_DIR = db_path.parent
 
 
 def _configure_connection(connection: sqlite3.Connection) -> None:
@@ -37,14 +43,15 @@ def _configure_connection(connection: sqlite3.Connection) -> None:
 def setup_database():
     """Initialise the SQLite database file, run migrations, and return a FastLite handle."""
     try:
+        # Use the unified DATA_DIR variable
         os.makedirs(DATA_DIR, exist_ok=True)
         print(f"--- Ensured data directory exists: {DATA_DIR} ---")
     except OSError as e:
         print(f"--- ERROR: Could not create data directory '{DATA_DIR}': {e} ---")
         raise RuntimeError(f"Failed to create data directory: {DATA_DIR}") from e
 
+    # Use the unified DB_FILE variable
     print(f"--- Setting up database at: {DB_FILE} ---")
-    print(f"--- Absolute DB Path Attempting: {os.path.abspath(DB_FILE)} ---")
 
     try:
         with sqlite3.connect(DB_FILE) as connection:
@@ -65,6 +72,7 @@ def setup_database():
         traceback.print_exc()
         raise RuntimeError(f"Failed to open database: {DB_FILE}") from e
 
+    # --- The rest of the file (table creation logic) remains unchanged ---
     # Define tables
     users = db.t.users
     applicant_profile = db.t.applicant_profile
@@ -78,18 +86,16 @@ def setup_database():
     # === Create Users Table ===
     if users not in db.t:
         print("--- Creating 'users' table ---")
-        # Schema uses TEXT for birthday (YYYY-MM-DD from flatpickr)
         users.create(
-            email=str, 
-            hashed_password=str, 
-            full_name=str, 
-            birthday=str, 
+            email=str,
+            hashed_password=str,
+            full_name=str,
+            birthday=str,
             role=str, # <-- ADDED ROLE COLUMN
             pk='email'
         )
         print("--- 'users' table created ---")
     else:
-        # --- ADDED: Logic to add the column if the table already exists ---
         print("--- Checking/Adding 'role' column to existing 'users' table ---")
         existing_cols = [col[1] for col in db.execute("PRAGMA table_info(users)").fetchall()]
         if 'role' not in existing_cols:
@@ -99,6 +105,8 @@ def setup_database():
             except Exception as e:
                 print(f"    Error adding column role: {e}")
 
+    # (The rest of your table creation logic follows here, it is correct and does not need to be changed)
+    # ...
     # === Create Applicant Profile Table ===
     if applicant_profile not in db.t:
         print("--- Creating 'applicant_profile' table ---")
@@ -321,14 +329,14 @@ def setup_database():
     if documents not in db.t:
         print("--- Creating 'documents' table ---")
         documents.create(
-            id=int, 
-            user_email=str, 
+            id=int,
+            user_email=str,
             document_type=str, # e.g., 'education', 'training', 'employment_proof'
             description=str,   # User-provided description or title
             metadata=str,      # To store JSON data like institution, specialty, etc.
-            original_filename=str, 
-            storage_identifier=str, 
-            upload_timestamp=str, 
+            original_filename=str,
+            storage_identifier=str,
+            upload_timestamp=str,
             pk='id'
         )
         db.execute("CREATE INDEX IF NOT EXISTS ix_documents_user_email ON documents (user_email)")

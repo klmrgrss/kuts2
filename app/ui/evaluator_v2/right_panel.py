@@ -18,18 +18,17 @@ def render_right_panel(documents: List[Dict], work_experience: List[Dict]) -> FT
             Span(f"({len(education_docs)})", cls="ml-1 text-gray-500"),
             cls="flex items-center gap-x-2 font-semibold cursor-pointer p-3 border-b"
         ),
-        # Content of the education section
         Div(
             *[
                 A(doc.get('original_filename'),
-                  # --- THE FIX: Use the correct secure route with the document's integer ID ---
                   href=f"/files/view/{doc.get('id')}",
                   target="_blank",
-                  cls="block p-2 hover:bg-gray-100 text-sm link")
+                  # --- THE FIX: Added truncate ---
+                  cls="block p-2 hover:bg-gray-100 text-sm link truncate")
                 for doc in education_docs
             ] if education_docs else [P("Hariduse dokumente ei leitud.", cls="p-3 text-sm text-gray-500")],
         ),
-        open=True # Open by default
+        open=True
     )
 
     # --- Training Section ---
@@ -44,10 +43,10 @@ def render_right_panel(documents: List[Dict], work_experience: List[Dict]) -> FT
         Div(
             *[
                 A(doc.get('description') or doc.get('original_filename'),
-                  # --- THE FIX: Use the correct secure route with the document's integer ID ---
                   href=f"/files/view/{doc.get('id')}",
                   target="_blank",
-                  cls="block p-2 hover:bg-gray-100 text-sm link")
+                  # --- THE FIX: Added truncate ---
+                  cls="block p-2 hover:bg-gray-100 text-sm link truncate")
                 for doc in training_docs
             ] if training_docs else [P("Täiendkoolituse dokumente ei leitud.", cls="p-3 text-sm text-gray-500")],
         )
@@ -64,7 +63,7 @@ def render_right_panel(documents: List[Dict], work_experience: List[Dict]) -> FT
         Div(
             *[
                 Div(
-                    P(exp.get('object_address', 'Aadress puudub'), cls="font-medium text-sm"),
+                    P(exp.get('object_address', 'Aadress puudub'), cls="font-medium text-sm truncate"),
                     P(f"{exp.get('role', '')} | {exp.get('start_date', '')} - {exp.get('end_date', '...')}", cls="text-xs text-gray-500"),
                     cls="p-2 border-b"
                 )
@@ -77,7 +76,6 @@ def render_right_panel(documents: List[Dict], work_experience: List[Dict]) -> FT
         education_section,
         training_section,
         work_exp_section,
-        # The ID and hx_swap_oob attribute are crucial for HTMX
         id="ev-right-panel",
         hx_swap_oob="true",
         cls="h-full bg-white border-l divide-y"
