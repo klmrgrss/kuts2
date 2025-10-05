@@ -14,7 +14,7 @@ def render_applicant_dashboard(data: dict, applicant_name: str) -> FT:
             ),
             Hr(cls="my-6 border-border"),
             Div(
-                A(Button("Jätka taotluse täitmist", cls=ButtonT.primary), href="/app/kutsed"),
+                A(Button("Taotluse juurde", cls=ButtonT.primary), href="/app/kutsed"),
                 A("Logi välja", href="/logout", cls="text-sm text-muted-foreground hover:underline"),
                 cls="flex justify-between items-center"
             ),
