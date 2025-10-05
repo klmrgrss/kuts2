@@ -44,7 +44,8 @@ def base_layout(title: str, *content: Any, theme_headers: tuple = Theme.blue.hea
     all_hdrs = list(theme_headers)
     all_hdrs.extend([
         Link(rel="icon",href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='0.9em' font-size='90'>🇪🇪</text></svg>"),
-        Link(rel="stylesheet", href=ag_theme_css_cdn),
+        #Link(rel="stylesheet", href=ag_theme_css_cdn),
+        Link(rel="manifest", href="/static/manifest.json"),
         Link(rel="stylesheet", href=flatpickr_css_cdn),
         Link(rel="stylesheet", href=flatpickr_month_plugin_css_cdn),
         Script(src="https://unpkg.com/htmx.org@1.9.10"),
