@@ -122,7 +122,7 @@ class EvaluatorController:
             for (level, activity), specialisations in activities.items():
                 applicant_name = user_name_lookup.get(user_email, user_email)
                 total_specialisations = len(kt.get(level, {}).get(activity, []))
-                
+
                 flattened_data.append({
                     "qual_id": f"{user_email}-{level}-{activity}",
                     "applicant_name": applicant_name,
@@ -160,15 +160,17 @@ class EvaluatorController:
                 traceback.print_exc()
                 center_panel = Div(f"Error loading application {selected_qual_id}.", cls="p-4 text-red-500")
 
-        left_panel = render_left_panel(applications_data)
+        # Create two distinct versions of the left panel
+        left_panel_desktop = render_left_panel(applications_data)
+        left_panel_drawer = render_left_panel(applications_data, id_suffix="-drawer")
 
-        # --- MODIFIED: Pass db to the layout ---
         return ev_layout(
             request=request,
             title="Hindamiskeskkond v2",
-            left_panel_content=left_panel,
+            left_panel_content=left_panel_desktop,
             center_panel_content=center_panel,
             right_panel_content=right_panel,
+            drawer_left_panel_content=left_panel_drawer, # Pass the drawer version
             db=self.db
         )
     # ^ --- END MODIFIED METHOD --- ^
@@ -179,7 +181,7 @@ class EvaluatorController:
         """
         try:
             user_email, level, activity = qual_id.split('-', 2)
-            
+
             # --- Run Validation ---
             applicant_data_for_validation = self._get_applicant_data_for_validation(user_email)
             validation_results = self.validation_engine.validate(applicant_data_for_validation, "toojuht_tase_5") # Using TJ5 for now
@@ -188,13 +190,13 @@ class EvaluatorController:
             user_data = self.users_table[user_email]
             all_quals = self.qual_table()
             user_quals = [q for q in all_quals if q.get('user_email') == user_email and q.get('level') == level and q.get('qualification_name') == activity]
-            
+
             if not user_quals:
                 raise NotFoundError("No matching qualifications found for this activity.")
-                
+
             specialisations = [q.get('specialisation') for q in user_quals]
             total_specialisations = len(kt.get(level, {}).get(activity, []))
-            
+
             qual_data = {
                 "level": level, "qualification_name": activity, "specialisations": specialisations,
                 "selected_specialisations_count": len(specialisations), "total_specialisations": total_specialisations,
@@ -202,14 +204,14 @@ class EvaluatorController:
 
             all_docs = self.db.t.documents(order_by='id')
             user_documents = [doc for doc in all_docs if doc.get('user_email') == user_email]
-            
+
             all_work_exp = self.work_exp_table(order_by='id')
             user_work_experience = [exp for exp in all_work_exp if exp.get('user_email') == user_email]
 
             # --- Render Panels ---
             center_panel = render_center_panel(qual_data, user_data, validation_results) # Pass results to view
             right_panel = render_right_panel(user_documents, user_work_experience)
-            
+
             return center_panel, right_panel
 
         except NotFoundError:
@@ -270,29 +272,29 @@ class EvaluatorController:
         try:
             user_data = self.users_table[user_email]
             applicant_name = user_data.get('full_name', user_email)
-            
+
             quals = [q for q in self.qual_table(order_by='id') if q.get('user_email') == user_email]
             for q in quals:
                 q['qualification_abbr'] = FULL_NAME_TO_ABBR_TEGEVUS.get(q.get('qualification_name', '').lower(), q.get('qualification_name', ''))
                 q['level_abbr'] = FULL_NAME_TO_ABBR_KUTSE.get(q.get('level', '').lower(), q.get('level', ''))
-            
+
             work_exp = [exp for exp in self.work_exp_table(order_by='id') if exp.get('user_email') == user_email]
             edu_data = next((edu for edu in self.education_table(order_by='id') if edu.get('user_email') == user_email), {})
             training_files = [tf for tf in self.training_files_table(order_by='id') if tf.get('user_email') == user_email]
             emp_proof = self.emp_proof_table.get(user_email, {})
-            
+
             page_title = f"Taotlus: {applicant_name} ({user_email}) | Hindamiskeskkond"
-            
+
             summary = render_applicant_summary(user_data=user_data, education_data=edu_data, training_files=training_files, emp_proof_data=emp_proof)
             qual_table = render_qualifications_table(qualifications_data=quals, applicant_email=user_email)
             work_exp_objects = render_work_experience_objects(work_exp)
             references = render_references_grid()
             timeline_json = json.dumps(self._prepare_timeline_data(work_exp))
             timeline = render_timeline_display(timeline_json)
-            
+
             grid = Div(Div(work_exp_objects, cls="lg:col-span-2"), Div(references, cls="lg:col-span-1"), cls="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-4 items-start")
             content = Div(summary, qual_table, grid, timeline, Hr(cls="my-6"), A("Tagasi töölauale", href="/evaluator/dashboard", cls="btn btn-secondary mt-4"))
-            
+
             # --- MODIFIED: Pass db to the layout ---
             return evaluator_layout(request=request, title=page_title, content=content, db=self.db)
 
@@ -308,7 +310,7 @@ class EvaluatorController:
         rendering to the dedicated 'render_application_list' component.
         """
         print(f"--- Searching applications with term: '{search}' ---")
-        
+
         all_apps = self._get_flattened_applications()
 
         if search:
@@ -363,7 +365,7 @@ class EvaluatorController:
         Fetches real data from the DB, calculates experience, and adds placeholders
         for data that will eventually come from document parsing.
         """
-        
+
         work_experiences = self.work_exp_table("user_email=?", [user_email])
 
         periods = []
@@ -377,7 +379,7 @@ class EvaluatorController:
                 continue
 
         total_years = calculate_total_experience_years(periods)
-        
+
         # --- PSEUDO-DATA SECTION ---
         pseudo_data = {
             "education": "keskharidus",
@@ -399,7 +401,7 @@ class EvaluatorController:
     async def update_qualification_status(self, request: Request, user_email: str, record_id: int):
         current_user_email = request.session.get("user_email")
         if not current_user_email: return JSONResponse({'error': 'Authentication required'}, status_code=401)
-        
+
         try:
             payload = await request.json()
             field, value = payload.get('field'), payload.get('value')
@@ -412,7 +414,7 @@ class EvaluatorController:
 
             self.qual_table.update({field: value}, id=record_id)
             return JSONResponse({'message': 'Update successful'}, status_code=200)
-            
+
         except NotFoundError:
             return JSONResponse({'error': 'Record not found'}, status_code=404)
         except Exception as e:

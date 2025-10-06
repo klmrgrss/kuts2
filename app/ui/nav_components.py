@@ -200,7 +200,7 @@ def evaluator_navbar(request: Request, db: Any) -> FT:
             ),
             cls="flex items-center"
         ),
-        cls="hidden md:flex justify-between items-center w-full"
+        cls="hidden lg:flex justify-between items-center w-full"
     )
 
     MAX_NAME_LEN = 15
@@ -229,7 +229,7 @@ def evaluator_navbar(request: Request, db: Any) -> FT:
             ),
              cls="flex-1 flex justify-end"
         ),
-        cls="flex md:hidden items-center w-full"
+        cls="flex lg:hidden items-center w-full"
     )
 
     return Div(
