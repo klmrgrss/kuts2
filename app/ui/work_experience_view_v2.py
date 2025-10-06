@@ -182,8 +182,29 @@ def render_work_experience_form_v2(
             ),
 
             SectionContainer("2. Teostatud ehitustööd",
-                InputTag(name="work_keywords", value=val('work_keywords', "Vundamenditööd, Müüritööd"), placeholder="Lisa ehitustöö ja vajuta Enter...", max_length=30),
-                StyledLabelTextArea(label="Ehitustegevuse liigi kirjeldus", id="work_description", name="work_description", value=val('work_description'), rows=3)
+                #InputTag(name="work_keywords", value=val('work_keywords', "Vundamenditööd, Müüritööd"), placeholder="Lisa ehitustöö ja vajuta Enter...", max_length=30),
+                #StyledLabelTextArea(label="Ehitustegevuse liigi kirjeldus", id="work_description", name="work_description", value=val('work_description'), rows=3),
+                                Div(
+                NotStr('<uk-select cls-custom="button: uk-input-fake w-full; dropdown: w-full" multiple placeholder="Vali teostatud ehitustööd" i18n=\'{"selection-count": ":n: valikut valitud"}\'>'),
+                        #P("Teostatud ehitustööd"),
+                        Select(
+                            Option("Vundamenditööd", value="vundamenditööd"),
+                            Option("Müüritööd", value="müüritööd")
+                            , hidden=True),
+                        NotStr('</uk-select>'),
+                        cls="-translate-y-1/2"
+                    ),
+                
+                Div(
+                NotStr('<uk-select cls-custom="button: uk-input-fake w-full; dropdown: w-full bg-lime-500" multiple placeholder="Vali teostatud ehitustöö liik" i18n=\'{"selection-count": ":n: valikut valitud"}\'>'),
+                        #P("Ehitustegevuse liik"),
+                        Select(
+                            Option("Uusehitis", value="uusehitis"),
+                            Option("Rekonstrueerimine", value="rekonstrueerimine"),
+                            Option("Remont", value="remont"), hidden=True),
+                        NotStr('</uk-select>'),
+                        cls="-translate-y-1/2"
+                    )
             ),
 
             SectionContainer("3. Ehitusobjekti andmed",
