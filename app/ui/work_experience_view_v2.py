@@ -2,7 +2,7 @@
 from fasthtml.common import *
 from monsterui.all import *
 from typing import List, Optional
-from .custom_components import InputTag, StickyActionBar
+from .custom_components import StickyActionBar
 
 def render_work_experience_form_v2(
     available_activities: List[str],
@@ -39,7 +39,11 @@ def render_work_experience_form_v2(
         # --- Accordion Summary (The Collapsed State) ---
         if has_experiences:
             icon = UkIcon("check-circle", cls="flex-shrink-0 text-green-600")
-            text = P(f"Salvestatud ({experience_count}) '{activity}' töökogemust")
+            text = P(
+                "Salvestatud ",
+                Span(experience_count, cls="badge badge-sm badge-secondary mx-1"),
+                f" '{activity}' töökogemust"
+            )
         else:
             icon = UkIcon("info", cls="flex-shrink-0 text-red-600")
             text = P(f"Ühtegi '{activity}' töökogemust pole lisatud")
@@ -182,29 +186,12 @@ def render_work_experience_form_v2(
             ),
 
             SectionContainer("2. Teostatud ehitustööd",
-                #InputTag(name="work_keywords", value=val('work_keywords', "Vundamenditööd, Müüritööd"), placeholder="Lisa ehitustöö ja vajuta Enter...", max_length=30),
-                #StyledLabelTextArea(label="Ehitustegevuse liigi kirjeldus", id="work_description", name="work_description", value=val('work_description'), rows=3),
-                                Div(
-                NotStr('<uk-select cls-custom="button: uk-input-fake w-full; dropdown: w-full" multiple placeholder="Vali teostatud ehitustööd" i18n=\'{"selection-count": ":n: valikut valitud"}\'>'),
-                        #P("Teostatud ehitustööd"),
-                        Select(
-                            Option("Vundamenditööd", value="vundamenditööd"),
-                            Option("Müüritööd", value="müüritööd")
-                            , hidden=True),
-                        NotStr('</uk-select>'),
-                        cls="-translate-y-1/2"
-                    ),
-                
                 Div(
-                NotStr('<uk-select cls-custom="button: uk-input-fake w-full; dropdown: w-full bg-lime-500" multiple placeholder="Vali teostatud ehitustöö liik" i18n=\'{"selection-count": ":n: valikut valitud"}\'>'),
-                        #P("Ehitustegevuse liik"),
-                        Select(
-                            Option("Uusehitis", value="uusehitis"),
-                            Option("Rekonstrueerimine", value="rekonstrueerimine"),
-                            Option("Remont", value="remont"), hidden=True),
-                        NotStr('</uk-select>'),
-                        cls="-translate-y-1/2"
-                    )
+                    NotStr('<uk-input-tag placeholder="Lisa ehitustöö ja vajuta Enter..." name="work_keywords" value="Vundamenditööd,Müüritööd" state="primary" slugify>'),
+                    NotStr('</uk-input-tag>'),
+                    cls="min-h-10"
+                ),
+                StyledLabelTextArea(label="Ehitustegevuse liigi kirjeldus", id="work_description", name="work_description", value=val('work_description'), rows=3),
             ),
 
             SectionContainer("3. Ehitusobjekti andmed",

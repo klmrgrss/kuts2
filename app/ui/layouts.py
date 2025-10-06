@@ -1,5 +1,4 @@
-# klmrgrss/kuts2/kuts2-sticky-bar/app/ui/layouts.py
-
+# app/ui/layouts.py
 from fasthtml.common import *
 from monsterui.all import *
 from typing import Optional, Dict, Any, Tuple
@@ -54,7 +53,6 @@ def base_layout(title: str, *content: Any, theme_headers: tuple = Theme.blue.hea
         Script(src=flatpickr_locale_et_js_cdn),
         Script(src=flatpickr_month_plugin_js_cdn),
         Script(src="/static/js/tab_scroll.js", defer=True),
-        Script(src="/static/js/input_tag.js", defer=True),
         Script(src="/static/js/education_form.js", defer=True),
         Script(src="/static/js/form_validator.js", defer=True),
         Script(src="/static/js/flatpickr_init.js", defer=True),
