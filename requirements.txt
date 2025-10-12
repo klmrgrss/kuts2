@@ -5,6 +5,7 @@ beautifulsoup4==4.13.3
 bcrypt==3.2.2
 certifi==2025.1.31
 click==8.1.8
+cryptography
 fastcore==1.8.0
 fastlite==0.1.2
 h11==0.14.0

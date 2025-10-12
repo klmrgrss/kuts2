@@ -45,6 +45,8 @@ from fastlite import NotFoundError
 import json
 import traceback
 import datetime
+import hashlib
+import base64
 
 # --- Load Environment Variables ---
 load_dotenv()
@@ -164,29 +166,36 @@ async def post_login(request: Request, email: str, password: str):
 async def post_smart_id_initiate(request: Request, national_id: str):
     """Initiates a Smart-ID authentication session."""
     if not national_id:
-        return Div("National ID is required.", id="sid-error", hx_swap_oob="true")
+        return auth_controller.get_login_form("Isikukood on vajalik.")
 
-    session_data = await smart_id_service.initiate_authentication(national_id)
+    # Generate the hash that will be signed
+    data_to_sign = os.urandom(32) # Use a random nonce for security
+    digest = hashlib.sha256(data_to_sign).digest()
+    encoded_hash = base64.b64encode(digest).decode('utf-8')
+
+    # Pass the generated hash to the service
+    session_data = await smart_id_service.initiate_authentication(national_id, encoded_hash)
 
     if not session_data or "sessionID" not in session_data:
-        return Div("Could not start Smart-ID session. Please check the ID and try again.", id="sid-error", hx_swap_oob="true")
+        # Return the full login form with an error message
+        return auth_controller.get_login_form("Sessiooni alustamine ebaõnnestus. Kontrolli isikukoodi ja proovi uuesti.")
 
     session_id = session_data["sessionID"]
     
-    # This is a placeholder for the verification code calculation.
-    # The actual calculation is hash_utils.calculate_verification_code(hash)
-    # For now, we will use a dummy code.
-    verification_code = "0000" 
+    # Correctly calculate the verification code from the digest
+    verification_code = calculate_verification_code(digest)
 
     # This response will replace the login form with a status-checking component
     return Div(
-        H3(f"Verification code: {verification_code}"),
-        P("Please enter PIN1 in your Smart-ID app."),
-        Div(cls="loading loading-lg"),
+        H3(f"Kontrollkood: {verification_code}", cls="text-center font-bold text-2xl tracking-wider"),
+        P("Sisesta PIN1 oma Smart-ID rakenduses.", cls="text-center"),
+        Div(cls="loading loading-lg mx-auto block"),
+        # Start polling immediately, with a longer delay between polls
         hx_get=f"/auth/smart-id/status/{session_id}",
-        hx_trigger="load delay:2s", # Start polling after 2 seconds
+        hx_trigger="load delay:3s",
         hx_swap="innerHTML",
-        id="smart-id-login-flow"
+        id="smart-id-login-flow",
+        cls="space-y-4"
     )
 
 @rt("/auth/smart-id/status/{session_id:str}", methods=["GET"])
@@ -195,30 +204,40 @@ async def get_smart_id_status(request: Request, session_id: str):
     status_data = await smart_id_service.check_session_status(session_id)
 
     if not status_data:
-        return Div("Error checking session status. Please try again.", id="sid-error")
+        return Div(
+            P("Sessiooni staatuse kontroll ebaõnnestus. Palun proovi uuesti.", cls="text-red-500 text-center"),
+            A(Button("Proovi uuesti", cls="btn btn-secondary"), href="/login"),
+            id="smart-id-login-flow",
+            cls="space-y-4"
+        )
 
     state = status_data.get("state")
 
     if state == "RUNNING":
         # If still running, return the same component to continue polling
         return Div(
-            H3("Verification code: 0000"), # Replace with actual code if needed
-            P("Waiting for you to enter PIN1..."),
-            Div(cls="loading loading-lg"),
+            H3(f"Kontrollkood: ...", cls="text-center font-bold text-2xl tracking-wider"), # Hide code on re-poll
+            P("Ootan PIN1 sisestamist...", cls="text-center"),
+            Div(cls="loading loading-lg mx-auto block"),
             hx_get=f"/auth/smart-id/status/{session_id}",
-            hx_trigger="load delay:2s",
+            hx_trigger="load delay:3s",
             hx_swap="innerHTML",
-            id="smart-id-login-flow"
+            id="smart-id-login-flow",
+            cls="space-y-4"
         )
     
     elif state == "COMPLETE":
-        # In the next step, we will implement this method in AuthController
+        # On success, process the login
         return await auth_controller.process_smart_id_login(request, status_data)
 
-    else: # Handle timeout, error, etc.
-        error_message = f"Login failed. Status: {state}. Please try again."
-        # In the next step, we will modify get_login_form to handle this error
-        return Div(error_message, id="sid-error")
+    else: # Handle TIMEOUT, USER_REFUSED, etc.
+        error_message = f"Sisselogimine ebaõnnestus. Staatus: {state}."
+        return Div(
+            P(error_message, cls="text-red-500 text-center"),
+            A(Button("Proovi uuesti", cls="btn btn-secondary"), href="/login"),
+            id="smart-id-login-flow",
+            cls="space-y-4 text-center"
+        )
 
 @rt("/register", methods=["GET"])
 def get_register_form_page(request: Request):

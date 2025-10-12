@@ -1,15 +1,17 @@
 # app/controllers/auth.py
 
-# Ensure necessary imports are present
 from fasthtml.common import *
 from starlette.requests import Request
 from starlette.responses import RedirectResponse, Response
 from fastlite import NotFoundError
 from monsterui.all import *
 from auth.roles import APPLICANT, normalize_role
-from auth.utils import get_password_hash, verify_password
 import traceback
 from typing import Any, Dict, Optional
+# Add necessary imports for certificate parsing
+from cryptography import x509
+from cryptography.hazmat.backends import default_backend
+from base64 import b64decode
 
 class AuthController:
     """ Handles user authentication (login, registration, logout). """
@@ -18,12 +20,17 @@ class AuthController:
         self.db = db
         self.users = db.t.users
     
-    def get_login_form(self) -> FT:
-        """Returns the new Smart-ID login form."""
+    def get_login_form(self, error_message: Optional[str] = None) -> FT:
+        """
+        Returns the new Smart-ID login form, optionally with an error message.
+        """
+        error_display = P(error_message, cls="text-red-500 text-center mb-4") if error_message else ""
+
         return Div(
             Form(
                 H2("Logi sisse Smart-ID'ga"),
                 P("Palun sisesta oma isikukood:", cls="text-sm text-muted-foreground"),
+                error_display,
                 LabelInput(
                     label="Isikukood",
                     id="national_id",
@@ -31,7 +38,6 @@ class AuthController:
                     placeholder="40404040009", # See docs/smart_id_testing.md for more demo IDs
                     required=True,
                 ),
-                Span(id="sid-error", cls="text-red-500"), 
                 Button("Logi sisse", type="submit", cls="w-full"),
                 hx_post="/auth/smart-id/initiate",
                 hx_target="#smart-id-login-flow",
@@ -51,71 +57,67 @@ class AuthController:
         )
         
     async def process_login(self, request: Request, email: str, password: str):
-        """ DEPRECATED: Processes login using parameters passed from the route handler. """
+        """ DEPRECATED: This method is no longer used. """
         return Span("Password login is no longer supported.")
 
     @staticmethod
     def _parse_subject_fields(status_data: Dict[str, Any]) -> Dict[str, str]:
-        """Extract subject fields from Smart-ID status response in a robust way."""
+        """
+        Tries to parse the X.509 certificate; if that fails, falls back to
+        parsing string-based subject fields from the Smart-ID response.
+        """
+        # --- Attempt 1: Parse the full X.509 certificate (most reliable) ---
+        try:
+            result = status_data.get("result", {})
+            cert_info = result.get("cert", {})
+            cert_value_b64 = cert_info.get("value")
 
-        def parse_candidate(candidate: Any) -> Dict[str, str]:
-            if isinstance(candidate, dict):
-                return {k: v for k, v in candidate.items() if isinstance(k, str)}
-            if isinstance(candidate, str):
-                parsed: Dict[str, str] = {}
-                for part in candidate.split(","):
-                    if "=" not in part:
-                        continue
-                    key, value = part.split("=", 1)
-                    parsed[key.strip()] = value.strip()
-                return parsed
-            return {}
+            if cert_value_b64:
+                cert_bytes = b64decode(cert_value_b64)
+                certificate = x509.load_der_x509_certificate(cert_bytes, default_backend())
+                
+                subject_fields = {}
+                for attribute in certificate.subject:
+                    oid, value = attribute.oid, attribute.value
+                    if oid == x509.NameOID.GIVEN_NAME: subject_fields['GIVENNAME'] = value
+                    elif oid == x509.NameOID.SURNAME: subject_fields['SURNAME'] = value
+                    elif oid == x509.NameOID.SERIAL_NUMBER: subject_fields['SERIALNUMBER'] = value
 
-        result = status_data.get("result") if isinstance(status_data, dict) else {}
-        candidates = []
+                if subject_fields.get("SERIALNUMBER"):
+                    print(f"--- DEBUG: Successfully parsed certificate via X.509: {subject_fields} ---")
+                    return subject_fields
+        except Exception as e:
+            print(f"--- WARNING: Failed to parse X.509 certificate ({e}). Will fall back to string parsing. ---")
 
-        if isinstance(result, dict):
-            for cert_key in ("cert", "certificate"):
-                cert = result.get(cert_key)
-                if isinstance(cert, dict):
-                    candidates.extend(
-                        cert.get(field) for field in ("subject", "subjectName", "subjectDN", "subjectCN")
-                    )
-            candidates.append(result.get("subject"))
+        # --- Attempt 2: Fallback to string-based parsing ---
+        print("--- DEBUG: Falling back to legacy string-based subject parsing. ---")
+        
+        def parse_string(candidate: Any) -> Dict[str, str]:
+            if not isinstance(candidate, str): return {}
+            return {p.split("=")[0].strip(): p.split("=")[1].strip() for p in candidate.split(",") if "=" in p}
 
-        for top_key in ("cert", "certificate"):
-            cert_candidate = status_data.get(top_key)
-            if isinstance(cert_candidate, dict):
-                candidates.extend(
-                    cert_candidate.get(field) for field in ("subject", "subjectName", "subjectDN", "subjectCN")
-                )
+        result = status_data.get("result", {})
+        candidates = [result.get("subject")]
+        if "cert" in result:
+            candidates.extend([result["cert"].get(k) for k in ("subject", "subjectName", "subjectDN")])
 
-        aggregated: Dict[str, str] = {}
-        for candidate in candidates:
-            parsed = parse_candidate(candidate)
-            if not parsed:
-                continue
-            aggregated.update({k: v for k, v in parsed.items() if v})
+        aggregated = {}
+        for cand in candidates:
+            aggregated.update(parse_string(cand))
 
-        return aggregated
-
-    @staticmethod
-    def _normalise_subject_field(fields: Dict[str, str], *names: str) -> Optional[str]:
-        lowered = {key.lower(): value for key, value in fields.items()}
-        for name in names:
-            key = name.lower()
-            if key in lowered and lowered[key]:
-                return lowered[key]
-        return None
+        # Normalize keys to match what the rest of the login function expects
+        final_fields = {}
+        if aggregated.get("GN"): final_fields['GIVENNAME'] = aggregated.get("GN")
+        if aggregated.get("SN"): final_fields['SURNAME'] = aggregated.get("SN")
+        if aggregated.get("serialNumber"): final_fields['SERIALNUMBER'] = aggregated.get("serialNumber")
+        
+        print(f"--- DEBUG: Parsed fields via string fallback: {final_fields} ---")
+        return final_fields
 
     @staticmethod
     def _extract_national_id(raw_serial: Optional[str]) -> Optional[str]:
-        if not raw_serial:
-            return None
-        serial = raw_serial.strip()
-        if "-" in serial:
-            serial = serial.split("-", 1)[-1]
-        return serial or None
+        if not raw_serial: return None
+        return raw_serial.split('-')[-1]
 
     async def process_smart_id_login(self, request: Request, status_data: dict):
         """
@@ -123,38 +125,15 @@ class AuthController:
         """
         try:
             subject_fields = self._parse_subject_fields(status_data)
-            result = status_data.get("result") if isinstance(status_data, dict) else {}
+            national_id = self._extract_national_id(subject_fields.get("SERIALNUMBER"))
 
-            given_name = self._normalise_subject_field(subject_fields, "GN", "givenName")
-            surname = self._normalise_subject_field(subject_fields, "SN", "surname")
-            raw_serial = self._normalise_subject_field(subject_fields, "serialNumber")
-            national_id = self._extract_national_id(raw_serial)
+            if not national_id:
+                print(f"--- ERROR [AuthController]: National ID not found in certificate: {subject_fields} ---")
+                return self.get_login_form("Sisselogimine ebaõnnestus. Proovi uuesti.")
 
-            if isinstance(result, dict):
-                if not given_name:
-                    given_name = result.get("givenName") or result.get("firstName")
-                if not surname:
-                    surname = result.get("surname") or result.get("lastName")
-                if not national_id:
-                    national_id = self._extract_national_id(result.get("documentNumber"))
-
-                attributes = result.get("attributes")
-                if isinstance(attributes, dict):
-                    if not given_name:
-                        given_name = attributes.get("givenName")
-                    if not surname:
-                        surname = attributes.get("surname") or attributes.get("lastName")
-
-            if not all([given_name, surname, national_id]):
-                print(f"--- ERROR [AuthController]: Missing required fields from certificate: {subject_fields} ---")
-                return Div(
-                    "Sertifikaadi andmete lugemine ebaõnnestus. Palun proovi uuesti.",
-                    A("Proovi uuesti", href="/login", cls="btn btn-primary mt-4"),
-                    id="smart-id-login-flow",
-                    cls="text-center text-red-500"
-                )
-
-            full_name = f"{given_name} {surname}"
+            given_name = subject_fields.get("GIVENNAME")
+            surname = subject_fields.get("SURNAME")
+            full_name = f"{given_name} {surname}" if given_name and surname else f"Kasutaja {national_id}"
             email = f"{national_id}@kuts2.ee"
 
             print(f"--- DEBUG [AuthController]: Smart-ID success for {national_id} ({full_name}) ---")
@@ -164,13 +143,9 @@ class AuthController:
                 if not user_records: raise NotFoundError
                 user_data = user_records[0]
                 print(f"--- DEBUG [AuthController]: Found existing user by national ID: {user_data['email']} ---")
-
             except NotFoundError:
                 print(f"--- DEBUG [AuthController]: User with national ID {national_id} not found. Creating new user. ---")
-                new_user = {
-                    "email": email, "hashed_password": "", "full_name": full_name,
-                    "birthday": None, "role": APPLICANT, "national_id_number": national_id
-                }
+                new_user = {"email": email, "hashed_password": "", "full_name": full_name, "birthday": None, "role": APPLICANT, "national_id_number": national_id}
                 self.users.insert(new_user, pk='email')
                 user_data = new_user
 
@@ -179,21 +154,15 @@ class AuthController:
             request.session['role'] = normalize_role(user_data.get('role'), default=APPLICANT)
             
             print(f"--- DEBUG [AuthController]: Session created for {user_data['email']}. Redirecting to dashboard. ---")
-            
             return Response(headers={'HX-Redirect': '/dashboard'})
 
         except Exception as e:
             print(f"--- ERROR [AuthController]: Failed to process Smart-ID login: {e} ---")
             traceback.print_exc()
-            return Div(
-                f"Sisselogimisel tekkis ootamatu viga: {e}",
-                A("Proovi uuesti", href="/login", cls="btn btn-primary mt-4"),
-                id="smart-id-login-flow",
-                cls="text-center text-red-500"
-            )
+            return self.get_login_form("Sisselogimisel tekkis ootamatu viga.")
 
     async def process_registration(self, request: Request, email: str, password: str, confirm_password: str, full_name: str, birthday: str):
-        """ DEPRECATED: Processes registration. """
+        """ DEPRECATED: This method is no longer used. """
         return Span("Registration is now automatic via Smart-ID.")
 
     def logout(self, request: Request):
