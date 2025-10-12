@@ -9,6 +9,7 @@ from monsterui.all import *
 from auth.roles import APPLICANT, normalize_role
 from auth.utils import get_password_hash, verify_password
 import traceback
+from typing import Any, Dict, Optional
 
 class AuthController:
     """ Handles user authentication (login, registration, logout). """
@@ -53,23 +54,99 @@ class AuthController:
         """ DEPRECATED: Processes login using parameters passed from the route handler. """
         return Span("Password login is no longer supported.")
 
+    @staticmethod
+    def _parse_subject_fields(status_data: Dict[str, Any]) -> Dict[str, str]:
+        """Extract subject fields from Smart-ID status response in a robust way."""
+
+        def parse_candidate(candidate: Any) -> Dict[str, str]:
+            if isinstance(candidate, dict):
+                return {k: v for k, v in candidate.items() if isinstance(k, str)}
+            if isinstance(candidate, str):
+                parsed: Dict[str, str] = {}
+                for part in candidate.split(","):
+                    if "=" not in part:
+                        continue
+                    key, value = part.split("=", 1)
+                    parsed[key.strip()] = value.strip()
+                return parsed
+            return {}
+
+        result = status_data.get("result") if isinstance(status_data, dict) else {}
+        candidates = []
+
+        if isinstance(result, dict):
+            for cert_key in ("cert", "certificate"):
+                cert = result.get(cert_key)
+                if isinstance(cert, dict):
+                    candidates.extend(
+                        cert.get(field) for field in ("subject", "subjectName", "subjectDN", "subjectCN")
+                    )
+            candidates.append(result.get("subject"))
+
+        for top_key in ("cert", "certificate"):
+            cert_candidate = status_data.get(top_key)
+            if isinstance(cert_candidate, dict):
+                candidates.extend(
+                    cert_candidate.get(field) for field in ("subject", "subjectName", "subjectDN", "subjectCN")
+                )
+
+        aggregated: Dict[str, str] = {}
+        for candidate in candidates:
+            parsed = parse_candidate(candidate)
+            if not parsed:
+                continue
+            aggregated.update({k: v for k, v in parsed.items() if v})
+
+        return aggregated
+
+    @staticmethod
+    def _normalise_subject_field(fields: Dict[str, str], *names: str) -> Optional[str]:
+        lowered = {key.lower(): value for key, value in fields.items()}
+        for name in names:
+            key = name.lower()
+            if key in lowered and lowered[key]:
+                return lowered[key]
+        return None
+
+    @staticmethod
+    def _extract_national_id(raw_serial: Optional[str]) -> Optional[str]:
+        if not raw_serial:
+            return None
+        serial = raw_serial.strip()
+        if "-" in serial:
+            serial = serial.split("-", 1)[-1]
+        return serial or None
+
     async def process_smart_id_login(self, request: Request, status_data: dict):
         """
         Processes a successful Smart-ID login, finds or creates a user, and sets the session.
         """
         try:
-            result = status_data.get("result", {})
-            cert = result.get("cert", {})
-            subject_cert = cert.get("subject", {})
-            
-            # +++ THE FINAL FIX: Use the direct fields, not the CN string +++
-            given_name = subject_cert.get("GN")
-            surname = subject_cert.get("SN")
-            national_id = subject_cert.get("serialNumber")
-            # +++ END FIX +++
+            subject_fields = self._parse_subject_fields(status_data)
+            result = status_data.get("result") if isinstance(status_data, dict) else {}
+
+            given_name = self._normalise_subject_field(subject_fields, "GN", "givenName")
+            surname = self._normalise_subject_field(subject_fields, "SN", "surname")
+            raw_serial = self._normalise_subject_field(subject_fields, "serialNumber")
+            national_id = self._extract_national_id(raw_serial)
+
+            if isinstance(result, dict):
+                if not given_name:
+                    given_name = result.get("givenName") or result.get("firstName")
+                if not surname:
+                    surname = result.get("surname") or result.get("lastName")
+                if not national_id:
+                    national_id = self._extract_national_id(result.get("documentNumber"))
+
+                attributes = result.get("attributes")
+                if isinstance(attributes, dict):
+                    if not given_name:
+                        given_name = attributes.get("givenName")
+                    if not surname:
+                        surname = attributes.get("surname") or attributes.get("lastName")
 
             if not all([given_name, surname, national_id]):
-                print(f"--- ERROR [AuthController]: Missing required fields from certificate: {subject_cert} ---")
+                print(f"--- ERROR [AuthController]: Missing required fields from certificate: {subject_fields} ---")
                 return Div(
                     "Sertifikaadi andmete lugemine ebaõnnestus. Palun proovi uuesti.",
                     A("Proovi uuesti", href="/login", cls="btn btn-primary mt-4"),
