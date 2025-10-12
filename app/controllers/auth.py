@@ -1,4 +1,4 @@
-# controllers/auth.py
+# app/controllers/auth.py
 
 # Ensure necessary imports are present
 from fasthtml.common import *
@@ -32,47 +32,41 @@ class AuthController:
         self.users = db.t.users # Convenience accessor for the users table
     
     def get_login_form(self) -> FT:
-        """Returns the login form using MonsterUI components."""
-        # Using LabelInput for combined label and input
-        return Form(
-            H2("Login"),
-            LabelInput(label="Email", id="email", name="email", type="email", placeholder="you@example.com", required=True),
-            LabelInput(label="Password", id="password", name="password", type="password", placeholder="Password", required=True),
-            # Span to display errors returned from POST handler
-            Span(id="login-error", cls="text-red-500"), 
-            Button("Login", type="submit"),
-            Hr(cls="my-4"), # Add margin to separator
-            P("Want to create an Account? ", A("Register", href="/register")), # Assumes /register route exists
-            # HTMX attributes for form submission
-            method="post", 
-            action="/login", # Submit to the /login POST route
-            hx_post="/login",
-            hx_target="#login-error", # Target the span for error messages
-            hx_swap="innerHTML", # Replace content of error span
-            cls="space-y-4" # Add spacing between form elements
+        """Returns the new Smart-ID login form."""
+        # This is the container that will be replaced by the polling UI.
+        return Div(
+            Form(
+                H2("Logi sisse Smart-ID'ga"),
+                P("Palun sisesta oma isikukood:", cls="text-sm text-muted-foreground"),
+                LabelInput(
+                    label="Isikukood", 
+                    id="national_id", 
+                    name="national_id", 
+                    placeholder="38001011234", 
+                    required=True,
+                    # Add pattern for basic validation if desired
+                    # pattern="[0-9]{11}" 
+                ),
+                # Span to display errors
+                Span(id="sid-error", cls="text-red-500"), 
+                Button("Logi sisse", type="submit", cls="w-full"),
+                
+                # HTMX attributes for form submission
+                hx_post="/auth/smart-id/initiate",
+                hx_target="#smart-id-login-flow", # Target the outer container for replacement
+                hx_swap="innerHTML",
+                cls="space-y-4" 
+            ),
+            id="smart-id-login-flow" # The target for replacement
         )
     
     def get_register_form(self) -> FT:
-        """Returns the registration form using MonsterUI components."""
-        return Form(
-            H2("Register"),
-            LabelInput(label="Full Name", id="full_name", name="full_name", placeholder="Your Full Name", required=True),
-            LabelInput(label="Email", id="email", name="email", type="email", placeholder="you@example.com", required=True),
-            LabelInput(label="Birthday", id="birthday", name="birthday", type="date", required=True), # Added Birthday
-            LabelInput(label="Password", id="password", name="password", type="password", placeholder="Password", required=True),
-            LabelInput(label="Confirm Password", id="confirm_password", name="confirm_password", type="password", placeholder="Confirm Password", required=True),
-            # Span to display errors
-            Span(id="register-error", cls="text-red-500"), 
-            Button("Register", type="submit"),
-            Hr(cls="my-4"),
-            P("Already have an account? ", A("Login", href="/login")), # Assumes /login route exists
-            # HTMX attributes
-            method="post",
-            action="/register", # Submit to the /register POST route
-            hx_post="/register",
-            hx_target="#register-error", # Target the span for error messages
-            hx_swap="innerHTML", 
-            cls="space-y-4"
+        """DEPRECATED: Returns a message indicating registration is automatic."""
+        return Div(
+            H2("Registreerumine"),
+            P("Süsteemi registreerumine toimub automaatselt esimesel sisselogimisel Smart-ID'ga."),
+            A("Tagasi sisselogimise lehele", href="/login", cls="link"),
+            cls="text-center space-y-4"
         )
         
     # --- MODIFIED process_login ---
@@ -114,6 +108,67 @@ class AuthController:
             print(f"--- ERROR [AuthController]: Unexpected error during login for {email}: {e} ---")
             traceback.print_exc()
             return Span("An unexpected error occurred during login.") # Return error Span for HTMX
+
+    async def process_smart_id_login(self, request: Request, status_data: dict):
+        """
+        Processes a successful Smart-ID login, finds or creates a user, and sets the session.
+        """
+        try:
+            # 1. Extract user data from the Smart-ID response
+            result = status_data.get("result", {})
+            cert = result.get("cert", {})
+            subject_cert = cert.get("subject", {})
+
+            # Extracting CN=SURNAME,GIVENNAME,SERIALNUMBER
+            cn_parts = subject_cert.get("CN", "").split(',')
+            if len(cn_parts) < 3:
+                return Span("Invalid user certificate received from Smart-ID.")
+
+            surname, given_name, national_id = cn_parts[0], cn_parts[1], cn_parts[2]
+            full_name = f"{given_name} {surname}"
+            
+            # For now, let's use a placeholder email, as Smart-ID doesn't provide one.
+            # You might need a strategy for handling emails, e.g., prompting the user later.
+            email = f"{national_id}@kuts2.ee"
+
+            print(f"--- DEBUG [AuthController]: Smart-ID success for {national_id} ({full_name}) ---")
+
+            # 2. Find or create the user (Just-In-Time Provisioning)
+            try:
+                # We need to query by the new national_id_number column
+                user_records = self.users("national_id_number = ?", [national_id])
+                if not user_records: raise NotFoundError
+                user_data = user_records[0]
+                print(f"--- DEBUG [AuthController]: Found existing user by national ID: {user_data['email']} ---")
+
+            except NotFoundError:
+                print(f"--- DEBUG [AuthController]: User with national ID {national_id} not found. Creating new user. ---")
+                # Note: We are not storing passwords anymore for Smart-ID users.
+                new_user = {
+                    "email": email,
+                    "hashed_password": "", # No password
+                    "full_name": full_name,
+                    "birthday": None, # Smart-ID doesn't provide this, user can fill it in later.
+                    "role": APPLICANT,
+                    "national_id_number": national_id
+                }
+                self.users.insert(new_user, pk='email')
+                user_data = new_user
+
+            # 3. Create the user session
+            request.session['authenticated'] = True
+            request.session['user_email'] = user_data['email']
+            request.session['role'] = normalize_role(user_data.get('role'), default=APPLICANT)
+            
+            print(f"--- DEBUG [AuthController]: Session created for {user_data['email']}. Redirecting to dashboard. ---")
+            
+            # 4. Return the redirect response
+            return Response(headers={'HX-Redirect': '/dashboard'})
+
+        except Exception as e:
+            print(f"--- ERROR [AuthController]: Failed to process Smart-ID login: {e} ---")
+            traceback.print_exc()
+            return Span("An error occurred while finalizing your login. Please try again.")
 
     # --- MODIFIED process_registration ---
     # Now accepts all form fields directly

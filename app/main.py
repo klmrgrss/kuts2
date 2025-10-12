@@ -1,7 +1,7 @@
 # app/main.py
 # main.py
 
-# --- FIX: Add project root to Python path ---
+
 import sys
 from pathlib import Path
 
@@ -10,13 +10,10 @@ from pathlib import Path
 APP_ROOT = str(Path(__file__).parent)
 if APP_ROOT not in sys.path:
     sys.path.insert(0, APP_ROOT)
-# --- END FIX ---
 
-# --- Imports ---
 import os
 from dotenv import load_dotenv
 from fasthtml.common import *
-# ... (the rest of the file is unchanged) ...
 from monsterui.all import *
 from controllers.employment_proof import EmploymentProofController
 from controllers.review import ReviewController
@@ -34,7 +31,8 @@ from controllers.education import EducationController
 from controllers.documents import DocumentsController
 from controllers.training import TrainingController
 from controllers.evaluator import EvaluatorController
-from controllers.dashboard import DashboardController # <-- IMPORT NEW CONTROLLER
+from controllers.dashboard import DashboardController
+from services import smart_id_service
 from ui.layouts import public_layout, app_layout
 from ui.nav_components import public_navbar
 from starlette.middleware import Middleware
@@ -157,11 +155,70 @@ def get_login_form_page(request: Request):
 
 @rt("/login", methods=["POST"])
 async def post_login(request: Request, email: str, password: str):
-    # --- MODIFIED: Point login redirect to /dashboard ---
     response = await auth_controller.process_login(request, email, password)
     if isinstance(response, Response) and 'HX-Redirect' in response.headers:
         response.headers['HX-Redirect'] = '/dashboard'
     return response
+
+@rt("/auth/smart-id/initiate", methods=["POST"])
+async def post_smart_id_initiate(request: Request, national_id: str):
+    """Initiates a Smart-ID authentication session."""
+    if not national_id:
+        return Div("National ID is required.", id="sid-error", hx_swap_oob="true")
+
+    session_data = await smart_id_service.initiate_authentication(national_id)
+
+    if not session_data or "sessionID" not in session_data:
+        return Div("Could not start Smart-ID session. Please check the ID and try again.", id="sid-error", hx_swap_oob="true")
+
+    session_id = session_data["sessionID"]
+    
+    # This is a placeholder for the verification code calculation.
+    # The actual calculation is hash_utils.calculate_verification_code(hash)
+    # For now, we will use a dummy code.
+    verification_code = "0000" 
+
+    # This response will replace the login form with a status-checking component
+    return Div(
+        H3(f"Verification code: {verification_code}"),
+        P("Please enter PIN1 in your Smart-ID app."),
+        Div(cls="loading loading-lg"),
+        hx_get=f"/auth/smart-id/status/{session_id}",
+        hx_trigger="load delay:2s", # Start polling after 2 seconds
+        hx_swap="innerHTML",
+        id="smart-id-login-flow"
+    )
+
+@rt("/auth/smart-id/status/{session_id:str}", methods=["GET"])
+async def get_smart_id_status(request: Request, session_id: str):
+    """Polls for the status of a Smart-ID session."""
+    status_data = await smart_id_service.check_session_status(session_id)
+
+    if not status_data:
+        return Div("Error checking session status. Please try again.", id="sid-error")
+
+    state = status_data.get("state")
+
+    if state == "RUNNING":
+        # If still running, return the same component to continue polling
+        return Div(
+            H3("Verification code: 0000"), # Replace with actual code if needed
+            P("Waiting for you to enter PIN1..."),
+            Div(cls="loading loading-lg"),
+            hx_get=f"/auth/smart-id/status/{session_id}",
+            hx_trigger="load delay:2s",
+            hx_swap="innerHTML",
+            id="smart-id-login-flow"
+        )
+    
+    elif state == "COMPLETE":
+        # In the next step, we will implement this method in AuthController
+        return await auth_controller.process_smart_id_login(request, status_data)
+
+    else: # Handle timeout, error, etc.
+        error_message = f"Login failed. Status: {state}. Please try again."
+        # In the next step, we will modify get_login_form to handle this error
+        return Div(error_message, id="sid-error")
 
 @rt("/register", methods=["GET"])
 def get_register_form_page(request: Request):
@@ -171,7 +228,6 @@ def get_register_form_page(request: Request):
 
 @rt("/register", methods=["POST"])
 async def post_register(request: Request, email: str, password: str, confirm_password: str, full_name: str, birthday: str):
-    # --- MODIFIED: Point register redirect to /dashboard ---
     response = await auth_controller.process_registration(request, email, password, confirm_password, full_name, birthday)
     if isinstance(response, Response) and 'HX-Redirect' in response.headers:
         response.headers['HX-Redirect'] = '/dashboard'
@@ -181,7 +237,6 @@ async def post_register(request: Request, email: str, password: str, confirm_pas
 def get_logout(request: Request):
     return auth_controller.logout(request)
 
-# --- NEW DASHBOARD ROUTE ---
 @rt("/dashboard", methods=["GET"])
 def get_dashboard(request: Request):
     guard = guard_request(request, APPLICANT, EVALUATOR, ADMIN)
@@ -189,7 +244,6 @@ def get_dashboard(request: Request):
         return guard
     return dashboard_controller.show_dashboard(request, guard)
 
-# --- MODIFIED: /app now redirects to dashboard ---
 @rt("/app", methods=["GET"])
 def get_app_root(request: Request):
     guard = guard_request(request, APPLICANT, EVALUATOR, ADMIN)
