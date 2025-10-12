@@ -25,10 +25,10 @@ class AuthController:
                 H2("Logi sisse Smart-ID'ga"),
                 P("Palun sisesta oma isikukood:", cls="text-sm text-muted-foreground"),
                 LabelInput(
-                    label="Isikukood", 
-                    id="national_id", 
-                    name="national_id", 
-                    placeholder="60001019906", # A known working test ID
+                    label="Isikukood",
+                    id="national_id",
+                    name="national_id",
+                    placeholder="40404040009", # See docs/smart_id_testing.md for more demo IDs
                     required=True,
                 ),
                 Span(id="sid-error", cls="text-red-500"), 
