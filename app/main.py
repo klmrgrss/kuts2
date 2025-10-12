@@ -228,9 +228,11 @@ async def get_smart_id_status(request: Request, session_id: str):
     
     elif state == "COMPLETE":
         # On success, process the login
+        print(f"--- DEBUG [Smart-ID COMPLETE]: Full status data: {json.dumps(status_data, indent=2)}")
         return await auth_controller.process_smart_id_login(request, status_data)
 
     else: # Handle TIMEOUT, USER_REFUSED, etc.
+        print(f"--- DEBUG [Smart-ID FAILED]: Final state '{state}'. Full status data: {json.dumps(status_data, indent=2)}")
         error_message = f"Sisselogimine ebaõnnestus. Staatus: {state}."
         return Div(
             P(error_message, cls="text-red-500 text-center"),

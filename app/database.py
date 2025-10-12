@@ -92,11 +92,13 @@ def setup_database():
             full_name=str,
             birthday=str,
             role=str, # <-- ADDED ROLE COLUMN
+            national_id_number=str, # <-- ADDED national_id_number
             pk='email'
         )
+        db.execute("CREATE UNIQUE INDEX IF NOT EXISTS ix_users_national_id_number ON users (national_id_number)")
         print("--- 'users' table created ---")
     else:
-        print("--- Checking/Adding 'role' column to existing 'users' table ---")
+        print("--- Checking/Adding columns to existing 'users' table ---")
         existing_cols = [col[1] for col in db.execute("PRAGMA table_info(users)").fetchall()]
         if 'role' not in existing_cols:
             try:
@@ -104,6 +106,16 @@ def setup_database():
                 db.execute("ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'applicant'")
             except Exception as e:
                 print(f"    Error adding column role: {e}")
+        # --- EXPLICIT FIX ---
+        if 'national_id_number' not in existing_cols:
+            try:
+                print("    Adding column: national_id_number")
+                db.execute("ALTER TABLE users ADD COLUMN national_id_number TEXT")
+                db.execute("CREATE UNIQUE INDEX IF NOT EXISTS ix_users_national_id_number ON users (national_id_number)")
+            except Exception as e:
+                print(f"    Error adding column national_id_number: {e}")
+        # --- END EXPLICIT FIX ---
+
 
     # (The rest of your table creation logic follows here, it is correct and does not need to be changed)
     # ...
