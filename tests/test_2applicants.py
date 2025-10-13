@@ -1,11 +1,18 @@
+# tests/test_2applicants.py
 import pytest
 from starlette.testclient import TestClient
 import time
+import json
+import base64
+from itsdangerous import Signer
 
 from app.controllers.evaluator import EvaluatorController
 from app.logic.helpers import calculate_total_experience_years
 from datetime import date
-from main import db
+from main import db, SESSION_SECRET_KEY
+from auth.roles import APPLICANT
+from auth.utils import get_password_hash
+from fastlite import NotFoundError
 
 # Get a direct handle to the database for setup and assertions
 users_table = db.t.users
@@ -35,6 +42,29 @@ def _fetch_experience(email):
                 raise
             time.sleep(0.1)
 
+def _setup_test_applicant(client: TestClient, email: str, full_name: str):
+    """Helper to create a user and set up an authenticated session."""
+    # --- Cleanup from previous runs ---
+    _safe_delete(users_table, "email = ?", [email])
+    _safe_delete(qualifications_table, "user_email = ?", [email])
+    _safe_delete(experience_table, "user_email = ?", [email])
+    _safe_delete(documents_table, "user_email = ?", [email])
+
+    # --- Setup ---
+    users_table.insert({
+        "email": email, "hashed_password": get_password_hash("password123"), "full_name": full_name,
+        "birthday": "1990-01-01", "role": APPLICANT, "national_id_number": f"test-{full_name.split()[0]}"
+    }, pk='email')
+
+    session_data = {"authenticated": True, "user_email": email, "role": APPLICANT}
+    signer = Signer(SESSION_SECRET_KEY)
+    signed_data = signer.sign(base64.b64encode(json.dumps(session_data).encode("utf-8")))
+    client.cookies.set("session", signed_data.decode("utf-8"))
+
+    # Add qualifications to make work experience tab available
+    client.post("/app/kutsed/submit", data={"qual_1_0": "on"})
+
+
 @pytest.fixture
 def successful_applicant_client(client: TestClient):
     """
@@ -42,21 +72,7 @@ def successful_applicant_client(client: TestClient):
     This fixture yields the authenticated client and then cleans up the user's data.
     """
     email = "successful.applicant@example.com"
-
-    # --- Setup ---
-    _safe_delete(users_table, "email = ?", [email])
-    _safe_delete(qualifications_table, "user_email = ?", [email])
-    _safe_delete(experience_table, "user_email = ?", [email])
-    _safe_delete(documents_table, "user_email = ?", [email])
-    client.post("/register", data={
-        "email": email, "password": "password123", "confirm_password": "password123",
-        "full_name": "Success Applicant", "birthday": "1990-05-15"
-    })
-    client.post("/login", data={"email": email, "password": "password123"})
-    client.get("/dashboard")
-
-    # Add qualifications to make work experience tab available
-    client.post("/app/kutsed/submit", data={"qual_1_0": "on"})
+    _setup_test_applicant(client, email, "Success Applicant")
 
     yield client # The test runs here
 
@@ -74,27 +90,15 @@ def overlapping_applicant_client(client: TestClient):
     Creates, authenticates, and sets up an applicant with overlapping experience.
     """
     email = "overlapping.applicant@example.com"
-
-    # --- Setup ---
-    _safe_delete(users_table, "email = ?", [email])
-    _safe_delete(qualifications_table, "user_email = ?", [email])
-    _safe_delete(experience_table, "user_email = ?", [email])
-    client.post("/register", data={
-        "email": email, "password": "password123", "confirm_password": "password123",
-        "full_name": "Overlapping Applicant", "birthday": "1985-10-20"
-    })
-    client.post("/login", data={"email": email, "password": "password123"})
-    client.get("/dashboard")
-    client.post("/app/kutsed/submit", data={"qual_1_0": "on"})
-
+    _setup_test_applicant(client, email, "Overlapping Applicant")
 
     yield client
 
     # --- Teardown ---
     print(f"\n--- Cleaning up data for {email} ---")
-    users_table.delete_where("email = ?", [email])
-    qualifications_table.delete_where("user_email = ?", [email])
-    experience_table.delete_where("user_email = ?", [email])
+    _safe_delete(users_table, "email = ?", [email])
+    _safe_delete(qualifications_table, "user_email = ?", [email])
+    _safe_delete(experience_table, "user_email = ?", [email])
 
 
 def test_successful_applicant_scenario(successful_applicant_client: TestClient):
@@ -129,11 +133,11 @@ def test_successful_applicant_scenario(successful_applicant_client: TestClient):
     # --- 2. Simulate document uploads ---
     # We insert directly to bypass complex GCS mocking for this scenario test
     documents_table.insert({
-        "user_email": email, "document_type": "education", 
+        "user_email": email, "document_type": "education",
         "original_filename": "diploma.pdf", "storage_identifier": "fake/path/diploma.pdf"
     })
     documents_table.insert({
-        "user_email": email, "document_type": "training", 
+        "user_email": email, "document_type": "training",
         "original_filename": "training.pdf", "storage_identifier": "fake/path/training.pdf"
     })
 
@@ -147,13 +151,13 @@ def test_successful_applicant_scenario(successful_applicant_client: TestClient):
 
     # Validate against the rules for "Ehituse tööjuht, tase 5"
     validation_results = evaluator_controller.validation_engine.validate(
-        applicant_data_for_validation, 
+        applicant_data_for_validation,
         "toojuht_tase_5"
     )
 
     # Check if any of the eligibility packages were met
     is_eligible = any(res['is_met'] for res in validation_results['results'])
-    
+
     # This applicant (4 years experience, prior L4, training) should meet Variant 1
     assert is_eligible, "Applicant should have been found eligible but was not."
     assert validation_results['results'][0]['is_met'] == True # Specifically check Variant 1
@@ -166,6 +170,7 @@ def test_unsuccessful_applicant_overlapping_experience(overlapping_applicant_cli
     correctly merges the periods and doesn't simply add them up.
     """
     client = overlapping_applicant_client
+    email = "overlapping.applicant@example.com"
 
     # --- 1. Submit overlapping work experiences ---
     # Total unique period should be Jan 2020 to Dec 2022 = 3 years.

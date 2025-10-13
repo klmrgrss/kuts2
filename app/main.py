@@ -219,19 +219,6 @@ async def get_smart_id_status(request: Request, session_id: str):
             cls="space-y-4 text-center"
         )
 
-@rt("/register", methods=["GET"])
-def get_register_form_page(request: Request):
-    register_form = auth_controller.get_register_form()
-    page_content = Div(public_navbar(), Container(register_form, cls="mt-12 md:mt-16"))
-    return public_layout("Registreeru", page_content)
-
-@rt("/register", methods=["POST"])
-async def post_register(request: Request, email: str, password: str, confirm_password: str, full_name: str, birthday: str):
-    response = await auth_controller.process_registration(request, email, password, confirm_password, full_name, birthday)
-    if isinstance(response, Response) and 'HX-Redirect' in response.headers:
-        response.headers['HX-Redirect'] = '/dashboard'
-    return response
-
 @rt("/logout", methods=["GET"])
 def get_logout(request: Request):
     return auth_controller.logout(request)

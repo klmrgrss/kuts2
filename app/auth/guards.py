@@ -79,12 +79,12 @@ def _extract_request(args: Tuple[Any, ...], kwargs: dict[str, Any]) -> Request:
 
 def _check_access(request: Request, allowed: Iterable[str]) -> Response | dict[str, Any]:
     if not request.session.get("authenticated"):
-        return RedirectResponse("/login", status_code=303)
+        return RedirectResponse("/", status_code=303)
 
     user = get_current_user(request)
     if not user:
         request.session.clear()
-        return RedirectResponse("/login", status_code=303)
+        return RedirectResponse("/", status_code=303)
 
     role = normalize_role(user.get("role"))
     if role == ADMIN or role in allowed:
@@ -95,6 +95,7 @@ def _check_access(request: Request, allowed: Iterable[str]) -> Response | dict[s
         "Forbidden: required role one of {roles}, but current role is '{current}'."
         .format(roles=describe_roles(allowed), current=role)
     )
+    # This is the key fix: return 403 for authorization failure, not a redirect.
     return Response(detail, status_code=403)
 
 

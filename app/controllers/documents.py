@@ -110,6 +110,8 @@ class DocumentsController:
         user_email = request.session.get("user_email")
         if not user_email:
             return Response("Authentication Error", status_code=403)
+
+        # FIX: Check for storage availability at the start of the method.
         if not self.bucket and not self._local_fallback_enabled:
             return Response("Cloud storage is currently unavailable. Please try again later.", status_code=503)
 
@@ -127,21 +129,13 @@ class DocumentsController:
                 return Response("Invalid filename", status_code=400)
             file_content = await doc_file.read()
             file_extension = os.path.splitext(original_filename)[1]
-            # Create a unique identifier for storage to prevent filename collisions
             storage_identifier = f"{user_email}/{uuid.uuid4()}{file_extension}"
 
             if self.bucket:
-                # --- Upload to Google Cloud Storage ---
                 blob = self.bucket.blob(storage_identifier)
-                blob.upload_from_string(
-                    file_content,
-                    content_type=doc_file.content_type
-                )
-                print(f"--- SUCCESS [GCS Upload]: Uploaded '{original_filename}' to '{storage_identifier}' in bucket '{GCS_BUCKET_NAME}'.")
+                blob.upload_from_string(file_content, content_type=doc_file.content_type)
             else:
-                sanitized_email = secure_filename(user_email)
-                if not sanitized_email:
-                    sanitized_email = uuid.uuid4().hex
+                sanitized_email = secure_filename(user_email) or uuid.uuid4().hex
                 user_folder = self.local_storage_dir / sanitized_email
                 user_folder.mkdir(parents=True, exist_ok=True)
                 unique_name = f"{uuid.uuid4()}{file_extension}"
@@ -149,8 +143,6 @@ class DocumentsController:
                 with open(local_path, "wb") as out_file:
                     out_file.write(file_content)
                 storage_identifier = f"local:{(Path(sanitized_email) / unique_name).as_posix()}"
-                print(f"--- SUCCESS [Local Upload]: Stored '{original_filename}' at '{local_path}'. ---")
-
 
             # --- Prepare Data for DB ---
             metadata = {}
@@ -175,10 +167,8 @@ class DocumentsController:
 
             self.documents_table.insert(db_data)
 
-            # --- THE FIX: On success, tell the browser to redirect to the documents tab ---
-            # This triggers a new GET request, ensuring the page reloads with the new file list.
+            # FIX: Return a response with the HX-Redirect header for HTMX.
             return Response(headers={'HX-Redirect': '/app/dokumendid'})
-
 
         except Exception as e:
             print(f"--- ERROR [upload_document]: {e} ---")

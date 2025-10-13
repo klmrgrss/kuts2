@@ -42,19 +42,6 @@ class AuthController:
             id="smart-id-login-flow"
         )
 
-    def get_register_form(self) -> FT:
-        """DEPRECATED: Returns a message indicating registration is automatic."""
-        return Div(
-            H2("Registreerumine"),
-            P("Süsteemi registreerumine toimub automaatselt esimesel sisselogimisel Smart-ID'ga."),
-            A("Tagasi sisselogimise lehele", href="/login", cls="link"),
-            cls="text-center space-y-4"
-        )
-
-    async def process_login(self, request: Request, email: str, password: str):
-        """ DEPRECATED: Processes login using parameters passed from the route handler. """
-        return Span("Password login is no longer supported.")
-
     @staticmethod
     def _parse_subject_fields(status_data: Dict[str, Any]) -> Dict[str, str]:
         """Extract subject fields from Smart-ID status response in a robust way."""
@@ -163,10 +150,6 @@ class AuthController:
                 id="smart-id-login-flow",
                 cls="text-center text-red-500"
             )
-
-    async def process_registration(self, request: Request, email: str, password: str, confirm_password: str, full_name: str, birthday: str):
-        """ DEPRECATED: Processes registration. """
-        return Span("Registration is now automatic via Smart-ID.")
 
     def logout(self, request: Request):
         """ Clears the session and redirects to the landing page. """

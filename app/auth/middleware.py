@@ -10,10 +10,9 @@ from starlette.types import ASGIApp
 class AuthMiddleware(BaseHTTPMiddleware):
     def __init__(self, app: ASGIApp, db):
         super().__init__(app)
-        self.public_prefixes = ["/static/js/", "/files/download"]
-        self.public_exact_paths = ["/", "/login", "/register", "/logout", "/favicon.ico", "/test"]
-        self.root_path = "/"
-        self.protected_prefix = "/app"
+        # All Smart-ID routes are public
+        self.public_prefixes = ["/static/", "/auth/smart-id/"]
+        self.public_exact_paths = ["/", "/logout", "/favicon.ico", "/test"]
         self.db = db
 
     async def dispatch(
@@ -21,37 +20,17 @@ class AuthMiddleware(BaseHTTPMiddleware):
         call_next: RequestResponseEndpoint
     ) -> Response:
         path = request.url.path
-        method = request.method
+        request.state.db = self.db # Attach db to all requests
 
-        print(f"--- DEBUG [Middleware]: START Dispatch - Method='{method}', Path='{path}' ---")
-
-        request.state.db = self.db
-
-        if method == "POST" and path in ["/login", "/register"]:
+        # Allow public paths to proceed without any auth checks.
+        if any(path.startswith(prefix) for prefix in self.public_prefixes) or path in self.public_exact_paths:
             return await call_next(request)
 
-        if any(path.startswith(prefix) for prefix in self.public_prefixes):
-             return await call_next(request)
+        # For all other non-public paths, check for an authenticated session.
+        if not request.session.get("authenticated"):
+            # If not authenticated, redirect to the main landing page to log in.
+            return RedirectResponse(url="/", status_code=303)
 
-        is_public_exact = (path == self.root_path) or any(path == p for p in self.public_exact_paths)
-        if is_public_exact:
-             return await call_next(request)
-
-        is_authenticated = request.session.get("authenticated", False)
-        if path.startswith("/files/view"):
-            if not is_authenticated:
-                return RedirectResponse(url="/login", status_code=303)
-            return await call_next(request)
-
-        if path.startswith(self.protected_prefix):
-            if not is_authenticated:
-                return RedirectResponse(url="/login", status_code=303)
-
-            return await call_next(request)
-
-        if path.startswith("/dashboard"):
-            if not is_authenticated:
-                return RedirectResponse(url="/login", status_code=303)
-            return await call_next(request)
-
+        # If the user is authenticated, let the request proceed.
+        # The route-specific `guard_request` function will now handle authorization (role checks).
         return await call_next(request)
