@@ -78,7 +78,13 @@ def _extract_request(args: Tuple[Any, ...], kwargs: dict[str, Any]) -> Request:
 
 
 def _check_access(request: Request, allowed: Iterable[str]) -> Response | dict[str, Any]:
-    if not request.session.get("authenticated"):
+    session_data = request.session
+    if not session_data.get("authenticated"):
+        legacy_session = getattr(request.state, "legacy_session", None)
+        if isinstance(legacy_session, dict) and legacy_session.get("authenticated"):
+            session_data.update(legacy_session)
+
+    if not session_data.get("authenticated"):
         return RedirectResponse("/", status_code=303)
 
     user = get_current_user(request)

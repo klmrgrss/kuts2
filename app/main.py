@@ -104,7 +104,7 @@ app, rt = fast_app(
     hdrs=hdrs,
     middleware=[
         Middleware(SessionMiddleware, secret_key=SESSION_SECRET_KEY, max_age=14 * 24 * 60 * 60),
-        Middleware(AuthMiddleware, db=db)
+        Middleware(AuthMiddleware, db=db, session_secret=SESSION_SECRET_KEY),
     ],
     routes=route_list, # <-- Pass the routes list here
     debug=True

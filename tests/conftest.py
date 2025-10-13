@@ -55,6 +55,7 @@ def _create_auth_client(base_client: TestClient, email: str, role: str, full_nam
     signed_data = signer.sign(base64.b64encode(json.dumps(session_data).encode("utf-8")))
 
     # 3. Set the cookie on the client
+    base_client.cookies.clear()
     base_client.cookies.set("session", signed_data.decode("utf-8"))
     
     return base_client
