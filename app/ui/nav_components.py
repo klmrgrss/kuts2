@@ -17,6 +17,22 @@ TABS = {
     "ulevaatamine": "Taotluse ülevaatamine",
     }
 
+# --- NEW: landing_page_navbar ---
+def landing_page_navbar() -> FT:
+    """A simplified navbar for the public landing page without login/register buttons."""
+    return Div(
+        Container(
+            A(
+                UkIcon("brick-wall", width=24, height=24, cls="inline-block mr-2 align-middle text-pink-500"),
+                H4("Ehitamise valdkonna kutsete taotlemine", cls="inline-block align-middle"),
+                href="/",
+                cls="flex items-center"
+            ),
+            cls="flex items-center"
+        ),
+        cls="flex justify-start items-center p-4 bg-background border-b border-border shadow-sm"
+    )
+
 # --- public_navbar ---
 def public_navbar() -> FT:
     return Div( Div( A( UkIcon( "brick-wall", width=24, height=24, cls="inline-block mr-2 align-middle text-pink-500" ), H4("Ehitamise valdkonna kutsete taotlemine", cls="inline-block align-middle"), href="/", cls="flex items-center" ), cls="flex items-center" ), Div( A(Button("Logi sisse", cls=ButtonT.ghost), href="/login"), A(Button("Registreeru", cls=ButtonT.secondary), href="/register"), cls="flex items-center space-x-2" ), cls="flex justify-between items-center p-4 bg-background border-b border-border shadow-sm" )

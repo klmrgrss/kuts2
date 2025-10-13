@@ -1,5 +1,4 @@
 # app/main.py
-# main.py
 
 
 import sys
@@ -33,8 +32,13 @@ from controllers.training import TrainingController
 from controllers.evaluator import EvaluatorController
 from controllers.dashboard import DashboardController
 from services import smart_id_service
-from ui.layouts import public_layout, app_layout
+
+# --- Custom Imports for Redesign ---
+from ui.landing.page import render_landing_page
+from ui.layouts import public_layout
 from ui.nav_components import public_navbar
+
+
 from starlette.middleware import Middleware
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.routing import Mount
@@ -111,34 +115,13 @@ app, rt = fast_app(
 # === Routes ===
 @rt("/")
 def get(request: Request):
-    hero_section = Div(
-        Container(
-            H1("Ehitamise valdkonna kutsete taotlemine", cls="text-4xl md:text-5xl font-bold mb-4 text-center"),
-            P("Esita ja halda oma kutsetaotlusi kiirelt ja mugavalt.", cls="text-lg md:text-xl text-muted-foreground mb-8 text-center"),
-            Div(
-                A(Button("Logi sisse", cls=(ButtonT.primary, ButtonT.lg)), href="/login"),
-                A(Button("Registreeru", cls=(ButtonT.secondary, ButtonT.lg)), href="/register"),
-                cls="flex flex-col sm:flex-row justify-center items-center space-y-4 sm:space-y-0 sm:space-x-4"
-            ),
-            cls="py-16 md:py-24 text-center"
-        ),
-        cls="bg-gradient-to-b from-background to-muted/50"
-    )
-    info_section = Container(
-         Section(
-             H2("Kuidas see töötab?", cls="text-2xl font-bold mb-6 text-center"),
-             Grid(
-                 Card(CardHeader(H3("1. Registreeru / Logi sisse")), CardBody(P("Loo konto või logi sisse olemasolevaga."))),
-                 Card(CardHeader(H3("2. Sisesta Andmed")), CardBody(P("Täida vajalikud ankeedid: isikuandmed, haridus, töökogemus."))),
-                 Card(CardHeader(H3("3. Esita Taotlus")), CardBody(P("Vaata andmed üle ja esita taotlus menetlemiseks."))),
-                 cols=1, md_cols=3,
-                 cls="gap-6"
-             ),
-             cls="py-12"
-         )
-     )
-    page_content = Div(public_navbar(), hero_section, info_section)
+    """
+    Renders the new, modular landing page.
+    All UI logic is now handled in the app/ui/landing/ directory.
+    """
+    page_content = render_landing_page()
     return public_layout("Tere tulemast!", page_content)
+
 
 @rt("/favicon.ico", methods=["GET"])
 def favicon(request: Request):
@@ -149,18 +132,13 @@ def favicon(request: Request):
 def test_route(request: Request):
     return Div(H1("Test Route"), P("This is a test route"))
 
-@rt("/login", methods=["GET"])
-def get_login_form_page(request: Request):
-    login_form = auth_controller.get_login_form()
-    page_content = Div(public_navbar(), Container(login_form, cls="mt-12 md:mt-16"))
-    return public_layout("Logi sisse", page_content)
+# --- REMOVED OBSOLETE /login ROUTES ---
 
-@rt("/login", methods=["POST"])
-async def post_login(request: Request, email: str, password: str):
-    response = await auth_controller.process_login(request, email, password)
-    if isinstance(response, Response) and 'HX-Redirect' in response.headers:
-        response.headers['HX-Redirect'] = '/dashboard'
-    return response
+@rt("/auth/smart-id/form", methods=["GET"])
+def get_smart_id_form(request: Request):
+    """Returns just the Smart-ID login form partial for HTMX swapping."""
+    return auth_controller.get_login_form()
+
 
 @rt("/auth/smart-id/initiate", methods=["POST"])
 async def post_smart_id_initiate(request: Request, national_id: str):

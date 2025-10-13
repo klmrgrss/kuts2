@@ -7,7 +7,7 @@ from starlette.requests import Request
 from starlette.responses import RedirectResponse, Response
 from fastlite import NotFoundError
 from monsterui.all import *
-from auth.roles import APPLICANT, normalize_role
+from auth.roles import APPLICANT, EVALUATOR, ADMIN, normalize_role
 from auth.utils import get_password_hash, verify_password
 import traceback
 from typing import Any, Dict, Optional
@@ -124,10 +124,10 @@ class AuthController:
 
             full_name = f"{given_name} {surname}"
             
-            # --- THE FIX: Use an environment variable for the domain ---
+            
             user_domain = os.environ.get("USER_ID_DOMAIN", "id.eeel.ee")
             email = f"{national_id}@{user_domain}"
-            # --- END FIX ---
+
 
             print(f"--- DEBUG [AuthController]: Smart-ID success for {national_id} ({full_name}) ---")
 
@@ -169,7 +169,7 @@ class AuthController:
         return Span("Registration is now automatic via Smart-ID.")
 
     def logout(self, request: Request):
-        """ Clears the session and redirects to the login page. """
+        """ Clears the session and redirects to the landing page. """
         print(f"Logging out user: {request.session.get('user_email')}")
         request.session.clear()
-        return RedirectResponse('/login', status_code=303)
+        return RedirectResponse('/', status_code=303)

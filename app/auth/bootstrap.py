@@ -1,3 +1,4 @@
+# app/auth/bootstrap.py
 """Utility helpers for bootstrapping default accounts.
 
 This module centralises the logic that creates or updates evaluator and
@@ -28,6 +29,7 @@ class DefaultUser:
     role: str = APPLICANT
     full_name: Optional[str] = None
     birthday: Optional[str] = None
+    national_id: Optional[str] = None
 
 
 def ensure_default_users(db) -> None:
@@ -54,6 +56,7 @@ def ensure_default_users(db) -> None:
         role = normalize_role(user.role, default=APPLICANT)
         full_name = user.full_name or email.split("@")[0]
         birthday = user.birthday or default_birthday
+        national_id = user.national_id
 
         hashed_password = (
             get_password_hash(user.password) if user.password else None
@@ -76,6 +79,9 @@ def ensure_default_users(db) -> None:
 
             if birthday and not existing.get("birthday"):
                 updates["birthday"] = birthday
+            
+            if national_id and not existing.get("national_id_number"):
+                updates["national_id_number"] = national_id
 
             if updates:
                 users_table.update(updates, pk_values=email)
@@ -88,18 +94,19 @@ def ensure_default_users(db) -> None:
                 )
 
         except NotFoundError:
-            if not hashed_password:
+            if not hashed_password and not national_id:
                 print(
-                    f"--- Default user bootstrap: skipping '{email}' because no password was provided ---"
+                    f"--- Default user bootstrap: skipping '{email}' because no password or national_id was provided ---"
                 )
                 continue
 
             new_user = {
                 "email": email,
-                "hashed_password": hashed_password,
+                "hashed_password": hashed_password or "",
                 "full_name": full_name,
                 "birthday": birthday,
                 "role": role,
+                "national_id_number": national_id,
             }
             users_table.insert(new_user, pk="email")
             print(
@@ -223,6 +230,7 @@ def _parse_default_users(raw: str) -> List[DefaultUser]:
         role = entry.get("role", "applicant")
         full_name = entry.get("full_name")
         birthday = entry.get("birthday")
+        national_id = entry.get("national_id")
         if email:
             users.append(
                 DefaultUser(
@@ -231,6 +239,7 @@ def _parse_default_users(raw: str) -> List[DefaultUser]:
                     role=role,
                     full_name=full_name,
                     birthday=birthday,
+                    national_id=national_id,
                 )
             )
     return users
@@ -260,4 +269,3 @@ def _split_entries(raw: str) -> Iterable[str]:
 
 def _is_truthy(value: str) -> bool:
     return value.strip().lower() in {"1", "true", "yes", "on"}
-

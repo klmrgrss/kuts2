@@ -1,18 +1,30 @@
-# seed_test_data.py
+# app/seed_test_data.py
 import sys
 import os
 from pathlib import Path
 import datetime
 
-# --- Setup Project Path ---
-# This allows the script to find modules in the 'app' directory
-APP_PATH = Path(__file__).parent / 'app'
-if str(APP_PATH) not in sys.path:
-    sys.path.insert(0, str(APP_PATH))
-# --- End Setup ---
+# --- Robust Path Setup ---
+# This setup works whether the script is run from a directory structure
+# like `/project/app/seed_test_data.py` (local) or `/app/app/seed_test_data.py` (Railway).
+# It ensures the project's root is on the Python path for correct module imports.
+try:
+    # This will work for local execution where 'app' is a direct child of the project root.
+    from database import setup_database
+    from auth.utils import get_password_hash
+    from auth.roles import APPLICANT
+except ImportError:
+    # If the first import fails, it's likely because we are in a nested 'app' directory (like on Railway).
+    # We add the parent directory to the path and try again.
+    PROJECT_ROOT = Path(__file__).resolve().parent.parent
+    if str(PROJECT_ROOT) not in sys.path:
+        sys.path.insert(0, str(PROJECT_ROOT))
+    
+    from app.database import setup_database
+    from app.auth.utils import get_password_hash
+    from app.auth.roles import APPLICANT
+# --- End Path Setup ---
 
-from database import setup_database
-from auth.utils import get_password_hash
 
 # --- Test Data Definitions ---
 
@@ -22,7 +34,8 @@ APPLICANT_PERFECT = {
         "email": "perfect.candidate@example.com",
         "full_name": "Peeter Paigas",
         "birthday": "1990-05-15",
-        "password": "Password123!"
+        "password": "Password123!",
+        "national_id": "39005150001" # Added national_id for completeness
     },
     "qualification": {
         "qualification_name": "Üldehituslik ehitamine",
@@ -47,14 +60,13 @@ APPLICANT_PERFECT = {
 }
 
 # Applicant 2: Candidate with overlapping work experience
-# Total unique duration should be Jan 2020 - Jun 2023 = 42 months = 3.5 years
-# Not the sum of durations (24 + 24 = 48 months)
 APPLICANT_OVERLAPPING = {
     "user": {
         "email": "overlapping.experience@example.com",
         "full_name": "Kati Kattuv",
         "birthday": "1988-11-20",
-        "password": "Password123!"
+        "password": "Password123!",
+        "national_id": "48811200002" # Added national_id for completeness
     },
     "qualification": {
         "qualification_name": "Üldehituslik ehitamine",
@@ -107,13 +119,15 @@ def populate_test_data(db):
         user_info = applicant["user"]
         email = user_info["email"]
         
-        # 1. Create User
+        # 1. Create User with all required fields
         hashed_password = get_password_hash(user_info["password"])
         users_table.insert({
             "email": email,
             "hashed_password": hashed_password,
             "full_name": user_info["full_name"],
-            "birthday": user_info["birthday"]
+            "birthday": user_info["birthday"],
+            "role": APPLICANT, # Explicitly set the role
+            "national_id_number": user_info.get("national_id"), # Add national ID
         }, pk='email')
         print(f"  - Created user: {email}")
 
@@ -154,9 +168,10 @@ if __name__ == "__main__":
             print("\n✅ Successfully seeded database with 2 test applications.")
         except Exception as e:
             print(f"\n❌ An error occurred: {e}")
+            import traceback
+            traceback.print_exc()
         finally:
-            # It's good practice to close the connection if your DB library supports it,
-            # but fastlite manages this automatically.
+            # fastlite manages connections, so no explicit close is needed.
             pass
     else:
         print("❌ Could not establish a database connection.")
