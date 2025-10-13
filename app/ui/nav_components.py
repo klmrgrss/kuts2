@@ -24,7 +24,7 @@ def landing_page_navbar() -> FT:
         Container(
             A(
                 UkIcon("brick-wall", width=24, height=24, cls="inline-block mr-2 align-middle text-pink-500"),
-                H4("Ehitamise valdkonna kutsete taotlemine", cls="inline-block align-middle"),
+                H4("Kutsekeskkond", cls="inline-block align-middle"),
                 href="/",
                 cls="flex items-center"
             ),

@@ -8,6 +8,7 @@ def render_footer():
     return Footer(
         Container(
             Div(
+                Img(src="/static/logo_EEEL.png", cls="h-8 mr-2 bg-blue-800"),
                 P(f"© {datetime.date.today().year} Eesti Ehitusettevõtjate Liit. Kõik õigused kaitstud."),
                 # A("Privaatsuspoliitika", href="#", cls="link"), # Uncomment when you have a privacy policy
                 cls="flex justify-between items-center text-sm text-muted-foreground"

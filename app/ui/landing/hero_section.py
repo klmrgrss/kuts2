@@ -7,7 +7,7 @@ def render_hero_section():
     return Div(
         Container(
             H1("Ehitamise valdkonna kutsete taotlemise keskkond", cls="text-4xl md:text-5xl font-bold mb-4 text-center"),
-            P("Esita ja halda oma kutsetaotlusi turvaliselt, kiirelt ja mugavalt.", cls="text-lg md:text-xl text-muted-foreground mb-8 text-center max-w-3xl mx-auto"),
+            #P("Esita ja halda oma kutsetaotlusi turvaliselt, kiirelt ja mugavalt.", cls="text-lg md:text-xl text-muted-foreground mb-8 text-center max-w-3xl mx-auto"),
             
             # This container will be the target for the HTMX swap
             Div(
@@ -19,8 +19,7 @@ def render_hero_section():
                     hx_target="#hero-cta-container",
                     hx_swap="innerHTML"
                 ),
-                P("Esmakordsel sisselogimisel luuakse Sulle automatselt konto.", cls="text-xs text-muted-foreground mt-4"),
-                id="hero-cta-container" # The target ID for the swap
+            P("Teenusesse sisselogimiseks vajate kehtivat Smart-ID kontot.", cls="text-xs text-muted-foreground mt-4") ,               id="hero-cta-container" # The target ID for the swap
             ),
             
             cls="py-16 md:py-24 text-center"
