@@ -28,14 +28,14 @@ except ImportError:
 
 # --- Test Data Definitions ---
 
-# Applicant 1: "Perfect" candidate with 5 years of non-overlapping experience
-APPLICANT_PERFECT = {
+# --- Level 5 Applicants ---
+APPLICANT_L5_PASS = {
     "user": {
-        "email": "perfect.candidate@example.com",
-        "full_name": "Peeter Paigas",
+        "email": "level5.pass@example.com",
+        "full_name": "Viies Viieline",
         "birthday": "1990-05-15",
         "password": "Password123!",
-        "national_id": "39005150001" # Added national_id for completeness
+        "national_id": "39005150005"
     },
     "qualification": {
         "qualification_name": "Üldehituslik ehitamine",
@@ -45,52 +45,85 @@ APPLICANT_PERFECT = {
     },
     "experience": [
         {
-            "role": "Objektijuht",
-            "object_address": "Torni 7, Tallinn",
-            "start_date": "2020-01", # 2 years
-            "end_date": "2021-12",
+            "role": "Objektijuht", "object_address": "Torni 7, Tallinn",
+            "start_date": "2020-01", "end_date": "2021-12", # 2 years
         },
         {
-            "role": "Tööjuht",
-            "object_address": "Pargi 12, Tartu",
-            "start_date": "2022-01", # 3 years
-            "end_date": "2024-12",
+            "role": "Tööjuht", "object_address": "Pargi 12, Tartu",
+            "start_date": "2022-01", "end_date": "2022-12", # 1 year
         }
-    ]
+    ] # Total: 3 years, should pass tj5_variant_1 (needs 3 total, 2 matching)
 }
 
-# Applicant 2: Candidate with overlapping work experience
-APPLICANT_OVERLAPPING = {
+APPLICANT_L5_FAIL = {
     "user": {
-        "email": "overlapping.experience@example.com",
-        "full_name": "Kati Kattuv",
+        "email": "level5.fail@example.com",
+        "full_name": "Viies Puudulik",
         "birthday": "1988-11-20",
         "password": "Password123!",
-        "national_id": "48811200002" # Added national_id for completeness
+        "national_id": "48811200005"
+    },
+    "qualification": {
+        "qualification_name": "Sisekliima tagamise süsteemide ehitamine",
+        "level": "Ehituse tööjuht, TASE 5",
+        "specialisation": "Küttesüsteemide ehitamine",
+        "activity": "Sisekliima tagamise süsteemide ehitamine"
+    },
+    "experience": [
+        {
+            "role": "Abiline", "object_address": "Mere pst 1, Pärnu",
+            "start_date": "2022-01", "end_date": "2023-06", # 1.5 years
+        }
+    ] # Total: 1.5 years, fails tj5_variant_1 (needs 3 total)
+}
+
+# --- Level 6 Applicants ---
+APPLICANT_L6_PASS = {
+    "user": {
+        "email": "level6.pass@example.com",
+        "full_name": "Kuues Kuldne",
+        "birthday": "1985-01-01",
+        "password": "Password123!",
+        "national_id": "38501010006"
     },
     "qualification": {
         "qualification_name": "Üldehituslik ehitamine",
-        "level": "Ehituse tööjuht, TASE 5",
-        "specialisation": "Betoonkonstruktsioonide ehitamine",
+        "level": "Ehitusjuht, TASE 6",
+        "specialisation": "Puitkonstruktsioonide ehitamine",
         "activity": "Üldehituslik ehitamine"
     },
     "experience": [
         {
-            "role": "Projektijuhi assistent",
-            "object_address": "Mere pst 1, Pärnu",
-            "start_date": "2020-01", # 24 months
-            "end_date": "2021-12",
-        },
-        {
-            "role": "Apats Tööjuht",
-            "object_address": "Ranna 5, Haapsalu",
-            "start_date": "2021-07", # 24 months (Overlaps by 6 months)
-            "end_date": "2023-06",
+            "role": "Projektijuht", "object_address": "Metsa 2, Viljandi",
+            "start_date": "2021-01", "end_date": "2023-12", # 3 years
         }
-    ]
+    ] # Total: 3 years, should pass ej6_deg_matched_300 (needs 2 matching)
 }
 
-TEST_APPLICANTS = [APPLICANT_PERFECT, APPLICANT_OVERLAPPING]
+APPLICANT_L6_FAIL = {
+    "user": {
+        "email": "level6.fail@example.com",
+        "full_name": "Kuues Koba",
+        "birthday": "1987-03-03",
+        "password": "Password123!",
+        "national_id": "38703030006"
+    },
+    "qualification": {
+        "qualification_name": "Ühisveevärgi või kanalisatsiooni ehitamine",
+        "level": "Ehitusjuht, TASE 6",
+        "specialisation": "Valikkompetentsid puuduvad",
+        "activity": "Ühisveevärgi või kanalisatsiooni ehitamine"
+    },
+    "experience": [
+        {
+            "role": "Insener", "object_address": "Jõe 1, Narva",
+            "start_date": "2023-01", "end_date": "2023-12", # 1 year
+        }
+    ] # Total: 1 year, fails ej6_deg_matched_300 (needs 2 matching)
+}
+
+
+TEST_APPLICANTS = [APPLICANT_L5_PASS, APPLICANT_L5_FAIL, APPLICANT_L6_PASS, APPLICANT_L6_FAIL]
 
 def clear_previous_test_data(db):
     """Deletes records for test users to ensure a clean slate."""
@@ -137,7 +170,7 @@ def populate_test_data(db):
             "user_email": email,
             **qual_info # Unpack the rest of the qualification data
         })
-        print(f"    - Added qualification: {qual_info['qualification_name']}")
+        print(f"    - Added qualification: {qual_info['level']} - {qual_info['qualification_name']}")
 
         # 3. Add Work Experiences
         for exp in applicant["experience"]:
@@ -148,8 +181,8 @@ def populate_test_data(db):
                 "end_date": exp.get("end_date"),
                 "role": exp.get("role"),
                 "object_address": exp.get("object_address"),
-                "company_name": f"{user_info['full_name']} Holding",
-                "work_description": "Work performed for automated testing.",
+                "company_name": f"Ehitus OÜ",
+                "work_description": "Töö teostatud automaatse testi raames.",
                 "permit_required": 1
             })
         print(f"    - Added {len(applicant['experience'])} work experience record(s)")
@@ -165,7 +198,7 @@ if __name__ == "__main__":
         try:
             clear_previous_test_data(db_connection)
             populate_test_data(db_connection)
-            print("\n✅ Successfully seeded database with 2 test applications.")
+            print("\n✅ Successfully seeded database with 4 test applications.")
         except Exception as e:
             print(f"\n❌ An error occurred: {e}")
             import traceback

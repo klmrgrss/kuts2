@@ -60,6 +60,13 @@ ALLOWED_UPDATE_FIELDS = [
     'eval_comment', 'eval_decision'
 ]
 
+# --- NEW MAPPING ---
+QUALIFICATION_LEVEL_TO_RULE_ID = {
+    "Ehituse tööjuht, TASE 5": "toojuht_tase_5",
+    "Ehitusjuht, TASE 6": "ehitusjuht_tase_6",
+}
+
+
 class EvaluatorController:
     def __init__(self, db):
         self.db = db
@@ -182,9 +189,13 @@ class EvaluatorController:
         try:
             user_email, level, activity = qual_id.split('-', 2)
 
+            # --- DYNAMIC RULE LOOKUP ---
+            qualification_rule_id = QUALIFICATION_LEVEL_TO_RULE_ID.get(level, "toojuht_tase_5")
+            # --- END DYNAMIC RULE LOOKUP ---
+
             # --- Run Validation ---
             applicant_data_for_validation = self._get_applicant_data_for_validation(user_email)
-            validation_results = self.validation_engine.validate(applicant_data_for_validation, "toojuht_tase_5") # Using TJ5 for now
+            validation_results = self.validation_engine.validate(applicant_data_for_validation, qualification_rule_id) # Using dynamic ID
 
             # --- Fetch Data for UI ---
             user_data = self.users_table[user_email]

@@ -140,7 +140,7 @@ def render_review_page(data: dict) -> FT:
 
     # --- Submission Section ---
     submission_section = Section(
-        P("Palun vaata taotluse andmed hoolikalt üle. Esitamisel saadetakse taotlus menetlemiseks EEELi kutsekomisjonile ning koopia sinu e-postile.", cls="mt-4 mb-3 text-center text-sm text-muted-foreground"),
+        P("Palun vaata taotluse andmed hoolikalt üle. Esitamisel saadetakse taotlus menetlemiseks EEELi kutsekomisjonile ning taotluse esitamise kinnitus sinu e-postile.", cls="mt-4 mb-3 text-center text-sm text-muted-foreground"),
         Form(
              Div(Button("Esita taotlus", type="submit", cls="btn btn-primary text-xl mt-4 mb-8"), cls="flex justify-center"),
              method="post",

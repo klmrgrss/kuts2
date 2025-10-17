@@ -101,7 +101,7 @@ def DropdownContextButton(
 
 def render_compliance_section_from_data(title: str, icon_name: str, result_details: Dict):
     is_compliant = result_details.get("met", False)
-    status_text = f"Nõutud: {result_details.get('required')}, Esitatud: {result_details.get('provided')}"
+    status_text = f"Nõue: {result_details.get('required')}, Esitatud: {result_details.get('provided')}"
     status_color_class = "border-green-500" if is_compliant else "border-red-500"
     status_icon = UkIcon("check-circle", cls="w-5 h-5 text-green-500") if is_compliant else UkIcon("x-circle", cls="w-5 h-5 text-red-500")
 
@@ -110,7 +110,7 @@ def render_compliance_section_from_data(title: str, icon_name: str, result_detai
             Div(
                 Div(cls=f"w-1.5 h-full absolute left-0 top-0 bg-{status_color_class.split('-')[1]}-500"),
                 UkIcon(icon_name, cls="w-5 h-5"),
-                H3(title, cls="font-semibold"),
+                H5(title, cls="font-semibold"),
                 status_icon,
                 Span(status_text, cls="text-sm text-gray-500 truncate"),
                 UkIcon("chevron-down", cls="accordion-marker ml-auto"),
@@ -165,8 +165,8 @@ def render_center_panel(qual_data: Dict, user_data: Dict, validation_results: Di
             Div(
                 H3(f"Vastab tingimustele (Variant: {met_package['package_id']})", cls="text-lg font-semibold text-green-700 p-2 bg-green-50 rounded-md text-center"),
                 render_compliance_section_from_data("Haridus", "book-open", met_package['details']['education']),
-                render_compliance_section_from_data("Töökogemus (kokku)", "briefcase", met_package['details']['total_experience']),
-                render_compliance_section_from_data("Vastav töökogemus", "briefcase", met_package['details']['matching_experience']),
+                render_compliance_section_from_data("Töökogemus kokku", "briefcase", met_package['details']['total_experience']),
+                render_compliance_section_from_data("Spetsialiseerumisele vastav töökogemus", "target", met_package['details']['matching_experience']),
                 render_compliance_section_from_data("Baaskoolitus", "award", met_package['details']['base_training']),
             )
         )
@@ -176,8 +176,8 @@ def render_center_panel(qual_data: Dict, user_data: Dict, validation_results: Di
              Div(
                 H3(f"Tingimused ei ole täidetud (Variant: {first_package['package_id']})", cls="text-lg font-semibold text-red-700 p-2 bg-red-50 rounded-md text-center"),
                 render_compliance_section_from_data("Haridus", "book-open", first_package['details']['education']),
-                render_compliance_section_from_data("Töökogemus (kokku)", "briefcase", first_package['details']['total_experience']),
-                render_compliance_section_from_data("Vastav töökogemus", "briefcase", first_package['details']['matching_experience']),
+                render_compliance_section_from_data("Töökogemus kokku", "briefcase", first_package['details']['total_experience']),
+                render_compliance_section_from_data("Spetsialiseerumisele vastav töökogemus", "briefcase", first_package['details']['matching_experience']),
                 render_compliance_section_from_data("Baaskoolitus", "award", first_package['details']['base_training']),
             )
         )

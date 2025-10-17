@@ -154,7 +154,7 @@ class ReviewController:
         
         success_message = Div(
             H3("Taotlus esitatud!"),
-            P(f"Sinu taotlus on edukalt esitatud menetlemiseks. Koopia saadeti aadressile {user_email}."),
+            P(f"Sinu taotlus on edukalt esitatud menetlemiseks. Taotluse esitamise kinnitus edastatud aadressile {user_email}."),
             A(Button("Tagasi avalehele"), href="/app"),
             id="tab-content-container",
             cls="p-6 text-center"
