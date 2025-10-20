@@ -45,9 +45,13 @@ def ContextButton(
 def DropdownContextButton(
     icon_name: str,
     label_text: str,
-    dropdown_options: dict, 
-    name: str, 
+    dropdown_options: dict,
+    name: str,
     color: Optional[str] = None,
+    *,
+    button_cls: str = "",
+    wrapper_cls: str = "relative inline-flex",
+    rounded_cls: Optional[str] = "rounded-full",
     **kwargs
 ) -> FT:
     button_id = f"btn-{name}"
@@ -57,20 +61,25 @@ def DropdownContextButton(
         'green': "bg-green-100 text-green-800 hover:bg-green-200 dark:bg-green-900 dark:text-green-200 dark:hover:bg-green-800",
         'red': "bg-red-100 text-red-800 hover:bg-red-200 dark:bg-red-900 dark:text-red-200 dark:hover:bg-red-800",
     }
-    base_classes = (
-        "inline-flex items-center justify-center "
-        "h-8 px-3 "
-        "gap-x-2 "
-        "rounded-full "
-        "text-sm font-bold normal-case "
-        "transition-colors duration-150"
-    )
+    base_class_parts = [
+        "inline-flex items-center justify-center",
+        "h-8 px-3",
+        "gap-x-2",
+        "text-sm font-bold normal-case",
+        "transition-colors duration-150",
+    ]
+    if rounded_cls:
+        base_class_parts.append(rounded_cls)
+    base_classes = " ".join(base_class_parts)
     if color in color_map:
         style_classes = color_map[color]
     else:
         style_classes = "bg-transparent hover:bg-gray-200 dark:hover:bg-gray-700"
 
     hidden_input = Input(type="hidden", id=f"hidden-{button_id}", name=name, value="")
+
+    button_extra_cls = kwargs.pop('cls', '')
+    wrapper_extra_cls = kwargs.pop('wrapper_cls_extra', '')
 
     return Div(
         hidden_input,
@@ -82,7 +91,7 @@ def DropdownContextButton(
             data_original_text=label_text,
             onclick=f"toggleDropdown('{dropdown_id}')",
             type="button",
-            cls=f"{base_classes} {style_classes} {kwargs.pop('cls', '')}"
+            cls=" ".join(filter(None, [base_classes, style_classes, button_cls, button_extra_cls]))
         ),
         Div(
             *[Button(
@@ -95,11 +104,37 @@ def DropdownContextButton(
             id=dropdown_id,
             cls=("absolute bottom-full left-0 mb-1 bg-base-200 border border-base-300 "
                  "rounded-xl shadow-lg z-50 w-auto whitespace-nowrap overflow-hidden"),
-            style="display: none;"
+            style="display: none;",
         ),
-        cls="relative inline-flex",
+        cls=" ".join(filter(None, [wrapper_cls, wrapper_extra_cls])),
         **kwargs
     )
+
+
+def HaridusControl(education_dropdown_options: dict) -> FT:
+    """Compose the old/foreign toggle and education dropdown into a shared capsule."""
+    return Div(
+        DropdownContextButton(
+            icon_name=None,
+            label_text=">10a / välis",
+            dropdown_options={"on": "Jah", "": "Ei"},
+            name="education_old_or_foreign",
+            data_context="haridus",
+            wrapper_cls="relative inline-flex first:rounded-l-full",
+            rounded_cls=None,
+        ),
+        DropdownContextButton(
+            icon_name="book-open",
+            label_text="Haridus",
+            dropdown_options=education_dropdown_options,
+            name="education_level",
+            data_context="haridus",
+            wrapper_cls="relative inline-flex last:rounded-r-full",
+            rounded_cls=None,
+        ),
+        cls="inline-flex items-stretch flex-shrink-0 rounded-full border border-base-300 divide-x divide-base-300 bg-base-100 dark:bg-base-200"
+    )
+
 
 def render_compliance_subsection(title: str, check: ComplianceCheck):
     """Renders a subsection within a main compliance category."""
@@ -245,19 +280,7 @@ def render_center_panel(qual_data: Dict, user_data: Dict, state: ComplianceDashb
                 Div(
                     Div(
                         # Redesigned Haridus Button
-                        Div(
-                            DropdownContextButton(
-                                icon_name=None, label_text=">10a / välis",
-                                dropdown_options={"on": "Jah", "": "Ei"}, name="education_old_or_foreign",
-                                data_context="haridus"
-                            ),
-                            DropdownContextButton(
-                                icon_name="book-open", label_text="Haridus",
-                                dropdown_options=education_dropdown_options, name="education_level",
-                                data_context="haridus"
-                            ),
-                            cls="flex items-center"
-                        ),
+                        HaridusControl(education_dropdown_options),
                         ContextButton(icon_name="briefcase", label_text="Töökogemus", data_context="tookogemus"),
                         ContextButton(icon_name="award", label_text="Täiendkoolitus", data_context="koolitus"),
                         DropdownContextButton(
