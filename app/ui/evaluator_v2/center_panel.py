@@ -47,11 +47,12 @@ def ContextButton(
     )
 
 def DropdownContextButton(
-    icon_name: str,
+    icon_name: Optional[str],
     label_text: str,
-    dropdown_options: dict, 
-    name: str, 
+    dropdown_options: dict,
+    name: str,
     color: Optional[str] = None,
+    current_value: Optional[str] = None,
     **kwargs
 ) -> FT:
     button_id = f"btn-{name}"
@@ -60,6 +61,7 @@ def DropdownContextButton(
     color_map = {
         'green': "bg-green-100 text-green-800 hover:bg-green-200 dark:bg-green-900 dark:text-green-200 dark:hover:bg-green-800",
         'red': "bg-red-100 text-red-800 hover:bg-red-200 dark:bg-red-900 dark:text-red-200 dark:hover:bg-red-800",
+        'blue': "bg-blue-100 text-blue-800 hover:bg-blue-200 dark:bg-blue-900 dark:text-blue-200 dark:hover:bg-blue-800",
     }
     base_classes = (
         "inline-flex items-center justify-center "
@@ -69,12 +71,42 @@ def DropdownContextButton(
         "text-sm font-bold normal-case "
         "transition-colors duration-150"
     )
-    if color in color_map:
-        style_classes = color_map[color]
-    else:
-        style_classes = "bg-transparent hover:bg-gray-200 dark:hover:bg-gray-700"
+    default_style_classes = color_map[color] if color in color_map else "bg-transparent hover:bg-gray-200 dark:hover:bg-gray-700"
 
-    hidden_input = Input(type="hidden", id=f"hidden-{button_id}", name=name, value="")
+    resolved_value = current_value or ""
+    if resolved_value and resolved_value not in dropdown_options:
+        resolved_value = ""
+
+    selected_label = None
+    if resolved_value in dropdown_options:
+        selected_label = dropdown_options[resolved_value]
+        if resolved_value == "" and selected_label and selected_label.casefold() in {"tühista valik"}:
+            selected_label = None
+
+    highlight_color = None
+    if resolved_value:
+        if name == "final_decision":
+            if resolved_value == "Anda":
+                highlight_color = 'green'
+            elif resolved_value == "Mitte anda":
+                highlight_color = 'red'
+        else:
+            highlight_color = 'blue'
+
+    style_classes = color_map.get(highlight_color, default_style_classes)
+
+    hidden_input = Input(
+        type="hidden",
+        id=f"hidden-{button_id}",
+        name=name,
+        value=resolved_value
+    )
+
+    button_children = []
+    if icon_name:
+        button_children.append(UkIcon(icon_name, cls="w-4 h-4"))
+    button_children.append(Span(selected_label or label_text, cls="hidden sm:inline"))
+    button_children.append(UkIcon("chevron-down", cls="w-3 h-3 ml-1"))
 
     data_context = kwargs.pop('data_context', None)
     data_attributes = {'data-context': data_context} if data_context else {}
@@ -82,9 +114,7 @@ def DropdownContextButton(
     return Div(
         hidden_input,
         Button(
-            UkIcon(icon_name, cls="w-4 h-4"),
-            Span(label_text, cls="hidden sm:inline"),
-            UkIcon("chevron-down", cls="w-3 h-3 ml-1"),
+            *button_children,
             id=button_id,
             data_original_text=label_text,
             onclick=f"toggleDropdown('{dropdown_id}')",
@@ -96,8 +126,14 @@ def DropdownContextButton(
                 text,
                 onclick=f"selectDropdownOption('{button_id}', '{text}', '{value}')",
                 type="button",
-                cls="block w-full text-left px-3 py-2 text-sm hover:bg-base-300",
-                style="border: none; background: none;"
+                cls=(
+                    "block w-full text-left px-3 py-2 text-sm hover:bg-base-300 "
+                    "{}".format(
+                        "font-semibold bg-base-300 dark:bg-base-200" if resolved_value == value else ""
+                    )
+                ).strip(),
+                style="border: none; background: none;",
+                data_value=value,
             ) for value, text in dropdown_options.items()],
             id=dropdown_id,
             cls=("absolute bottom-full left-0 mb-1 bg-base-200 border border-base-300 "
@@ -238,6 +274,15 @@ def render_center_panel(qual_data: Dict, user_data: Dict, state: ComplianceDashb
         "mittevastav_kõrgharidus_180_eap": "Mittevastav Bakalaureus (180 EAP)",
         "tehniline_kõrgharidus_300_eap": "Tehniline Magister (300 EAP)",
     }
+
+    education_current_value = state.education.provided or ""
+    education_old_or_foreign_value = ""
+    if hasattr(state, "education_old_or_foreign"):
+        education_old_or_foreign_value = "on" if getattr(state, "education_old_or_foreign") else ""
+    elif state.conditional_training.is_relevant:
+        education_old_or_foreign_value = "on"
+
+    final_decision_value = getattr(state, "final_decision", "")
     
     final_decision_area = Form(
         Input(type="hidden", name="active_context", id="active-context-input"),
@@ -257,12 +302,14 @@ def render_center_panel(qual_data: Dict, user_data: Dict, state: ComplianceDashb
                             DropdownContextButton(
                                 icon_name=None, label_text=">10a / välis",
                                 dropdown_options={"on": "Jah", "": "Ei"}, name="education_old_or_foreign",
-                                data_context="haridus"
+                                data_context="haridus",
+                                current_value=education_old_or_foreign_value
                             ),
                             DropdownContextButton(
                                 icon_name="book-open", label_text="Haridus",
                                 dropdown_options=education_dropdown_options, name="education_level",
-                                data_context="haridus"
+                                data_context="haridus",
+                                current_value=education_current_value
                             ),
                             cls="flex items-center"
                         ),
@@ -271,7 +318,8 @@ def render_center_panel(qual_data: Dict, user_data: Dict, state: ComplianceDashb
                         DropdownContextButton(
                             icon_name="list-checks", label_text="Otsus",
                             dropdown_options={"Anda": "Anda", "Mitte anda": "Mitte anda"}, name="final_decision",
-                            data_context="otsus"
+                            data_context="otsus",
+                            current_value=final_decision_value
                         ),
                         cls="flex flex-wrap items-center gap-x-2"
                     ),
@@ -355,28 +403,54 @@ def render_center_panel(qual_data: Dict, user_data: Dict, state: ComplianceDashb
 
             function selectDropdownOption(buttonId, optionText, optionValue) {
                 const button = document.getElementById(buttonId);
-                const span = button.querySelector('span');
+                const span = button ? button.querySelector('span') : null;
                 const hiddenInput = document.getElementById(`hidden-${buttonId}`);
                 if (!button || !span || !hiddenInput) return;
 
                 hiddenInput.value = optionValue;
 
-                button.classList.remove('bg-transparent', 'bg-red-100', 'text-red-800', 'bg-green-100', 'text-green-800', 'bg-blue-100', 'text-blue-800');
+                const defaultClasses = ['bg-transparent', 'hover:bg-gray-200', 'dark:hover:bg-gray-700'];
+                const blueClasses = ['bg-blue-100', 'text-blue-800', 'hover:bg-blue-200', 'dark:bg-blue-900', 'dark:text-blue-200', 'dark:hover:bg-blue-800'];
+                const greenClasses = ['bg-green-100', 'text-green-800', 'hover:bg-green-200', 'dark:bg-green-900', 'dark:text-green-200', 'dark:hover:bg-green-800'];
+                const redClasses = ['bg-red-100', 'text-red-800', 'hover:bg-red-200', 'dark:bg-red-900', 'dark:text-red-200', 'dark:hover:bg-red-800'];
 
-                if (optionValue === "") {
-                    span.textContent = button.dataset.originalText; 
-                    button.classList.add('bg-transparent'); 
+                button.classList.remove(
+                    ...defaultClasses,
+                    ...blueClasses,
+                    ...greenClasses,
+                    ...redClasses
+                );
+
+                let appliedClasses = [];
+
+                if (!optionValue) {
+                    span.textContent = button.dataset.originalText;
+                    appliedClasses = defaultClasses;
                 } else {
                     span.textContent = optionText;
-                    if (buttonId.includes('otsus')) {
-                        button.classList.add(optionText === 'Anda' ? 'bg-green-100' : 'bg-red-100');
+                    if (buttonId.includes('final_decision')) {
+                        appliedClasses = optionValue === 'Anda' ? greenClasses : redClasses;
+                    } else {
+                        appliedClasses = blueClasses;
                     }
+                }
+
+                if (appliedClasses.length) {
+                    button.classList.add(...appliedClasses);
                 }
 
                 const dropdownId = buttonId.replace('btn-', 'dropdown-');
                 const dropdown = document.getElementById(dropdownId);
-                if(dropdown) dropdown.style.display = 'none';
-                
+                if (dropdown) {
+                    dropdown.querySelectorAll('button[data-value]').forEach(optionButton => {
+                        const isSelected = optionButton.dataset.value === optionValue;
+                        optionButton.classList.toggle('bg-base-300', isSelected);
+                        optionButton.classList.toggle('dark:bg-base-200', isSelected);
+                        optionButton.classList.toggle('font-semibold', isSelected);
+                    });
+                    dropdown.style.display = 'none';
+                }
+
                 hiddenInput.dispatchEvent(new Event('change', { bubbles: true }));
             }
 
