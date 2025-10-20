@@ -28,6 +28,7 @@ class ComplianceDashboardState:
     """Holds the complete state for the entire compliance dashboard for one package."""
     package_id: str
     overall_met: bool
+    # Main compliance checks
     education: ComplianceCheck = field(default_factory=ComplianceCheck)
     total_experience: ComplianceCheck = field(default_factory=ComplianceCheck)
     matching_experience: ComplianceCheck = field(default_factory=ComplianceCheck)
@@ -36,6 +37,12 @@ class ComplianceDashboardState:
     conditional_training: ComplianceCheck = field(default_factory=ComplianceCheck)
     cpd_training: ComplianceCheck = field(default_factory=ComplianceCheck)
     prior_level_4: ComplianceCheck = field(default_factory=ComplianceCheck)
+    
+    # NEW: Top-level comment fields for each main section
+    haridus_comment: Optional[str] = None
+    tookogemus_comment: Optional[str] = None
+    koolitus_comment: Optional[str] = None
+    otsus_comment: Optional[str] = None
 
 
 @dataclass

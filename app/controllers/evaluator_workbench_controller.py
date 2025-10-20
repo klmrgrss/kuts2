@@ -31,21 +31,60 @@ class EvaluatorWorkbenchController:
             
             print(f"--- [DEBUG] Raw form data received: {form_data}")
 
-            selected_education = form_data.get("education_level") or "any"
+            # --- Restore previous state or create a new one ---
+            try:
+                saved_evaluation = self.evaluations_table.get(qual_id)
+                saved_state_data = json.loads(saved_evaluation['evaluation_state_json'])
+                best_state = self.validation_engine.dict_to_state(saved_state_data)
+                print(f"--- [DEBUG] Loaded existing evaluation state for {qual_id}")
+            except (NotFoundError, json.JSONDecodeError):
+                best_state = None # Will trigger re-validation later
+                print(f"--- [DEBUG] No existing state found for {qual_id}. Will create new.")
+
+            # --- Get evaluator input from form ---
+            selected_education = form_data.get("education_level")
             is_old_or_foreign = form_data.get("education_old_or_foreign") == "on"
-            
-            print(f"--- [DEBUG] Evaluator selected education: '{selected_education}', Old/Foreign: {is_old_or_foreign}")
+            comment = form_data.get("main_comment")
+            active_context = form_data.get("active_context")
 
+            print(f"--- [DEBUG] Evaluator Inputs: Education='{selected_education}', Old/Foreign={is_old_or_foreign}, Context='{active_context}' ---")
+            
+            # --- Get base applicant data ---
             applicant_data = self.main_controller._get_applicant_data_for_validation(user_email)
-            applicant_data.education = selected_education
-            applicant_data.is_education_old_or_foreign = is_old_or_foreign
             
-            print(f"--- [DEBUG] ApplicantData object for validation: {applicant_data}")
+            # --- If state has changed, re-run validation ---
+            # A change is defined as a new education selection or a change in the old/foreign flag.
+            has_state_changed = (best_state is None) or \
+                                (selected_education is not None and applicant_data.education != selected_education) or \
+                                (applicant_data.is_education_old_or_foreign != is_old_or_foreign)
 
-            qualification_rule_id = QUALIFICATION_LEVEL_TO_RULE_ID.get(level, "toojuht_tase_5")
-            all_states = self.validation_engine.validate(applicant_data, qualification_rule_id)
-            best_state = next((s for s in all_states if s.overall_met), all_states[0])
-            print(f"--- [DEBUG] Best validation state: Package '{best_state.package_id}', Met: {best_state.overall_met}")
+            if has_state_changed:
+                print("--- [DEBUG] State has changed. Re-running full validation.")
+                applicant_data.education = selected_education or "any"
+                applicant_data.is_education_old_or_foreign = is_old_or_foreign
+                
+                qualification_rule_id = QUALIFICATION_LEVEL_TO_RULE_ID.get(level, "toojuht_tase_5")
+                all_states = self.validation_engine.validate(applicant_data, qualification_rule_id)
+                new_best_state = next((s for s in all_states if s.overall_met), all_states[0])
+
+                # Preserve comments from the old state if it existed
+                if best_state:
+                    new_best_state.haridus_comment = best_state.haridus_comment
+                    new_best_state.tookogemus_comment = best_state.tookogemus_comment
+                    new_best_state.koolitus_comment = best_state.koolitus_comment
+                    new_best_state.otsus_comment = best_state.otsus_comment
+                
+                best_state = new_best_state
+                print(f"--- [DEBUG] New best validation state: Package '{best_state.package_id}', Met: {best_state.overall_met}")
+            else:
+                print("--- [DEBUG] State has not changed. Only updating comments.")
+
+            # --- Update comments based on active context ---
+            if active_context and comment is not None:
+                comment_field_name = f"{active_context}_comment"
+                if hasattr(best_state, comment_field_name):
+                    setattr(best_state, comment_field_name, comment)
+                    print(f"--- [DEBUG] Updated comment for '{active_context}': '{comment[:30]}...'")
 
             self._save_evaluation_state(qual_id, request.session.get("user_email"), best_state)
             

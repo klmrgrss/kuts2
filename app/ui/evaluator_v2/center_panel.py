@@ -50,8 +50,8 @@ def DropdownContextButton(
     color: Optional[str] = None,
     **kwargs
 ) -> FT:
-    button_id = f"btn-{label_text.lower().replace(' ', '-')}"
-    dropdown_id = f"dropdown-{label_text.lower().replace(' ', '-')}"
+    button_id = f"btn-{name}"
+    dropdown_id = f"dropdown-{name}"
 
     color_map = {
         'green': "bg-green-100 text-green-800 hover:bg-green-200 dark:bg-green-900 dark:text-green-200 dark:hover:bg-green-800",
@@ -77,18 +77,12 @@ def DropdownContextButton(
         Button(
             UkIcon(icon_name, cls="w-4 h-4"),
             Span(label_text, cls="hidden sm:inline"),
+            UkIcon("chevron-down", cls="w-3 h-3 ml-1"),
             id=button_id,
             data_original_text=label_text,
-            type="button",
-            cls=f"{base_classes} {style_classes} {kwargs.pop('cls', '')} border-r border-gray-300",
-            style="border-radius: 9999px 0 0 9999px; border-right: 1px solid #d1d5db;"
-        ),
-        Button(
-            UkIcon("chevron-down", cls="w-3 h-3"),
             onclick=f"toggleDropdown('{dropdown_id}')",
             type="button",
-            cls=f"{base_classes} {style_classes} px-2",
-            style="border-radius: 0 9999px 9999px 0; margin-left: -1px;"
+            cls=f"{base_classes} {style_classes} {kwargs.pop('cls', '')}"
         ),
         Div(
             *[Button(
@@ -107,17 +101,39 @@ def DropdownContextButton(
         **kwargs
     )
 
-def render_compliance_section(title: str, icon_name: str, check: ComplianceCheck, context_name: str):
-    """Renders a single compliance section with a data-context attribute."""
-    
+def render_compliance_subsection(title: str, check: ComplianceCheck):
+    """Renders a subsection within a main compliance category."""
     if not check.is_relevant:
+        return None  # Don't render irrelevant subsections
+
+    status_icon = UkIcon("check-circle", cls="w-5 h-5 text-green-500") if check.is_met else UkIcon("x-circle", cls="w-5 h-5 text-red-500")
+    status_text = f"Nõue: {check.required}, Esitatud: {check.provided}"
+
+    return Div(
+        status_icon,
+        Div(
+            P(title, cls="font-semibold text-sm"),
+            P(status_text, cls="text-xs text-gray-500")
+        ),
+        cls="flex items-center gap-x-3 px-3 py-2"
+    )
+
+def render_compliance_section(title: str, icon_name: str, subsections: List[FT], all_checks: List[ComplianceCheck], context_name: str, comment: Optional[str]):
+    """
+    Renders a main compliance category with its subsections and a read-only comment area.
+    """
+    relevant_checks = [c for c in all_checks if c.is_relevant]
+    if not relevant_checks and context_name != "otsus": # "Otsus" is always relevant
         style_cls = "border-gray-300 opacity-50"
         status_icon = UkIcon("minus", cls="w-5 h-5 text-gray-500")
         status_text = "Ei ole selle paketi puhul asjakohane"
+        is_open = False
     else:
-        style_cls = "border-green-500" if check.is_met else "border-red-500"
-        status_icon = UkIcon("check-circle", cls="w-5 h-5 text-green-500") if check.is_met else UkIcon("x-circle", cls="w-5 h-5 text-red-500")
-        status_text = f"Nõue: {check.required}, Esitatud: {check.provided}"
+        all_met = all(c.is_met for c in relevant_checks) if relevant_checks else True
+        style_cls = "border-green-500" if all_met else "border-red-500"
+        status_icon = UkIcon("check-circle", cls="w-5 h-5 text-green-500") if all_met else UkIcon("x-circle", cls="w-5 h-5 text-red-500")
+        status_text = f"{len([c for c in relevant_checks if c.is_met])}/{len(relevant_checks)} alapunkti täidetud" if relevant_checks else "Otsus"
+        is_open = not all_met
 
     return Details(
         Summary(
@@ -132,29 +148,45 @@ def render_compliance_section(title: str, icon_name: str, check: ComplianceCheck
             )
         ),
         Div(
-            P(check.evaluator_comment or "Hindaja kommentaarid...", cls="text-sm p-4 border-t italic text-gray-600"),
+            *subsections,
+            P(
+                comment or "Kommentaarid...", 
+                id=f"comment-display-{context_name}",
+                data_comment=comment or "", # Store comment for JS
+                cls="text-sm p-4 border-t italic text-gray-600 min-h-[4rem]"
+            ),
+            cls="p-3 border-t bg-gray-50"
         ),
-        open=not check.is_met and check.is_relevant,
+        open=is_open,
         cls=f"border {style_cls} rounded-lg",
         data_context=context_name
     )
 
 def render_compliance_dashboard(state: ComplianceDashboardState) -> FT:
-    """Renders only the compliance dashboard part of the UI."""
+    """Renders the compliance dashboard with four main, grouped sections."""
     if state.overall_met:
         header = H3(f"Vastab tingimustele (Variant: {state.package_id})", cls="text-lg font-semibold text-green-700 p-2 bg-green-50 rounded-md text-center")
     else:
         header = H3(f"Tingimused ei ole täidetud (Variant: {state.package_id})", cls="text-lg font-semibold text-red-700 p-2 bg-red-50 rounded-md text-center")
 
+    education_subsections = [s for s in [render_compliance_subsection("Haridustase", state.education)] if s]
+    experience_subsections = [s for s in [
+        render_compliance_subsection("Töökogemus kokku", state.total_experience),
+        render_compliance_subsection("Vastav töökogemus", state.matching_experience)
+    ] if s]
+    training_subsections = [s for s in [
+        render_compliance_subsection("Baaskoolitus", state.base_training),
+        render_compliance_subsection("Tingimuslik baaskoolitus", state.conditional_training),
+        render_compliance_subsection("Ehitusjuhi baaskoolitus", state.manager_training),
+        render_compliance_subsection("Täiendkoolitus (taastõendamisel)", state.cpd_training)
+    ] if s]
+
     return Div(
         header,
-        render_compliance_section("Haridus", "book-open", state.education, "haridus"),
-        render_compliance_section("Töökogemus kokku", "briefcase", state.total_experience, "tookogemus"),
-        render_compliance_section("Vastav töökogemus", "target", state.matching_experience, "tookogemus"),
-        render_compliance_section("Baaskoolitus", "award", state.base_training, "koolitus"),
-        render_compliance_section("Tingimuslik baaskoolitus", "alert-triangle", state.conditional_training, "koolitus"),
-        render_compliance_section("Ehitusjuhi baaskoolitus", "award", state.manager_training, "koolitus"),
-        render_compliance_section("Täiendkoolitus", "award", state.cpd_training, "koolitus"),
+        render_compliance_section("Haridus", "book-open", education_subsections, [state.education], "haridus", state.haridus_comment),
+        render_compliance_section("Töökogemus", "briefcase", experience_subsections, [state.total_experience, state.matching_experience], "tookogemus", state.tookogemus_comment),
+        render_compliance_section("Koolitus", "award", training_subsections, [state.base_training, state.conditional_training, state.manager_training, state.cpd_training], "koolitus", state.koolitus_comment),
+        render_compliance_section("Otsus", "list-checks", [], [], "otsus", state.otsus_comment),
         cls="p-4 space-y-4"
     )
 
@@ -200,35 +232,37 @@ def render_center_panel(qual_data: Dict, user_data: Dict, state: ComplianceDashb
     }
     
     final_decision_area = Form(
+        Input(type="hidden", name="active_context", id="active-context-input"),
         Div(
             Div(
                 Textarea(
+                    name="main_comment",
+                    id="main-comment-textarea",
                     placeholder="Vali kontekst ja sisesta kommentaar või põhjendus...",
                     rows=3,
                     cls="textarea w-full resize-none border-0 focus:outline-none focus:ring-0"
                 ),
                 Div(
                     Div(
-                        DropdownContextButton(
-                            icon_name="book-open",
-                            label_text="Haridus",
-                            dropdown_options=education_dropdown_options,
-                            name="education_level",
-                            data_context="haridus"
-                        ),
-                        Label(
-                            CheckboxX(id="education_old_or_foreign", name="education_old_or_foreign"),
-                            Span(">10a / välisriik", cls="text-xs ml-1"),
-                            cls="flex items-center p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 cursor-pointer",
-                            data_context="haridus"
+                        # Redesigned Haridus Button
+                        Div(
+                            DropdownContextButton(
+                                icon_name=None, label_text=">10a / välis",
+                                dropdown_options={"on": "Jah", "": "Ei"}, name="education_old_or_foreign",
+                                data_context="haridus"
+                            ),
+                            DropdownContextButton(
+                                icon_name="book-open", label_text="Haridus",
+                                dropdown_options=education_dropdown_options, name="education_level",
+                                data_context="haridus"
+                            ),
+                            cls="flex items-center"
                         ),
                         ContextButton(icon_name="briefcase", label_text="Töökogemus", data_context="tookogemus"),
                         ContextButton(icon_name="award", label_text="Täiendkoolitus", data_context="koolitus"),
                         DropdownContextButton(
-                            icon_name="list-checks",
-                            label_text="Otsus",
-                            dropdown_options={"Anda": "Anda", "Mitte anda": "Mitte anda"},
-                            name="final_decision",
+                            icon_name="list-checks", label_text="Otsus",
+                            dropdown_options={"Anda": "Anda", "Mitte anda": "Mitte anda"}, name="final_decision",
                             data_context="otsus"
                         ),
                         cls="flex flex-wrap items-center gap-x-2"
@@ -242,7 +276,7 @@ def render_center_panel(qual_data: Dict, user_data: Dict, state: ComplianceDashb
         ),
         id="final-decision-area",
         hx_post=f"/evaluator/d/re-evaluate/{qual_id}",
-        hx_trigger="change delay:500ms",
+        hx_trigger="change delay:500ms, keyup delay:500ms from:#main-comment-textarea",
         hx_target="#compliance-dashboard-container",
         hx_swap="innerHTML",
         cls="pb-4 pt-2 bg-white"
@@ -254,53 +288,51 @@ def render_center_panel(qual_data: Dict, user_data: Dict, state: ComplianceDashb
         final_decision_area,
         Script("""
             let activeContext = { current: null };
+            const mainCommentBox = document.getElementById('main-comment-textarea');
+            const activeContextInput = document.getElementById('active-context-input');
 
-            function setActiveContext(contextName) {
-                if (activeContext.current === contextName) {
-                    contextName = null; // Deselect if clicking the same context
+            function loadCommentForActiveContext() {
+                if (!mainCommentBox) return;
+                if (activeContext.current) {
+                    const commentDisplay = document.getElementById(`comment-display-${activeContext.current}`);
+                    mainCommentBox.value = commentDisplay ? commentDisplay.dataset.comment : '';
+                } else {
+                    mainCommentBox.value = '';
                 }
-                activeContext.current = contextName;
-                console.log('Active context:', activeContext.current);
-
-                // Update compliance sections highlights
-                document.querySelectorAll('#compliance-dashboard-container [data-context]').forEach(el => {
-                    if (el.dataset.context === contextName) {
-                        el.classList.add('ring-2', 'ring-blue-500', 'shadow-lg');
-                    } else {
-                        el.classList.remove('ring-2', 'ring-blue-500', 'shadow-lg');
-                    }
-                });
-
-                // Update toolbox button highlights
-                document.querySelectorAll('#final-decision-area [data-context]').forEach(el => {
-                    const interactiveEl = el.closest('button') || el.closest('label');
-                    if (el.dataset.context === contextName) {
-                        interactiveEl.classList.add('bg-blue-100', 'dark:bg-blue-900');
-                    } else {
-                        interactiveEl.classList.remove('bg-blue-100', 'dark:bg-blue-900');
-                    }
-                });
             }
 
+            function setActiveContext(contextName) {
+                if (activeContext.current === contextName) contextName = null;
+                activeContext.current = contextName;
+                if (activeContextInput) activeContextInput.value = contextName || '';
+                console.log('Active context:', activeContext.current);
+
+                document.querySelectorAll('#compliance-dashboard-container [data-context]').forEach(el => {
+                    el.classList.toggle('ring-2', el.dataset.context === contextName);
+                    el.classList.toggle('ring-blue-500', el.dataset.context === contextName);
+                    el.classList.toggle('shadow-lg', el.dataset.context === contextName);
+                });
+
+                document.querySelectorAll('#final-decision-area [data-context]').forEach(el => {
+                    const interactiveEl = el.closest('div.relative') || el.closest('button');
+                    interactiveEl.classList.toggle('bg-blue-100', el.dataset.context === contextName);
+                    interactiveEl.classList.toggle('dark:bg-blue-900', el.dataset.context === contextName);
+                });
+                loadCommentForActiveContext();
+            }
+            
             function initContextHighlighting() {
                 const container = document.getElementById('compliance-dashboard-container');
-                if (container) {
-                    container.addEventListener('click', (e) => {
-                        const section = e.target.closest('[data-context]');
-                        if (section) {
-                            setActiveContext(section.dataset.context);
-                        }
-                    });
-                }
+                if (container) container.addEventListener('click', e => {
+                    const section = e.target.closest('[data-context]');
+                    if (section) setActiveContext(section.dataset.context);
+                });
+                
                 const toolbox = document.getElementById('final-decision-area');
-                if (toolbox) {
-                    toolbox.addEventListener('click', (e) => {
-                        const button = e.target.closest('[data-context]');
-                        if (button) {
-                             setActiveContext(button.dataset.context);
-                        }
-                    });
-                }
+                if (toolbox) toolbox.addEventListener('click', e => {
+                    const button = e.target.closest('[data-context]');
+                    if (button) setActiveContext(button.dataset.context);
+                });
             }
 
             function toggleDropdown(dropdownId) {
@@ -328,11 +360,8 @@ def render_center_panel(qual_data: Dict, user_data: Dict, state: ComplianceDashb
                     button.classList.add('bg-transparent'); 
                 } else {
                     span.textContent = optionText;
-                    if (buttonId === 'btn-otsus') {
+                    if (buttonId.includes('otsus')) {
                         button.classList.add(optionText === 'Anda' ? 'bg-green-100' : 'bg-red-100');
-                    } else {
-                        // All other selections are 'active' blue
-                        // This highlight is temporary as the context highlighting will take over
                     }
                 }
 
@@ -350,9 +379,7 @@ def render_center_panel(qual_data: Dict, user_data: Dict, state: ComplianceDashb
                 }
             });
 
-            // Run initialization
             initContextHighlighting();
-
         """),
         id="ev-center-panel",
         cls="flex flex-col h-full bg-white"
