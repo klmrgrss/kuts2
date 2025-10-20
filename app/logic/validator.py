@@ -1,92 +1,110 @@
 # app/logic/validator.py
 from pathlib import Path
-from .models import ApplicantData, Qualification, EligibilityPackage
+from .models import (
+    ApplicantData, Qualification, EligibilityPackage,
+    ComplianceCheck, ComplianceDashboardState
+)
 from typing import List, Dict, Tuple
 
-# Use the standard library tomllib if available (Python 3.11+)
-# Fall back to tomli for older Python versions
 try:
     import tomllib
 except ImportError:
     import tomli as tomllib
 
+EDUCATION_HIERARCHY = {
+    "any": 0, "keskharidus": 1, "ehitustehniline_keskeriharidus": 2,
+    "mittevastav_kõrgharidus_180_eap": 3, "vastav_kõrgharidus_180_eap": 4,
+    "mittevastav_kõrgharidus_240_eap": 5, "vastav_kõrgharidus_240_eap": 6,
+    "tehniline_kõrgharidus_300_eap": 7, "mittevastav_kõrgharidus_300_eap": 8,
+    "vastav_kõrgharidus_300_eap": 9,
+}
+
 class ValidationEngine:
-    """
-    Loads qualification rules from a TOML file and validates applicant data against them.
-    """
     def __init__(self, rules_path: Path):
         self.qualifications = self._load_rules(rules_path)
         print(f"✅ Validation engine initialized with {len(self.qualifications)} qualifications.")
 
     def _load_rules(self, rules_path: Path) -> List[Qualification]:
-        """Loads and parses the TOML rules file into Qualification objects."""
         with open(rules_path, 'rb') as f:
             rules_data = tomllib.load(f)
         
-        loaded_quals = []
-        for q_data in rules_data.get('qualifications', []):
-            qual = Qualification(
-                id=q_data['id'],
-                name=q_data['name'],
-                level=q_data['level'],
+        return [
+            Qualification(
+                id=q_data['id'], name=q_data['name'], level=q_data['level'],
                 eligibility_packages=[
                     EligibilityPackage(**p) for p in q_data.get('eligibility_packages', [])
                 ]
-            )
-            loaded_quals.append(qual)
-        return loaded_quals
+            ) for q_data in rules_data.get('qualifications', [])
+        ]
 
-    def _check_package(self, applicant: ApplicantData, package: EligibilityPackage) -> Tuple[bool, Dict]:
-        """Checks if an applicant meets the requirements of a single eligibility package."""
-        details = {}
-        checks_passed = []
-
-        # --- THE FIX: Default None values to 0 for comparison ---
+    def _build_state_for_package(self, applicant: ApplicantData, package: EligibilityPackage) -> ComplianceDashboardState:
+        """Builds the complete compliance state for a single package."""
+        state = ComplianceDashboardState(package_id=package.id, overall_met=True)
         
-        # 1. Education Check (assuming this is always a string and required)
-        edu_ok = applicant.education == package.education_requirement if package.education_requirement else True
-        details["education"] = {"met": edu_ok, "required": package.education_requirement, "provided": applicant.education}
-        checks_passed.append(edu_ok)
+        # Education
+        if package.education_requirement:
+            state.education.is_relevant = True
+            state.education.required = package.education_requirement
+            state.education.provided = applicant.education
+            required_rank = EDUCATION_HIERARCHY.get(package.education_requirement, 0)
+            provided_rank = EDUCATION_HIERARCHY.get(applicant.education, 0)
+            state.education.is_met = provided_rank >= required_rank
+            if not state.education.is_met: state.overall_met = False
 
-        # 2. Total Experience Check
-        required_total_exp = package.total_experience_years or 0
-        exp_ok = applicant.work_experience_years >= required_total_exp
-        details["total_experience"] = {"met": exp_ok, "required": required_total_exp, "provided": applicant.work_experience_years}
-        checks_passed.append(exp_ok)
+        # Total Experience
+        if package.total_experience_years is not None:
+            state.total_experience.is_relevant = True
+            state.total_experience.required = f"{package.total_experience_years}a"
+            state.total_experience.provided = f"{applicant.work_experience_years}a"
+            state.total_experience.is_met = applicant.work_experience_years >= package.total_experience_years
+            if not state.total_experience.is_met: state.overall_met = False
+            
+        # Matching Experience
+        if package.matching_experience_years is not None:
+            state.matching_experience.is_relevant = True
+            state.matching_experience.required = f"{package.matching_experience_years}a"
+            state.matching_experience.provided = f"{applicant.matching_experience_years}a"
+            state.matching_experience.is_met = applicant.matching_experience_years >= package.matching_experience_years
+            if not state.matching_experience.is_met: state.overall_met = False
 
-        # 3. Matching Experience Check
-        required_matching_exp = package.matching_experience_years or 0
-        match_exp_ok = applicant.matching_experience_years >= required_matching_exp
-        details["matching_experience"] = {"met": match_exp_ok, "required": required_matching_exp, "provided": applicant.matching_experience_years}
-        checks_passed.append(match_exp_ok)
+        # Base Training
+        if package.base_training_hours > 0:
+            state.base_training.is_relevant = True
+            state.base_training.required = f"{package.base_training_hours}h"
+            state.base_training.provided = f"{applicant.base_training_hours}h"
+            state.base_training.is_met = applicant.base_training_hours >= package.base_training_hours
+            if not state.base_training.is_met: state.overall_met = False
+
+        # Conditional Training
+        if package.conditional_training:
+            trigger = package.conditional_training.get("trigger")
+            if trigger == "haridus_vanem_kui_10a_või_välisriik" and applicant.is_education_old_or_foreign:
+                state.conditional_training.is_relevant = True
+                required_hours = package.conditional_training.get("base_training_hours", 0)
+                state.conditional_training.required = f"{required_hours}h"
+                state.conditional_training.provided = f"{applicant.base_training_hours}h"
+                state.conditional_training.is_met = applicant.base_training_hours >= required_hours
+                if not state.conditional_training.is_met: state.overall_met = False
+
+        # Manager Training
+        if package.manager_base_training_hours is not None and package.manager_base_training_hours > 0:
+            state.manager_training.is_relevant = True
+            state.manager_training.required = f"{package.manager_base_training_hours}h"
+            state.manager_training.provided = f"{applicant.manager_training_hours}h"
+            state.manager_training.is_met = applicant.manager_training_hours >= package.manager_base_training_hours
+            if not state.manager_training.is_met: state.overall_met = False
+
+        # ... other checks like CPD training can be added here ...
         
-        # 4. Base Training Check
-        required_training = package.base_training_hours or 0
-        training_ok = applicant.base_training_hours >= required_training
-        details["base_training"] = {"met": training_ok, "required": required_training, "provided": applicant.base_training_hours}
-        checks_passed.append(training_ok)
+        return state
 
-        # 5. Prior Level 4 Check (only if required by package)
-        if package.requires_prior_level_4:
-            prior_level_ok = applicant.has_prior_level_4
-            details["prior_level_4"] = {"met": prior_level_ok, "required": True, "provided": applicant.has_prior_level_4}
-            checks_passed.append(prior_level_ok)
-
-        return all(checks_passed), details
-
-    def validate(self, applicant: ApplicantData, qualification_id: str) -> Dict:
+    def validate(self, applicant: ApplicantData, qualification_id: str) -> List[ComplianceDashboardState]:
         """
-        Validates an applicant against all possible eligibility packages for a given qualification.
-        
-        Returns a dictionary with the results of each package check.
+        Validates an applicant against all packages and returns a list of state objects.
         """
         qualification = next((q for q in self.qualifications if q.id == qualification_id), None)
         if not qualification:
-            return {"error": f"Qualification with id '{qualification_id}' not found in rules."}
+            raise ValueError(f"Qualification '{qualification_id}' not found in rules.")
 
-        results = []
-        for package in qualification.eligibility_packages:
-            is_met, details = self._check_package(applicant, package)
-            results.append({"package_id": package.id, "is_met": is_met, "details": details})
-        
-        return {"qualification_id": qualification_id, "results": results}
+        all_states = [self._build_state_for_package(applicant, pkg) for pkg in qualification.eligibility_packages]
+        return all_states

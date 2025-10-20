@@ -10,25 +10,20 @@ from ui.layouts import evaluator_layout
 import datetime
 import json
 import traceback
-from dateutil.relativedelta import relativedelta # For adding months to dates
+from dateutil.relativedelta import relativedelta
 from collections import defaultdict
 from config.qualification_data import kt
 
 # Import the UI components used
-# from ui.evaluator.references_display import render_references_grid
-# from ui.evaluator.applicant_summary import render_applicant_summary
-# from ui.evaluator.qualifications_table import render_qualifications_table
-# from ui.evaluator.work_exp_objects import render_work_experience_objects
-# from ui.evaluator.timeline_display import render_timeline_display
 # V2 UI Imports
 from ui.evaluator_v2.ev_layout import ev_layout
 from ui.evaluator_v2.left_panel import render_left_panel
-from ui.evaluator_v2.center_panel import render_center_panel
+from ui.evaluator_v2.center_panel import render_center_panel, render_compliance_dashboard
 from ui.evaluator_v2.right_panel import render_right_panel
 from ui.evaluator_v2.application_list import render_application_list
 from ui.evaluator_v2.test_search_page import render_test_search_page
 from logic.validator import ValidationEngine
-from logic.models import ApplicantData
+from logic.models import ApplicantData, ComplianceDashboardState
 from logic.helpers import calculate_total_experience_years
 
 # --- Mappings and Allowed Fields (Keep as is) ---
@@ -60,7 +55,6 @@ ALLOWED_UPDATE_FIELDS = [
     'eval_comment', 'eval_decision'
 ]
 
-# --- NEW MAPPING ---
 QUALIFICATION_LEVEL_TO_RULE_ID = {
     "Ehituse tööjuht, TASE 5": "toojuht_tase_5",
     "Ehitusjuht, TASE 6": "ehitusjuht_tase_6",
@@ -77,41 +71,72 @@ class EvaluatorController:
         self.education_table = db.t.education
         self.training_files_table = db.t.training_files
         self.emp_proof_table = db.t.employment_proof
-
-                # V --- INITIALIZE THE VALIDATION ENGINE --- V
         rules_path = Path(__file__).parent.parent / 'config' / 'rules.toml'
         self.validation_engine = ValidationEngine(rules_path)
-        # ^ --- END INITIALIZATION --- ^
+
+    async def re_evaluate_application(self, request: Request, qual_id: str):
+        print("\n--- [DEBUG] ENTERING RE-EVALUATION ENDPOINT ---")
+        try:
+            user_email, level, activity = qual_id.split('-', 2)
+            form_data = await request.form()
+            
+            print(f"--- [DEBUG] Raw form data received: {form_data}")
+
+            selected_education = form_data.get("education_level") or "any"
+            is_old_or_foreign = form_data.get("education_old_or_foreign") == "on"
+            
+            print(f"--- [DEBUG] Evaluator selected education: '{selected_education}', Old/Foreign: {is_old_or_foreign}")
+
+            applicant_data_for_validation = self._get_applicant_data_for_validation(user_email)
+            applicant_data_for_validation.education = selected_education
+            applicant_data_for_validation.is_education_old_or_foreign = is_old_or_foreign
+            
+            print(f"--- [DEBUG] ApplicantData object for validation: {applicant_data_for_validation}")
+
+            qualification_rule_id = QUALIFICATION_LEVEL_TO_RULE_ID.get(level, "toojuht_tase_5")
+            print(f"--- [DEBUG] Using rule ID: '{qualification_rule_id}' for level '{level}'")
+            
+            all_states = self.validation_engine.validate(applicant_data_for_validation, qualification_rule_id)
+            
+            best_state = next((s for s in all_states if s.overall_met), all_states[0])
+            print(f"--- [DEBUG] Best validation state found: Package ID '{best_state.package_id}', Overall Met: {best_state.overall_met}")
+
+            response_html = render_compliance_dashboard(best_state)
+            print("--- [DEBUG] SUCCESSFULLY RENDERED COMPLIANCE DASHBOARD HTML TO BE SENT TO CLIENT ---")
+            return response_html
+
+        except Exception as e:
+            print(f"--- [ERROR] An error occurred during re-evaluation: {e} ---")
+            traceback.print_exc()
+            return Div(f"An error occurred during re-evaluation: {e}", cls="p-4 text-red-500")
 
     def _get_dashboard_data(self):
-        print("--- Fetching data for evaluator dashboard ---"); users = self.users_table(); all_quals = self.qual_table()
+        users = self.users_table()
+        all_quals = self.qual_table()
         dashboard_data = []
         for user in users:
-            user_email = user.get('email'); user_quals = [q for q in all_quals if q.get('user_email') == user_email]
-            qual_summary = "; ".join( f"{q.get('level', '')} - {q.get('qualification_name', '')}" for q in user_quals[:2])
+            user_email = user.get('email')
+            user_quals = [q for q in all_quals if q.get('user_email') == user_email]
+            qual_summary = "; ".join(f"{q.get('level', '')} - {q.get('qualification_name', '')}" for q in user_quals[:2])
             if len(user_quals) > 2: qual_summary += "; ..."
+            
             full_name = user.get('full_name')
             if not full_name:
-                 try:
-                     profile = self.profile_table[user_email]
-                     full_name = profile.get('full_name', 'N/A')
-                 except NotFoundError:
-                     full_name = 'N/A'
+                try:
+                    profile = self.profile_table[user_email]
+                    full_name = profile.get('full_name', 'N/A')
+                except NotFoundError:
+                    full_name = 'N/A'
 
             dashboard_data.append({
-                 "email": user.get('email'),
-                 "submission_date": user.get('submission_timestamp', datetime.date.today().strftime('%Y-%m-%d')),
-                 "full_name": full_name,
-                 "qualifications_summary": qual_summary if qual_summary else "None"
+                "email": user.get('email'),
+                "submission_date": user.get('submission_timestamp', datetime.date.today().strftime('%Y-%m-%d')),
+                "full_name": full_name,
+                "qualifications_summary": qual_summary if qual_summary else "None"
             })
         return dashboard_data
 
     def _get_flattened_applications(self):
-        """
-        Fetches and flattens application data, now providing 'level' and
-        'qualification_name' as separate fields to match the UI component's needs.
-        """
-        print("--- Fetching and flattening data for V2 evaluator dashboard ---")
         all_users = self.users_table()
         all_quals = self.qual_table()
         user_name_lookup = {user.get('email'): user.get('full_name', 'N/A') for user in all_users}
@@ -143,16 +168,15 @@ class EvaluatorController:
         return flattened_data
 
     def show_dashboard(self, request: Request):
-        page_title = "Ehitamise valdkonna kutsetaotluste HINDAMISKESKKOND"; table_data = self._get_dashboard_data(); table_data_json = json.dumps(table_data)
-        ag_grid_dashboard_container = Div( id="ag-grid-dashboard", cls="ag-theme-quartz", style="height: 600px; width: 100%;", data_applications=table_data_json )
+        page_title = "Ehitamise valdkonna kutsetaotluste HINDAMISKESKKOND"
+        table_data = self._get_dashboard_data()
+        table_data_json = json.dumps(table_data)
+        ag_grid_dashboard_container = Div(id="ag-grid-dashboard", cls="ag-theme-quartz", style="height: 600px; width: 100%;", data_applications=table_data_json)
         ag_grid_dashboard_script = Script(src="/static/js/ag_grid_dashboard.js", defer=True)
         content = Div(ag_grid_dashboard_container, ag_grid_dashboard_script, cls="p-4")
-        # --- MODIFIED: Pass db to the layout ---
         return evaluator_layout(request=request, title=page_title, content=content, db=self.db)
 
-    # V --- MODIFIED METHOD --- V
     def show_dashboard_v2(self, request: Request):
-        """Renders the new V2 dashboard layout, pre-selecting the first item."""
         applications_data = self._get_flattened_applications()
         center_panel = Div("Select an application to view details.", cls="p-4 text-center text-gray-500")
         right_panel = Div(cls="p-4")
@@ -160,50 +184,40 @@ class EvaluatorController:
         if applications_data:
             selected_qual_id = applications_data[0].get('qual_id')
             try:
-                # Pass the qualification ID to the detail view
                 center_panel, right_panel = self.show_v2_application_detail(request, selected_qual_id)
             except Exception as e:
                 print(f"--- ERROR pre-loading application detail for qual_id {selected_qual_id}: {e} ---")
                 traceback.print_exc()
                 center_panel = Div(f"Error loading application {selected_qual_id}.", cls="p-4 text-red-500")
 
-        # Create two distinct versions of the left panel
         left_panel_desktop = render_left_panel(applications_data)
         left_panel_drawer = render_left_panel(applications_data, id_suffix="-drawer")
 
         return ev_layout(
-            request=request,
-            title="Hindamiskeskkond v2",
+            request=request, title="Hindamiskeskkond v2",
             left_panel_content=left_panel_desktop,
             center_panel_content=center_panel,
             right_panel_content=right_panel,
-            drawer_left_panel_content=left_panel_drawer, # Pass the drawer version
+            drawer_left_panel_content=left_panel_drawer,
             db=self.db
         )
-    # ^ --- END MODIFIED METHOD --- ^
 
     def show_v2_application_detail(self, request: Request, qual_id: str):
-        """
-        Fetches data, runs validation, and returns the HTML partials for the center and right panels.
-        """
         try:
             user_email, level, activity = qual_id.split('-', 2)
 
-            # --- DYNAMIC RULE LOOKUP ---
             qualification_rule_id = QUALIFICATION_LEVEL_TO_RULE_ID.get(level, "toojuht_tase_5")
-            # --- END DYNAMIC RULE LOOKUP ---
-
-            # --- Run Validation ---
             applicant_data_for_validation = self._get_applicant_data_for_validation(user_email)
-            validation_results = self.validation_engine.validate(applicant_data_for_validation, qualification_rule_id) # Using dynamic ID
+            all_states = self.validation_engine.validate(applicant_data_for_validation, qualification_rule_id)
+            
+            best_state = next((s for s in all_states if s.overall_met), all_states[0])
 
-            # --- Fetch Data for UI ---
             user_data = self.users_table[user_email]
             all_quals = self.qual_table()
             user_quals = [q for q in all_quals if q.get('user_email') == user_email and q.get('level') == level and q.get('qualification_name') == activity]
 
             if not user_quals:
-                raise NotFoundError("No matching qualifications found for this activity.")
+                raise NotFoundError("No matching qualifications found.")
 
             specialisations = [q.get('specialisation') for q in user_quals]
             total_specialisations = len(kt.get(level, {}).get(activity, []))
@@ -211,33 +225,50 @@ class EvaluatorController:
             qual_data = {
                 "level": level, "qualification_name": activity, "specialisations": specialisations,
                 "selected_specialisations_count": len(specialisations), "total_specialisations": total_specialisations,
+                "qual_id": qual_id
             }
 
             all_docs = self.db.t.documents(order_by='id')
             user_documents = [doc for doc in all_docs if doc.get('user_email') == user_email]
+            user_work_experience = [exp for exp in self.work_exp_table(order_by='id') if exp.get('user_email') == user_email]
 
-            all_work_exp = self.work_exp_table(order_by='id')
-            user_work_experience = [exp for exp in all_work_exp if exp.get('user_email') == user_email]
-
-            # --- Render Panels ---
-            center_panel = render_center_panel(qual_data, user_data, validation_results) # Pass results to view
+            center_panel = render_center_panel(qual_data, user_data, best_state)
             right_panel = render_right_panel(user_documents, user_work_experience)
 
             return center_panel, right_panel
 
-        except NotFoundError:
-            return (
-                Div("Error: Application not found.", id="ev-center-panel", hx_swap_oob="true"),
-                Div("Please select another application.", id="ev-right-panel", hx_swap_oob="true")
-            )
         except Exception as e:
             traceback.print_exc()
             return (
                 Div(f"An unexpected error occurred: {e}", id="ev-center-panel", hx_swap_oob="true"),
                 Div("", id="ev-right-panel", hx_swap_oob="true")
             )
-    # ^ --- END MODIFIED METHOD --- ^
 
+    def _get_applicant_data_for_validation(self, user_email: str) -> ApplicantData:
+        work_experiences = self.work_exp_table("user_email=?", [user_email])
+        periods = []
+        for exp in work_experiences:
+            try:
+                start = datetime.datetime.strptime(exp['start_date'], '%Y-%m').date()
+                end_str = exp['end_date'] or datetime.datetime.now().strftime('%Y-%m')
+                end = datetime.datetime.strptime(end_str, '%Y-%m').date()
+                periods.append((start, end))
+            except (ValueError, TypeError):
+                continue
+        
+        total_years = calculate_total_experience_years(periods)
+        
+        return ApplicantData(
+            education="any", # Start with an unevaluated state
+            work_experience_years=total_years,
+            matching_experience_years=total_years,
+            has_prior_level_4=True,
+            base_training_hours=40,
+            manager_training_hours=30,
+            cpd_training_hours=16,
+            is_education_old_or_foreign=False
+        )
+    
     def _prepare_timeline_data(self, work_experience_list: list) -> list:
         timeline_items = []
         today_str = datetime.date.today().strftime('%Y-%m-%d')
@@ -275,51 +306,7 @@ class EvaluatorController:
             })
         return timeline_items
 
-    def show_application_detail(self, request: Request, user_email: str):
-        current_user_email = request.session.get("user_email")
-        if not current_user_email:
-            return evaluator_layout(request=request, title="Error", content=Div(H2("Authentication Required"), P("Please log in as an evaluator."), cls="text-red-500 text-center p-4"))
-
-        try:
-            user_data = self.users_table[user_email]
-            applicant_name = user_data.get('full_name', user_email)
-
-            quals = [q for q in self.qual_table(order_by='id') if q.get('user_email') == user_email]
-            for q in quals:
-                q['qualification_abbr'] = FULL_NAME_TO_ABBR_TEGEVUS.get(q.get('qualification_name', '').lower(), q.get('qualification_name', ''))
-                q['level_abbr'] = FULL_NAME_TO_ABBR_KUTSE.get(q.get('level', '').lower(), q.get('level', ''))
-
-            work_exp = [exp for exp in self.work_exp_table(order_by='id') if exp.get('user_email') == user_email]
-            edu_data = next((edu for edu in self.education_table(order_by='id') if edu.get('user_email') == user_email), {})
-            training_files = [tf for tf in self.training_files_table(order_by='id') if tf.get('user_email') == user_email]
-            emp_proof = self.emp_proof_table.get(user_email, {})
-
-            page_title = f"Taotlus: {applicant_name} ({user_email}) | Hindamiskeskkond"
-
-            summary = render_applicant_summary(user_data=user_data, education_data=edu_data, training_files=training_files, emp_proof_data=emp_proof)
-            qual_table = render_qualifications_table(qualifications_data=quals, applicant_email=user_email)
-            work_exp_objects = render_work_experience_objects(work_exp)
-            references = render_references_grid()
-            timeline_json = json.dumps(self._prepare_timeline_data(work_exp))
-            timeline = render_timeline_display(timeline_json)
-
-            grid = Div(Div(work_exp_objects, cls="lg:col-span-2"), Div(references, cls="lg:col-span-1"), cls="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-4 items-start")
-            content = Div(summary, qual_table, grid, timeline, Hr(cls="my-6"), A("Tagasi töölauale", href="/evaluator/dashboard", cls="btn btn-secondary mt-4"))
-
-            # --- MODIFIED: Pass db to the layout ---
-            return evaluator_layout(request=request, title=page_title, content=content, db=self.db)
-
-        except NotFoundError:
-            return evaluator_layout(request=request, title="Not Found", content=Div(H2("Applicant Not Found"), P(f"No base user record found for user: {user_email}"), cls="text-red-500 text-center p-4"), db=self.db)
-        except Exception as e:
-            traceback.print_exc()
-            return evaluator_layout(request=request, title="Error", content=Div(H2("Error Loading Data"), P("An unexpected error occurred."), cls="text-red-500 text-center p-4"), db=self.db)
-
     def search_applications(self, request: Request, search: str):
-        """
-        Handles the live search request. It now only filters data and delegates
-        rendering to the dedicated 'render_application_list' component.
-        """
         print(f"--- Searching applications with term: '{search}' ---")
 
         all_apps = self._get_flattened_applications()
@@ -337,14 +324,11 @@ class EvaluatorController:
 
         return render_application_list(filtered_apps, include_oob=False)
 
-
     def show_test_search_page(self, request: Request):
-        """Renders the simple test search page with all applications."""
         all_apps = self._get_flattened_applications()
         return render_test_search_page(all_apps)
 
     def handle_test_search(self, request: Request, search: str):
-        """Handles the search POST request and returns only the table rows."""
         all_apps = self._get_flattened_applications()
         search_term = search.lower().strip()
 
@@ -369,65 +353,3 @@ class EvaluatorController:
             ]
 
         return tuple(show_contacts(filtered_apps))
-
-    # V --- NEW HELPER METHOD --- V
-    def _get_applicant_data_for_validation(self, user_email: str) -> ApplicantData:
-        """
-        Fetches real data from the DB, calculates experience, and adds placeholders
-        for data that will eventually come from document parsing.
-        """
-
-        work_experiences = self.work_exp_table("user_email=?", [user_email])
-
-        periods = []
-        for exp in work_experiences:
-            try:
-                start = datetime.datetime.strptime(exp['start_date'], '%Y-%m').date()
-                end_str = exp['end_date'] or datetime.datetime.now().strftime('%Y-%m')
-                end = datetime.datetime.strptime(end_str, '%Y-%m').date()
-                periods.append((start, end))
-            except (ValueError, TypeError):
-                continue
-
-        total_years = calculate_total_experience_years(periods)
-
-        # --- PSEUDO-DATA SECTION ---
-        pseudo_data = {
-            "education": "keskharidus",
-            "has_prior_level_4": True,
-            "base_training_hours": 40,
-            "matching_experience_years": total_years
-        }
-        # --- END PSEUDO-DATA SECTION ---
-
-        return ApplicantData(
-            education=pseudo_data["education"],
-            work_experience_years=total_years,
-            matching_experience_years=pseudo_data["matching_experience_years"],
-            has_prior_level_4=pseudo_data["has_prior_level_4"],
-            base_training_hours=pseudo_data["base_training_hours"]
-        )
-    # ^ --- END NEW HELPER METHOD --- ^
-
-    async def update_qualification_status(self, request: Request, user_email: str, record_id: int):
-        current_user_email = request.session.get("user_email")
-        if not current_user_email: return JSONResponse({'error': 'Authentication required'}, status_code=401)
-
-        try:
-            payload = await request.json()
-            field, value = payload.get('field'), payload.get('value')
-            if field not in ALLOWED_UPDATE_FIELDS:
-                return JSONResponse({'error': f'Invalid field: {field}'}, status_code=400)
-
-            record = self.qual_table[record_id]
-            if record.get('user_email') != user_email:
-                 return JSONResponse({'error': 'Record mismatch or access denied'}, status_code=403)
-
-            self.qual_table.update({field: value}, id=record_id)
-            return JSONResponse({'message': 'Update successful'}, status_code=200)
-
-        except NotFoundError:
-            return JSONResponse({'error': 'Record not found'}, status_code=404)
-        except Exception as e:
-            traceback.print_exc()
-            return JSONResponse({'error': 'Database update failed'}, status_code=500)

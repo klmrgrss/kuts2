@@ -398,6 +398,15 @@ def get_v2_application_detail(request: Request, qual_id: str):
         return guard
     return evaluator_controller.show_v2_application_detail(request, qual_id)
 
+# --- NEW ROUTE ---
+@rt("/evaluator/d/re-evaluate/{qual_id:str}", methods=["POST"])
+async def post_re_evaluate_application(request: Request, qual_id: str):
+    guard = guard_request(request, EVALUATOR, ADMIN)
+    if isinstance(guard, Response):
+        return guard
+    return await evaluator_controller.re_evaluate_application(request, qual_id)
+# --- END NEW ROUTE ---
+
 @rt("/evaluator/d/search_applications", methods=["POST"])
 def search_v2_applications(request: Request, search: str = ""):
     guard = guard_request(request, EVALUATOR, ADMIN)
