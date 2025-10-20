@@ -4,16 +4,16 @@ from starlette.requests import Request
 from starlette.responses import RedirectResponse
 from auth.roles import is_admin, is_evaluator, normalize_role
 from ui.layouts import dashboard_layout
-from .applicant import ApplicantController # Re-use the data fetching logic
-from .evaluator import EvaluatorController # Re-use the data fetching logic
+from .applicant import ApplicantController 
+from .evaluator import EvaluatorController 
 from ui.dashboard_page import render_applicant_dashboard, render_evaluator_dashboard
 
 class DashboardController:
-    def __init__(self, db):
+    def __init__(self, db, applicant_controller: ApplicantController, evaluator_controller: EvaluatorController):
         self.db = db
-        # Instantiate other controllers to use their helper methods
-        self.applicant_controller = ApplicantController(db)
-        self.evaluator_controller = EvaluatorController(db)
+        # --- THE FIX: Receive controllers instead of creating them ---
+        self.applicant_controller = applicant_controller
+        self.evaluator_controller = evaluator_controller
 
     def show_dashboard(self, request: Request, current_user: dict | None = None):
         """
@@ -28,8 +28,8 @@ class DashboardController:
         user_role = normalize_role(current_user.get("role"))
 
         if is_evaluator(user_role):
-            # For evaluators, fetch summary data
-            evaluator_apps = self.evaluator_controller._get_flattened_applications()
+            # For evaluators, fetch summary data using the search controller
+            evaluator_apps = self.evaluator_controller.search_controller._get_flattened_applications()
             evaluator_data = {"applications_to_review": len(evaluator_apps)}
             content = render_evaluator_dashboard(evaluator_data)
             title = "Hindaja Töölaud" if not is_admin(user_role) else "Administraatori Töölaud"
@@ -40,8 +40,6 @@ class DashboardController:
             content = render_applicant_dashboard(applicant_data, applicant_name)
             title = "Minu Töölaud"
 
-        # --- THE FIX: Set a flag in the session ---
-        # This confirms the user has successfully reached their designated entry point.
         request.session['visited_dashboard'] = True
         
         return dashboard_layout(request=request, title=title, content=content, db=self.db)

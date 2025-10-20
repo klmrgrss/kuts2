@@ -46,7 +46,7 @@ def DropdownContextButton(
     icon_name: str,
     label_text: str,
     dropdown_options: dict, 
-    name: str, # NEW: Added name parameter
+    name: str, 
     color: Optional[str] = None,
     **kwargs
 ) -> FT:
@@ -70,7 +70,6 @@ def DropdownContextButton(
     else:
         style_classes = "bg-transparent hover:bg-gray-200 dark:hover:bg-gray-700"
 
-    # --- THE FIX: Use the dynamic 'name' parameter for the hidden input ---
     hidden_input = Input(type="hidden", id=f"hidden-{button_id}", name=name, value="")
 
     return Div(
@@ -108,8 +107,8 @@ def DropdownContextButton(
         **kwargs
     )
 
-def render_compliance_section(title: str, icon_name: str, check: ComplianceCheck):
-    """Renders a single compliance section based on the ComplianceCheck state."""
+def render_compliance_section(title: str, icon_name: str, check: ComplianceCheck, context_name: str):
+    """Renders a single compliance section with a data-context attribute."""
     
     if not check.is_relevant:
         style_cls = "border-gray-300 opacity-50"
@@ -136,7 +135,8 @@ def render_compliance_section(title: str, icon_name: str, check: ComplianceCheck
             P(check.evaluator_comment or "Hindaja kommentaarid...", cls="text-sm p-4 border-t italic text-gray-600"),
         ),
         open=not check.is_met and check.is_relevant,
-        cls=f"border {style_cls} rounded-lg"
+        cls=f"border {style_cls} rounded-lg",
+        data_context=context_name
     )
 
 def render_compliance_dashboard(state: ComplianceDashboardState) -> FT:
@@ -148,13 +148,13 @@ def render_compliance_dashboard(state: ComplianceDashboardState) -> FT:
 
     return Div(
         header,
-        render_compliance_section("Haridus", "book-open", state.education),
-        render_compliance_section("Töökogemus kokku", "briefcase", state.total_experience),
-        render_compliance_section("Vastav töökogemus", "target", state.matching_experience),
-        render_compliance_section("Baaskoolitus", "award", state.base_training),
-        render_compliance_section("Tingimuslik baaskoolitus", "alert-triangle", state.conditional_training),
-        render_compliance_section("Ehitusjuhi baaskoolitus", "award", state.manager_training),
-        render_compliance_section("Täiendkoolitus", "award", state.cpd_training),
+        render_compliance_section("Haridus", "book-open", state.education, "haridus"),
+        render_compliance_section("Töökogemus kokku", "briefcase", state.total_experience, "tookogemus"),
+        render_compliance_section("Vastav töökogemus", "target", state.matching_experience, "tookogemus"),
+        render_compliance_section("Baaskoolitus", "award", state.base_training, "koolitus"),
+        render_compliance_section("Tingimuslik baaskoolitus", "alert-triangle", state.conditional_training, "koolitus"),
+        render_compliance_section("Ehitusjuhi baaskoolitus", "award", state.manager_training, "koolitus"),
+        render_compliance_section("Täiendkoolitus", "award", state.cpd_training, "koolitus"),
         cls="p-4 space-y-4"
     )
 
@@ -213,20 +213,23 @@ def render_center_panel(qual_data: Dict, user_data: Dict, state: ComplianceDashb
                             icon_name="book-open",
                             label_text="Haridus",
                             dropdown_options=education_dropdown_options,
-                            name="education_level" # Assign the correct name
+                            name="education_level",
+                            data_context="haridus"
                         ),
                         Label(
                             CheckboxX(id="education_old_or_foreign", name="education_old_or_foreign"),
                             Span(">10a / välisriik", cls="text-xs ml-1"),
-                            cls="flex items-center p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 cursor-pointer"
+                            cls="flex items-center p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 cursor-pointer",
+                            data_context="haridus"
                         ),
-                        ContextButton(icon_name="briefcase", label_text="Töökogemus"),
-                        ContextButton(icon_name="award", label_text="Täiendkoolitus"),
+                        ContextButton(icon_name="briefcase", label_text="Töökogemus", data_context="tookogemus"),
+                        ContextButton(icon_name="award", label_text="Täiendkoolitus", data_context="koolitus"),
                         DropdownContextButton(
                             icon_name="list-checks",
                             label_text="Otsus",
                             dropdown_options={"Anda": "Anda", "Mitte anda": "Mitte anda"},
-                            name="final_decision" # Assign the correct name
+                            name="final_decision",
+                            data_context="otsus"
                         ),
                         cls="flex flex-wrap items-center gap-x-2"
                     ),
@@ -237,6 +240,7 @@ def render_center_panel(qual_data: Dict, user_data: Dict, state: ComplianceDashb
             ),
             cls="px-4 "
         ),
+        id="final-decision-area",
         hx_post=f"/evaluator/d/re-evaluate/{qual_id}",
         hx_trigger="change delay:500ms",
         hx_target="#compliance-dashboard-container",
@@ -249,20 +253,53 @@ def render_center_panel(qual_data: Dict, user_data: Dict, state: ComplianceDashb
         Div(compliance_dashboard, id="compliance-dashboard-container", cls="flex-grow overflow-y-auto [scrollbar-width:none]"),
         final_decision_area,
         Script("""
-            let buttonStates = {};
+            let activeContext = { current: null };
 
-            function toggleButton(buttonId) {
-                const button = document.getElementById(buttonId);
-                if (!button) return;
-                const isActive = buttonStates[buttonId] || false;
-                if (isActive) {
-                    button.classList.remove('bg-blue-100', 'text-blue-800');
-                    button.classList.add('bg-transparent');
-                    buttonStates[buttonId] = false;
-                } else {
-                    button.classList.remove('bg-transparent');
-                    button.classList.add('bg-blue-100', 'text-blue-800');
-                    buttonStates[buttonId] = true;
+            function setActiveContext(contextName) {
+                if (activeContext.current === contextName) {
+                    contextName = null; // Deselect if clicking the same context
+                }
+                activeContext.current = contextName;
+                console.log('Active context:', activeContext.current);
+
+                // Update compliance sections highlights
+                document.querySelectorAll('#compliance-dashboard-container [data-context]').forEach(el => {
+                    if (el.dataset.context === contextName) {
+                        el.classList.add('ring-2', 'ring-blue-500', 'shadow-lg');
+                    } else {
+                        el.classList.remove('ring-2', 'ring-blue-500', 'shadow-lg');
+                    }
+                });
+
+                // Update toolbox button highlights
+                document.querySelectorAll('#final-decision-area [data-context]').forEach(el => {
+                    const interactiveEl = el.closest('button') || el.closest('label');
+                    if (el.dataset.context === contextName) {
+                        interactiveEl.classList.add('bg-blue-100', 'dark:bg-blue-900');
+                    } else {
+                        interactiveEl.classList.remove('bg-blue-100', 'dark:bg-blue-900');
+                    }
+                });
+            }
+
+            function initContextHighlighting() {
+                const container = document.getElementById('compliance-dashboard-container');
+                if (container) {
+                    container.addEventListener('click', (e) => {
+                        const section = e.target.closest('[data-context]');
+                        if (section) {
+                            setActiveContext(section.dataset.context);
+                        }
+                    });
+                }
+                const toolbox = document.getElementById('final-decision-area');
+                if (toolbox) {
+                    toolbox.addEventListener('click', (e) => {
+                        const button = e.target.closest('[data-context]');
+                        if (button) {
+                             setActiveContext(button.dataset.context);
+                        }
+                    });
                 }
             }
 
@@ -289,20 +326,14 @@ def render_center_panel(qual_data: Dict, user_data: Dict, state: ComplianceDashb
                 if (optionValue === "") {
                     span.textContent = button.dataset.originalText; 
                     button.classList.add('bg-transparent'); 
-                    buttonStates[buttonId] = false;
                 } else {
                     span.textContent = optionText;
-
                     if (buttonId === 'btn-otsus') {
-                        if (optionText === 'Anda') {
-                            button.classList.add('bg-green-100', 'text-green-800');
-                        } else if (optionText === 'Mitte anda') {
-                            button.classList.add('bg-red-100', 'text-red-800');
-                        }
+                        button.classList.add(optionText === 'Anda' ? 'bg-green-100' : 'bg-red-100');
                     } else {
-                        button.classList.add('bg-blue-100', 'text-blue-800');
+                        // All other selections are 'active' blue
+                        // This highlight is temporary as the context highlighting will take over
                     }
-                    buttonStates[buttonId] = true;
                 }
 
                 const dropdownId = buttonId.replace('btn-', 'dropdown-');
@@ -313,16 +344,15 @@ def render_center_panel(qual_data: Dict, user_data: Dict, state: ComplianceDashb
             }
 
             document.addEventListener('click', function(event) {
-                const isDropdownButton = event.target.closest('button') &&
-                                         event.target.closest('button').onclick &&
-                                         event.target.closest('button').onclick.toString().includes('toggleDropdown');
-
+                const isDropdownButton = event.target.closest('button[onclick*="toggleDropdown"]');
                 if (!isDropdownButton && !event.target.closest('[id^="dropdown-"]')) {
-                    document.querySelectorAll('[id^="dropdown-"]').forEach(d => {
-                        d.style.display = 'none';
-                    });
+                    document.querySelectorAll('[id^="dropdown-"]').forEach(d => d.style.display = 'none');
                 }
             });
+
+            // Run initialization
+            initContextHighlighting();
+
         """),
         id="ev-center-panel",
         cls="flex flex-col h-full bg-white"

@@ -24,6 +24,25 @@ class ValidationEngine:
         self.qualifications = self._load_rules(rules_path)
         print(f"✅ Validation engine initialized with {len(self.qualifications)} qualifications.")
 
+    def dict_to_state(self, state_dict: Dict) -> ComplianceDashboardState:
+        """
+        Recursively converts a dictionary back into a ComplianceDashboardState object.
+        """
+        # Create ComplianceCheck objects for all nested check dictionaries
+        checks = {
+            key: ComplianceCheck(**value)
+            for key, value in state_dict.items()
+            if isinstance(value, dict)
+        }
+        # Create the main state object, unpacking the non-check fields
+        # and the newly created ComplianceCheck objects
+        return ComplianceDashboardState(
+            package_id=state_dict.get('package_id'),
+            overall_met=state_dict.get('overall_met'),
+            **checks
+        )
+
+
     def _load_rules(self, rules_path: Path) -> List[Qualification]:
         with open(rules_path, 'rb') as f:
             rules_data = tomllib.load(f)

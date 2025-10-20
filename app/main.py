@@ -22,6 +22,7 @@ from auth.guards import guard_request
 from auth.middleware import AuthMiddleware
 from auth.roles import ADMIN, APPLICANT, EVALUATOR, ALL_ROLES, normalize_role
 from auth.utils import *
+
 from controllers.auth import AuthController
 from controllers.qualifications import QualificationController
 from controllers.applicant import ApplicantController
@@ -29,8 +30,12 @@ from controllers.work_experience import WorkExperienceController
 from controllers.education import EducationController
 from controllers.documents import DocumentsController
 from controllers.training import TrainingController
+from logic.validator import ValidationEngine
 from controllers.evaluator import EvaluatorController
+from controllers.evaluator_search_controller import EvaluatorSearchController
+from controllers.evaluator_workbench_controller import EvaluatorWorkbenchController
 from controllers.dashboard import DashboardController
+
 from services import smart_id_service
 
 # --- Custom Imports for Redesign ---
@@ -69,6 +74,8 @@ if db is None:
 
 ensure_default_users(db)
 
+validation_engine = ValidationEngine(Path(__file__).parent / 'config' / 'rules.toml')
+
 # --- Controller Instantiation ---
 try:
     auth_controller = AuthController(db)
@@ -80,8 +87,14 @@ try:
     education_controller = EducationController(db)
     documents_controller = DocumentsController(db)
     review_controller = ReviewController(db)
-    evaluator_controller = EvaluatorController(db)
-    dashboard_controller = DashboardController(db) # <-- INSTANTIATE NEW CONTROLLER
+    evaluator_search_controller = EvaluatorSearchController(db)
+    evaluator_controller = EvaluatorController(db, None, None, validation_engine) # Temp
+    evaluator_workbench_controller = EvaluatorWorkbenchController(db, validation_engine, evaluator_controller)
+    # Now, properly link them
+    evaluator_controller.search_controller = evaluator_search_controller
+    evaluator_controller.workbench_controller = evaluator_workbench_controller
+    dashboard_controller = DashboardController(db, applicant_controller, evaluator_controller)
+
 except AttributeError as e:
     raise RuntimeError("Controller initialization failed due to database setup issue.") from e
 
@@ -110,7 +123,7 @@ app, rt = fast_app(
     debug=True
 )
 
-# --- REMOVE the redundant app.mount() call ---
+
 
 # === Routes ===
 @rt("/")
@@ -363,12 +376,12 @@ async def post_review_submit(request: Request):
         return guard
     return await review_controller.submit_application(request)
 
-@rt("/evaluator/dashboard", methods=["GET"])
-def get_evaluator_dashboard(request: Request):
-    guard = guard_request(request, EVALUATOR, ADMIN)
-    if isinstance(guard, Response):
-        return guard
-    return evaluator_controller.show_dashboard(request)
+# @rt("/evaluator/dashboard", methods=["GET"])
+# def get_evaluator_dashboard(request: Request):
+#     guard = guard_request(request, EVALUATOR, ADMIN)
+#     if isinstance(guard, Response):
+#         return guard
+#     return evaluator_controller.show_dashboard(request)
 
 @rt("/evaluator/application/{user_email}", methods=["GET"])
 def get_evaluator_application(request: Request, user_email: str):
@@ -384,35 +397,31 @@ async def post_update_qual_status(request: Request, user_email: str, record_id: 
         return guard
     return await evaluator_controller.update_qualification_status(request, user_email, record_id)
 
+# --- Evaluator Routes ---
 @rt("/evaluator/d", methods=["GET"])
 def get_evaluator_dashboard_v2(request: Request):
     guard = guard_request(request, EVALUATOR, ADMIN)
-    if isinstance(guard, Response):
-        return guard
+    if isinstance(guard, Response): return guard
     return evaluator_controller.show_dashboard_v2(request)
 
 @rt("/evaluator/d/application/{qual_id:str}", methods=["GET"])
 def get_v2_application_detail(request: Request, qual_id: str):
     guard = guard_request(request, EVALUATOR, ADMIN)
-    if isinstance(guard, Response):
-        return guard
+    if isinstance(guard, Response): return guard
     return evaluator_controller.show_v2_application_detail(request, qual_id)
 
-# --- NEW ROUTE ---
+@rt("/evaluator/d/search_applications", methods=["POST"])
+async def search_v2_applications(request: Request):
+    guard = guard_request(request, EVALUATOR, ADMIN)
+    if isinstance(guard, Response): return guard
+    form = await request.form()
+    return evaluator_search_controller.search_applications(request, form.get("search", ""))
+
 @rt("/evaluator/d/re-evaluate/{qual_id:str}", methods=["POST"])
 async def post_re_evaluate_application(request: Request, qual_id: str):
     guard = guard_request(request, EVALUATOR, ADMIN)
-    if isinstance(guard, Response):
-        return guard
-    return await evaluator_controller.re_evaluate_application(request, qual_id)
-# --- END NEW ROUTE ---
-
-@rt("/evaluator/d/search_applications", methods=["POST"])
-def search_v2_applications(request: Request, search: str = ""):
-    guard = guard_request(request, EVALUATOR, ADMIN)
-    if isinstance(guard, Response):
-        return guard
-    return evaluator_controller.search_applications(request, search)
+    if isinstance(guard, Response): return guard
+    return await evaluator_workbench_controller.re_evaluate_application(request, qual_id)
 
 @rt("/evaluator/test", methods=["GET"])
 def get_evaluator_test_page(request: Request):
