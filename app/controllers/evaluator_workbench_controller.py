@@ -62,7 +62,7 @@ class EvaluatorWorkbenchController:
                 print("--- [DEBUG] State has changed. Re-running full validation.")
                 applicant_data.education = selected_education or "any"
                 applicant_data.is_education_old_or_foreign = is_old_or_foreign
-                
+
                 qualification_rule_id = QUALIFICATION_LEVEL_TO_RULE_ID.get(level, "toojuht_tase_5")
                 all_states = self.validation_engine.validate(applicant_data, qualification_rule_id)
                 new_best_state = next((s for s in all_states if s.overall_met), all_states[0])
@@ -73,11 +73,14 @@ class EvaluatorWorkbenchController:
                     new_best_state.tookogemus_comment = best_state.tookogemus_comment
                     new_best_state.koolitus_comment = best_state.koolitus_comment
                     new_best_state.otsus_comment = best_state.otsus_comment
-                
+
                 best_state = new_best_state
                 print(f"--- [DEBUG] New best validation state: Package '{best_state.package_id}', Met: {best_state.overall_met}")
             else:
                 print("--- [DEBUG] State has not changed. Only updating comments.")
+
+            if best_state:
+                best_state.education_old_or_foreign = is_old_or_foreign
 
             # --- Update comments based on active context ---
             if active_context and comment is not None:

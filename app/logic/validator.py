@@ -39,6 +39,7 @@ class ValidationEngine:
         return ComplianceDashboardState(
             package_id=state_dict.get('package_id'),
             overall_met=state_dict.get('overall_met'),
+            education_old_or_foreign=state_dict.get('education_old_or_foreign'),
             **checks
         )
 
@@ -114,7 +115,9 @@ class ValidationEngine:
             if not state.manager_training.is_met: state.overall_met = False
 
         # ... other checks like CPD training can be added here ...
-        
+
+        state.education_old_or_foreign = applicant.is_education_old_or_foreign
+
         return state
 
     def validate(self, applicant: ApplicantData, qualification_id: str) -> List[ComplianceDashboardState]:

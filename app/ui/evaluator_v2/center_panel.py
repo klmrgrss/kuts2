@@ -45,13 +45,17 @@ def ContextButton(
 def DropdownContextButton(
     icon_name: str,
     label_text: str,
-    dropdown_options: dict, 
-    name: str, 
+    dropdown_options: dict,
+    name: str,
     color: Optional[str] = None,
+    selected_value: Optional[str] = None,
     **kwargs
 ) -> FT:
     button_id = f"btn-{name}"
     dropdown_id = f"dropdown-{name}"
+    selected_value = selected_value or ""
+    selected_text = dropdown_options.get(selected_value)
+    button_text = selected_text if selected_text is not None else label_text
 
     color_map = {
         'green': "bg-green-100 text-green-800 hover:bg-green-200 dark:bg-green-900 dark:text-green-200 dark:hover:bg-green-800",
@@ -70,16 +74,21 @@ def DropdownContextButton(
     else:
         style_classes = "bg-transparent hover:bg-gray-200 dark:hover:bg-gray-700"
 
-    hidden_input = Input(type="hidden", id=f"hidden-{button_id}", name=name, value="")
+    hidden_input = Input(type="hidden", id=f"hidden-{button_id}", name=name, value=selected_value)
+
+    button_children = []
+    if icon_name:
+        button_children.append(UkIcon(icon_name, cls="w-4 h-4"))
+    button_children.append(Span(button_text, cls="hidden sm:inline"))
+    button_children.append(UkIcon("chevron-down", cls="w-3 h-3 ml-1"))
 
     return Div(
         hidden_input,
         Button(
-            UkIcon(icon_name, cls="w-4 h-4"),
-            Span(label_text, cls="hidden sm:inline"),
-            UkIcon("chevron-down", cls="w-3 h-3 ml-1"),
+            *button_children,
             id=button_id,
             data_original_text=label_text,
+            data_selected_value=selected_value,
             onclick=f"toggleDropdown('{dropdown_id}')",
             type="button",
             cls=f"{base_classes} {style_classes} {kwargs.pop('cls', '')}"
@@ -230,6 +239,14 @@ def render_center_panel(qual_data: Dict, user_data: Dict, state: ComplianceDashb
         "mittevastav_kõrgharidus_180_eap": "Mittevastav Bakalaureus (180 EAP)",
         "tehniline_kõrgharidus_300_eap": "Tehniline Magister (300 EAP)",
     }
+
+    education_old_or_foreign_value: Optional[str]
+    if state.education_old_or_foreign is True:
+        education_old_or_foreign_value = "on"
+    elif state.education_old_or_foreign is False:
+        education_old_or_foreign_value = ""
+    else:
+        education_old_or_foreign_value = None
     
     final_decision_area = Form(
         Input(type="hidden", name="active_context", id="active-context-input"),
@@ -249,7 +266,8 @@ def render_center_panel(qual_data: Dict, user_data: Dict, state: ComplianceDashb
                             DropdownContextButton(
                                 icon_name=None, label_text=">10a / välis",
                                 dropdown_options={"on": "Jah", "": "Ei"}, name="education_old_or_foreign",
-                                data_context="haridus"
+                                data_context="haridus",
+                                selected_value=education_old_or_foreign_value
                             ),
                             DropdownContextButton(
                                 icon_name="book-open", label_text="Haridus",
