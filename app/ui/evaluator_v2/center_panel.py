@@ -33,12 +33,16 @@ def ContextButton(
         style_classes = "bg-transparent hover:bg-gray-200 dark:hover:bg-gray-700"
     
     button_type = "submit" if icon_name == "send" else "button"
-    
+
+    data_context = kwargs.pop('data_context', None)
+    data_attributes = {'data-context': data_context} if data_context else {}
+
     return Button(
         UkIcon(icon_name, cls="w-4 h-4"),
         Span(label_text, cls="hidden sm:inline"),
         cls=f"{base_classes} {style_classes} {kwargs.pop('cls', '')}",
         type=button_type,
+        **data_attributes,
         **kwargs
     )
 
@@ -72,6 +76,9 @@ def DropdownContextButton(
 
     hidden_input = Input(type="hidden", id=f"hidden-{button_id}", name=name, value="")
 
+    data_context = kwargs.pop('data_context', None)
+    data_attributes = {'data-context': data_context} if data_context else {}
+
     return Div(
         hidden_input,
         Button(
@@ -98,6 +105,7 @@ def DropdownContextButton(
             style="display: none;"
         ),
         cls="relative inline-flex",
+        **data_attributes,
         **kwargs
     )
 
@@ -150,16 +158,16 @@ def render_compliance_section(title: str, icon_name: str, subsections: List[FT],
         Div(
             *subsections,
             P(
-                comment or "Kommentaarid...", 
+                comment or "Kommentaarid...",
                 id=f"comment-display-{context_name}",
-                data_comment=comment or "", # Store comment for JS
+                **{"data-comment": comment or ""},  # Store comment for JS
                 cls="text-sm p-4 border-t italic text-gray-600 min-h-[4rem]"
             ),
             cls="p-3 border-t bg-gray-50"
         ),
         open=is_open,
         cls=f"border {style_cls} rounded-lg",
-        data_context=context_name
+        **{"data-context": context_name}
     )
 
 def render_compliance_dashboard(state: ComplianceDashboardState) -> FT:
