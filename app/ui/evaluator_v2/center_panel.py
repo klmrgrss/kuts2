@@ -57,6 +57,9 @@ def DropdownContextButton(
 ) -> FT:
     button_id = f"btn-{name}"
     dropdown_id = f"dropdown-{name}"
+    selected_value = selected_value or ""
+    selected_text = dropdown_options.get(selected_value)
+    button_text = selected_text if selected_text is not None else label_text
 
     color_map = {
         'green': "bg-green-100 text-green-800 hover:bg-green-200 dark:bg-green-900 dark:text-green-200 dark:hover:bg-green-800",
@@ -117,6 +120,7 @@ def DropdownContextButton(
             *button_children,
             id=button_id,
             data_original_text=label_text,
+            data_selected_value=selected_value,
             onclick=f"toggleDropdown('{dropdown_id}')",
             type="button",
             cls=f"{base_classes} {style_classes} {kwargs.pop('cls', '')}"
