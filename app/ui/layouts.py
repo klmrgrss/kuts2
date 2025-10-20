@@ -72,8 +72,6 @@ def base_layout(title: str, *content: Any, theme_headers: tuple = Theme.blue.hea
                     #tab-content-container { padding-bottom: 100px; }
                     summary { list-style: none; } /* For Firefox */
                     summary::-webkit-details-marker { display: none; } /* For Chrome, Safari */
-                    .accordion-marker { transition: transform 0.2s; }
-                    details[open] > summary .accordion-marker { transform: rotate(180deg); }
                     """),
     ])
     return Html( Head( Meta(charset="UTF-8"), Meta(name="viewport", content="width=device-width, initial-scale=1.0"), Title(title, id="page-title"), *all_hdrs ), Body( *content, Div(id="toast-container"), cls="bg-background text-foreground" ), lang="et" )
