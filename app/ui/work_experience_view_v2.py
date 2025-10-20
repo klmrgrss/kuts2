@@ -58,7 +58,7 @@ def render_work_experience_form_v2(
         )
 
         # --- REVISED: Horizontal layout for the Summary ---
-        custom_marker = UkIcon("chevron-down", cls="accordion-marker flex-shrink-0 text-muted-foreground")
+        custom_marker = UkIcon("chevron-down", cls="flex-shrink-0 text-muted-foreground")
         summary_content = Summary(
             Div(
                 custom_marker,

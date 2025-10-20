@@ -119,46 +119,48 @@ def render_compliance_subsection(title: str, check: ComplianceCheck):
     )
 
 def render_compliance_section(title: str, icon_name: str, subsections: List[FT], all_checks: List[ComplianceCheck], context_name: str, comment: Optional[str]):
-    """
-    Renders a main compliance category with its subsections and a read-only comment area.
-    """
+    """Renders a main compliance category with its subsections and a read-only comment area."""
+
     relevant_checks = [c for c in all_checks if c.is_relevant]
-    if not relevant_checks and context_name != "otsus": # "Otsus" is always relevant
-        style_cls = "border-gray-300 opacity-50"
+    if not relevant_checks and context_name != "otsus":  # "Otsus" is always relevant
+        border_cls = "border-gray-300 opacity-50"
+        accent_bar_cls = "bg-gray-300"
         status_icon = UkIcon("minus", cls="w-5 h-5 text-gray-500")
         status_text = "Ei ole selle paketi puhul asjakohane"
-        is_open = False
     else:
         all_met = all(c.is_met for c in relevant_checks) if relevant_checks else True
-        style_cls = "border-green-500" if all_met else "border-red-500"
+        border_cls = "border-green-500" if all_met else "border-red-500"
+        accent_bar_cls = "bg-green-500" if all_met else "bg-red-500"
         status_icon = UkIcon("check-circle", cls="w-5 h-5 text-green-500") if all_met else UkIcon("x-circle", cls="w-5 h-5 text-red-500")
-        status_text = f"{len([c for c in relevant_checks if c.is_met])}/{len(relevant_checks)} alapunkti täidetud" if relevant_checks else "Otsus"
-        is_open = not all_met
+        status_text = (
+            f"{len([c for c in relevant_checks if c.is_met])}/{len(relevant_checks)} alapunkti täidetud"
+            if relevant_checks else "Otsus"
+        )
 
-    return Details(
-        Summary(
-            Div(
-                Div(cls=f"w-1.5 h-full absolute left-0 top-0 bg-{style_cls.split('-')[1]}-500"),
-                UkIcon(icon_name, cls="w-5 h-5"),
-                H5(title, cls="font-semibold"),
-                status_icon,
-                Span(status_text, cls="text-sm text-gray-500 truncate"),
-                UkIcon("chevron-down", cls="accordion-marker ml-auto"),
-                cls="flex items-center gap-x-3 w-full cursor-pointer p-3 relative"
-            )
+    header = Div(
+        Div(cls=f"w-1.5 h-full absolute left-0 top-0 {accent_bar_cls}"),
+        UkIcon(icon_name, cls="w-5 h-5"),
+        H5(title, cls="font-semibold"),
+        status_icon,
+        Span(status_text, cls="text-sm text-gray-500 truncate"),
+        cls="flex items-center gap-x-3 w-full p-3 relative bg-white rounded-t-lg"
+    )
+
+    body = Div(
+        *subsections,
+        P(
+            comment or "Kommentaarid...",
+            id=f"comment-display-{context_name}",
+            data_comment=comment or "",  # Store comment for JS
+            cls="text-sm p-4 border-t italic text-gray-600 min-h-[4rem]"
         ),
-        Div(
-            *subsections,
-            P(
-                comment or "Kommentaarid...", 
-                id=f"comment-display-{context_name}",
-                data_comment=comment or "", # Store comment for JS
-                cls="text-sm p-4 border-t italic text-gray-600 min-h-[4rem]"
-            ),
-            cls="p-3 border-t bg-gray-50"
-        ),
-        open=is_open,
-        cls=f"border {style_cls} rounded-lg",
+        cls="p-3 border-t bg-gray-50 space-y-2"
+    )
+
+    return Div(
+        header,
+        body,
+        cls=f"border {border_cls} rounded-lg overflow-hidden bg-white",
         data_context=context_name
     )
 
@@ -209,7 +211,7 @@ def render_center_panel(qual_data: Dict, user_data: Dict, state: ComplianceDashb
             DivHStacked(
                 P("Spetsialiseerumised", cls="text-xs"),
                 P(f"({selected_count}/{total_count})", cls="text-xs font-bold text-gray-600 whitespace-nowrap ml-1"),
-                UkIcon("chevron-down", cls="accordion-marker"),
+                UkIcon("chevron-down", cls="w-4 h-4 text-gray-500"),
                 cls="justify-self-end flex items-center" ),
             cls="grid grid-cols-[auto,1fr,auto] items-center gap-x-3" ),
             cls="list-none cursor-pointer col-span-3" ),
