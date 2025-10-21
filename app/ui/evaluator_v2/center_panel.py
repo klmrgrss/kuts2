@@ -346,125 +346,169 @@ def render_center_panel(qual_data: Dict, user_data: Dict, state: ComplianceDashb
         Div(compliance_dashboard, id="compliance-dashboard-container", cls="flex-grow overflow-y-auto [scrollbar-width:none]"),
         final_decision_area,
         Script("""
-            let activeContext = { current: null };
-            const mainCommentBox = document.getElementById('main-comment-textarea');
-            const activeContextInput = document.getElementById('active-context-input');
-
-            function loadCommentForActiveContext() {
-                if (!mainCommentBox) return;
-                if (activeContext.current) {
-                    const commentDisplay = document.getElementById(`comment-display-${activeContext.current}`);
-                    mainCommentBox.value = commentDisplay ? commentDisplay.dataset.comment : '';
-                } else {
-                    mainCommentBox.value = '';
-                }
-            }
-
-            function setActiveContext(contextName) {
-                if (activeContext.current === contextName) contextName = null;
-                activeContext.current = contextName;
-                if (activeContextInput) activeContextInput.value = contextName || '';
-                console.log('Active context:', activeContext.current);
-
-                document.querySelectorAll('#compliance-dashboard-container [data-context]').forEach(el => {
-                    el.classList.toggle('ring-2', el.dataset.context === contextName);
-                    el.classList.toggle('ring-blue-500', el.dataset.context === contextName);
-                    el.classList.toggle('shadow-lg', el.dataset.context === contextName);
-                });
-
-                document.querySelectorAll('#final-decision-area [data-context]').forEach(el => {
-                    const interactiveEl = el.closest('div.relative') || el.closest('button');
-                    interactiveEl.classList.toggle('bg-blue-100', el.dataset.context === contextName);
-                    interactiveEl.classList.toggle('dark:bg-blue-900', el.dataset.context === contextName);
-                });
-                loadCommentForActiveContext();
-            }
-            
-            function initContextHighlighting() {
-                const container = document.getElementById('compliance-dashboard-container');
-                if (container) container.addEventListener('click', e => {
-                    const section = e.target.closest('[data-context]');
-                    if (section) setActiveContext(section.dataset.context);
-                });
-                
-                const toolbox = document.getElementById('final-decision-area');
-                if (toolbox) toolbox.addEventListener('click', e => {
-                    const button = e.target.closest('[data-context]');
-                    if (button) setActiveContext(button.dataset.context);
-                });
-            }
-
-            function toggleDropdown(dropdownId) {
-                const dropdown = document.getElementById(dropdownId);
-                if (!dropdown) return;
-                const isVisible = dropdown.style.display !== 'none';
-                document.querySelectorAll('[id^="dropdown-"]').forEach(d => {
-                    if (d.id !== dropdownId) d.style.display = 'none';
-                });
-                dropdown.style.display = isVisible ? 'none' : 'block';
-            }
-
-            function selectDropdownOption(buttonId, optionText, optionValue) {
-                const button = document.getElementById(buttonId);
-                const span = button ? button.querySelector('span') : null;
-                const hiddenInput = document.getElementById(`hidden-${buttonId}`);
-                if (!button || !span || !hiddenInput) return;
-
-                hiddenInput.value = optionValue;
-
-                const defaultClasses = ['bg-transparent', 'hover:bg-gray-200', 'dark:hover:bg-gray-700'];
-                const blueClasses = ['bg-blue-100', 'text-blue-800', 'hover:bg-blue-200', 'dark:bg-blue-900', 'dark:text-blue-200', 'dark:hover:bg-blue-800'];
-                const greenClasses = ['bg-green-100', 'text-green-800', 'hover:bg-green-200', 'dark:bg-green-900', 'dark:text-green-200', 'dark:hover:bg-green-800'];
-                const redClasses = ['bg-red-100', 'text-red-800', 'hover:bg-red-200', 'dark:bg-red-900', 'dark:text-red-200', 'dark:hover:bg-red-800'];
-
-                button.classList.remove(
-                    ...defaultClasses,
-                    ...blueClasses,
-                    ...greenClasses,
-                    ...redClasses
-                );
-
-                let appliedClasses = [];
-
-                if (!optionValue) {
-                    span.textContent = button.dataset.originalText;
-                    appliedClasses = defaultClasses;
-                } else {
-                    span.textContent = optionText;
-                    if (buttonId.includes('final_decision')) {
-                        appliedClasses = optionValue === 'Anda' ? greenClasses : redClasses;
-                    } else {
-                        appliedClasses = blueClasses;
-                    }
-                }
-
-                if (appliedClasses.length) {
-                    button.classList.add(...appliedClasses);
-                }
-
-                const dropdownId = buttonId.replace('btn-', 'dropdown-');
-                const dropdown = document.getElementById(dropdownId);
-                if (dropdown) {
-                    dropdown.querySelectorAll('button[data-value]').forEach(optionButton => {
-                        const isSelected = optionButton.dataset.value === optionValue;
-                        optionButton.classList.toggle('bg-base-300', isSelected);
-                        optionButton.classList.toggle('dark:bg-base-200', isSelected);
-                        optionButton.classList.toggle('font-semibold', isSelected);
+            (function() {
+                window.toggleDropdown = function(dropdownId) {
+                    const dropdown = document.getElementById(dropdownId);
+                    if (!dropdown) return;
+                    const isVisible = dropdown.style.display !== 'none';
+                    document.querySelectorAll('[id^="dropdown-"]').forEach(d => {
+                        if (d.id !== dropdownId) d.style.display = 'none';
                     });
-                    dropdown.style.display = 'none';
+                    dropdown.style.display = isVisible ? 'none' : 'block';
+                };
+
+                window.selectDropdownOption = function(buttonId, optionText, optionValue) {
+                    const button = document.getElementById(buttonId);
+                    const span = button ? button.querySelector('span') : null;
+                    const hiddenInput = document.getElementById(`hidden-${buttonId}`);
+                    if (!button || !span || !hiddenInput) return;
+
+                    hiddenInput.value = optionValue;
+
+                    const defaultClasses = ['bg-transparent', 'hover:bg-gray-200', 'dark:hover:bg-gray-700'];
+                    const blueClasses = ['bg-blue-100', 'text-blue-800', 'hover:bg-blue-200', 'dark:bg-blue-900', 'dark:text-blue-200', 'dark:hover:bg-blue-800'];
+                    const greenClasses = ['bg-green-100', 'text-green-800', 'hover:bg-green-200', 'dark:bg-green-900', 'dark:text-green-200', 'dark:hover:bg-green-800'];
+                    const redClasses = ['bg-red-100', 'text-red-800', 'hover:bg-red-200', 'dark:bg-red-900', 'dark:text-red-200', 'dark:hover:bg-red-800'];
+
+                    button.classList.remove(
+                        ...defaultClasses,
+                        ...blueClasses,
+                        ...greenClasses,
+                        ...redClasses
+                    );
+
+                    let appliedClasses = [];
+
+                    if (!optionValue) {
+                        span.textContent = button.dataset.originalText;
+                        appliedClasses = defaultClasses;
+                    } else {
+                        span.textContent = optionText;
+                        if (buttonId.includes('final_decision')) {
+                            appliedClasses = optionValue === 'Anda' ? greenClasses : redClasses;
+                        } else {
+                            appliedClasses = blueClasses;
+                        }
+                    }
+
+                    if (appliedClasses.length) {
+                        button.classList.add(...appliedClasses);
+                    }
+
+                    const dropdownId = buttonId.replace('btn-', 'dropdown-');
+                    const dropdown = document.getElementById(dropdownId);
+                    if (dropdown) {
+                        dropdown.querySelectorAll('button[data-value]').forEach(optionButton => {
+                            const isSelected = optionButton.dataset.value === optionValue;
+                            optionButton.classList.toggle('bg-base-300', isSelected);
+                            optionButton.classList.toggle('dark:bg-base-200', isSelected);
+                            optionButton.classList.toggle('font-semibold', isSelected);
+                        });
+                        dropdown.style.display = 'none';
+                    }
+
+                    hiddenInput.dispatchEvent(new Event('change', { bubbles: true }));
+                };
+
+                const dashboard = window.evDashboard || {
+                    currentContext: null,
+                    getMainCommentBox() {
+                        return document.getElementById('main-comment-textarea');
+                    },
+                    getActiveContextInput() {
+                        return document.getElementById('active-context-input');
+                    },
+                    setActiveContext(contextName) {
+                        const input = this.getActiveContextInput();
+                        if (this.currentContext === contextName) {
+                            this.currentContext = null;
+                            if (input) input.value = '';
+                        } else {
+                            this.currentContext = contextName;
+                            if (input) input.value = contextName || '';
+                        }
+                        console.debug('Active context:', this.currentContext);
+                        this.applyHighlights();
+                        this.loadCommentForActiveContext();
+                    },
+                    applyHighlights() {
+                        const contextName = this.currentContext;
+                        document.querySelectorAll('#compliance-dashboard-container [data-context]').forEach(el => {
+                            const isActive = !!contextName && el.dataset.context === contextName;
+                            el.classList.toggle('ring-2', isActive);
+                            el.classList.toggle('ring-blue-500', isActive);
+                            el.classList.toggle('shadow-lg', isActive);
+                        });
+
+                        document.querySelectorAll('#final-decision-area [data-context]').forEach(el => {
+                            const isActive = !!contextName && el.dataset.context === contextName;
+                            const highlightTarget = el.matches('button') ? el : el.querySelector('button');
+                            if (!highlightTarget) return;
+                            highlightTarget.classList.toggle('bg-blue-100', isActive);
+                            highlightTarget.classList.toggle('dark:bg-blue-900', isActive);
+                            highlightTarget.classList.toggle('ring-2', isActive);
+                            highlightTarget.classList.toggle('ring-blue-500', isActive);
+                        });
+                    },
+                    loadCommentForActiveContext() {
+                        const textarea = this.getMainCommentBox();
+                        if (!textarea) return;
+                        if (!this.currentContext) {
+                            textarea.value = '';
+                            return;
+                        }
+                        const commentDisplay = document.getElementById(`comment-display-${this.currentContext}`);
+                        textarea.value = commentDisplay ? (commentDisplay.dataset.comment || '') : '';
+                    },
+                    syncFromDom() {
+                        const input = this.getActiveContextInput();
+                        const initial = input && input.value ? input.value : null;
+                        this.currentContext = initial;
+                    }
+                };
+
+                dashboard.syncFromDom();
+                dashboard.applyHighlights();
+                dashboard.loadCommentForActiveContext();
+                window.evDashboard = dashboard;
+
+                if (!window.evDashboardListenersAttached) {
+                    document.addEventListener('click', function(event) {
+                        const dashboardArea = document.getElementById('compliance-dashboard-container');
+                        if (dashboardArea && dashboardArea.contains(event.target)) {
+                            const section = event.target.closest('[data-context]');
+                            if (section) {
+                                window.evDashboard.setActiveContext(section.dataset.context);
+                                return;
+                            }
+                        }
+
+                        const toolbox = document.getElementById('final-decision-area');
+                        if (toolbox && toolbox.contains(event.target)) {
+                            const button = event.target.closest('[data-context]');
+                            if (button) {
+                                window.evDashboard.setActiveContext(button.dataset.context);
+                            }
+                        }
+                    });
+
+                    document.addEventListener('htmx:afterSwap', function(event) {
+                        if (event.detail && event.detail.target && event.detail.target.id === 'compliance-dashboard-container') {
+                            window.evDashboard.applyHighlights();
+                            window.evDashboard.loadCommentForActiveContext();
+                        }
+                    });
+
+                    document.addEventListener('click', function(event) {
+                        const isDropdownButton = event.target.closest('button[onclick*="toggleDropdown"]');
+                        if (!isDropdownButton && !event.target.closest('[id^="dropdown-"]')) {
+                            document.querySelectorAll('[id^="dropdown-"]').forEach(d => d.style.display = 'none');
+                        }
+                    });
+
+                    window.evDashboardListenersAttached = true;
                 }
-
-                hiddenInput.dispatchEvent(new Event('change', { bubbles: true }));
-            }
-
-            document.addEventListener('click', function(event) {
-                const isDropdownButton = event.target.closest('button[onclick*="toggleDropdown"]');
-                if (!isDropdownButton && !event.target.closest('[id^="dropdown-"]')) {
-                    document.querySelectorAll('[id^="dropdown-"]').forEach(d => d.style.display = 'none');
-                }
-            });
-
-            initContextHighlighting();
+            })();
         """),
         id="ev-center-panel",
         cls="flex flex-col h-full bg-white"

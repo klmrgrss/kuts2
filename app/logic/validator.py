@@ -29,17 +29,23 @@ class ValidationEngine:
         Recursively converts a dictionary back into a ComplianceDashboardState object.
         """
         # Create ComplianceCheck objects for all nested check dictionaries
-        checks = {
-            key: ComplianceCheck(**value)
-            for key, value in state_dict.items()
-            if isinstance(value, dict)
-        }
-        # Create the main state object, unpacking the non-check fields
-        # and the newly created ComplianceCheck objects
+        state_fields = ComplianceDashboardState.__dataclass_fields__.keys()
+        checks = {}
+        scalar_fields = {}
+
+        for key, value in state_dict.items():
+            if key not in state_fields:
+                continue
+            if isinstance(value, dict):
+                checks[key] = ComplianceCheck(**value)
+            else:
+                scalar_fields[key] = value
+
+        # Create the main state object, unpacking scalar values alongside
+        # the reconstructed ComplianceCheck objects so comment fields and
+        # evaluator toggles survive round-trips through JSON.
         return ComplianceDashboardState(
-            package_id=state_dict.get('package_id'),
-            overall_met=state_dict.get('overall_met'),
-            education_old_or_foreign=state_dict.get('education_old_or_foreign'),
+            **scalar_fields,
             **checks
         )
 
