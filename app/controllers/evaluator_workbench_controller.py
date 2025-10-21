@@ -46,8 +46,12 @@ class EvaluatorWorkbenchController:
             is_old_or_foreign = form_data.get("education_old_or_foreign") == "on"
             comment = form_data.get("main_comment")
             active_context = form_data.get("active_context")
+            final_decision = form_data.get("final_decision")
 
-            print(f"--- [DEBUG] Evaluator Inputs: Education='{selected_education}', Old/Foreign={is_old_or_foreign}, Context='{active_context}' ---")
+            print(
+                f"--- [DEBUG] Evaluator Inputs: Education='{selected_education}', Old/Foreign={is_old_or_foreign}, "
+                f"Final decision='{final_decision}', Context='{active_context}' ---"
+            )
             
             # --- Get base applicant data ---
             applicant_data = self.main_controller._get_applicant_data_for_validation(user_email)
@@ -73,6 +77,7 @@ class EvaluatorWorkbenchController:
                     new_best_state.tookogemus_comment = best_state.tookogemus_comment
                     new_best_state.koolitus_comment = best_state.koolitus_comment
                     new_best_state.otsus_comment = best_state.otsus_comment
+                    new_best_state.final_decision = getattr(best_state, "final_decision", None)
 
                 best_state = new_best_state
                 print(f"--- [DEBUG] New best validation state: Package '{best_state.package_id}', Met: {best_state.overall_met}")
@@ -80,7 +85,10 @@ class EvaluatorWorkbenchController:
                 print("--- [DEBUG] State has not changed. Only updating comments.")
 
             if best_state:
+                if selected_education is not None and hasattr(best_state, "education"):
+                    best_state.education.provided = selected_education or best_state.education.provided
                 best_state.education_old_or_foreign = is_old_or_foreign
+                best_state.final_decision = final_decision or None
 
             # --- Update comments based on active context ---
             if active_context and comment is not None:

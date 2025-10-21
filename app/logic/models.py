@@ -46,6 +46,7 @@ class ComplianceDashboardState:
 
     # Evaluator toggles
     education_old_or_foreign: Optional[bool] = None
+    final_decision: Optional[str] = None
 
 
 @dataclass
