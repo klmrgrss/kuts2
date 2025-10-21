@@ -19,6 +19,7 @@ def render_application_list(applications: List[Dict], include_oob: bool = True) 
             "hx_get": f"/evaluator/d/application/{app.get('qual_id')}",
             "hx_target": "#ev-center-panel",
             "hx_swap": "innerHTML",
+            "hx_params": "none",
             "_": "on click remove .bg-blue-100 from <a/> in #application-list-container then add .bg-blue-100 to me",
             "cls": "block p-3 border-b hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
         }
