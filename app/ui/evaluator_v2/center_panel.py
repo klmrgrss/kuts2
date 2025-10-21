@@ -53,25 +53,55 @@ def DropdownContextButton(
     name: str,
     color: Optional[str] = None,
     current_value: Optional[str] = None,
+    display_mode: str = "default",
+    title_text: Optional[str] = None,
+    placeholder_text: Optional[str] = None,
+    rounded: bool = True,
+    button_cls: str = "",
+    wrapper_cls: str = "",
     **kwargs
 ) -> FT:
     button_id = f"btn-{name}"
     dropdown_id = f"dropdown-{name}"
-    selected_value = current_value or ""
 
     color_map = {
         'green': "bg-green-100 text-green-800 hover:bg-green-200 dark:bg-green-900 dark:text-green-200 dark:hover:bg-green-800",
         'red': "bg-red-100 text-red-800 hover:bg-red-200 dark:bg-red-900 dark:text-red-200 dark:hover:bg-red-800",
         'blue': "bg-blue-100 text-blue-800 hover:bg-blue-200 dark:bg-blue-900 dark:text-blue-200 dark:hover:bg-blue-800",
     }
-    base_classes = (
-        "inline-flex items-center justify-center "
-        "h-8 px-3 "
-        "gap-x-2 "
-        "rounded-full "
-        "text-sm font-bold normal-case "
-        "transition-colors duration-150"
-    )
+
+    base_classes = [
+        "inline-flex",
+        "gap-x-2",
+        "transition-colors",
+        "duration-150",
+        "text-sm",
+        "font-bold",
+        "normal-case",
+    ]
+
+    if display_mode == "stacked":
+        base_classes.extend([
+            "items-start",
+            "justify-between",
+            "px-4",
+            "py-2",
+            "w-full",
+            "text-left",
+            "min-h-[3.25rem]",
+            "leading-tight",
+        ])
+    else:
+        base_classes.extend([
+            "items-center",
+            "justify-center",
+            "h-8",
+            "px-3",
+        ])
+
+    if rounded:
+        base_classes.append("rounded-full")
+
     default_style_classes = color_map[color] if color in color_map else "bg-transparent hover:bg-gray-200 dark:hover:bg-gray-700"
 
     resolved_value = current_value or ""
@@ -103,14 +133,44 @@ def DropdownContextButton(
         value=resolved_value
     )
 
-    button_children = []
-    if icon_name:
-        button_children.append(UkIcon(icon_name, cls="w-4 h-4"))
-    button_children.append(Span(selected_label or label_text, cls="hidden sm:inline"))
-    button_children.append(UkIcon("chevron-down", cls="w-3 h-3 ml-1"))
+    placeholder = placeholder_text or label_text
+    display_value = selected_label or placeholder
+
+    button_children: List[FT] = []
+
+    if display_mode == "stacked":
+        title_content = title_text or label_text
+        button_children.append(
+            Div(
+                Span(
+                    title_content,
+                    cls="text-[11px] font-semibold uppercase text-gray-500 tracking-wide"
+                ),
+                Span(
+                    display_value,
+                    cls="text-sm font-semibold text-gray-900",
+                    data_role="dropdown-value"
+                ),
+                cls="flex flex-col items-start gap-y-0.5"
+            )
+        )
+        button_children.append(UkIcon("chevron-down", cls="w-3 h-3 ml-2 mt-0.5"))
+    else:
+        if icon_name:
+            button_children.append(UkIcon(icon_name, cls="w-4 h-4"))
+        button_children.append(
+            Span(display_value, cls="hidden sm:inline", data_role="dropdown-value")
+        )
+        button_children.append(UkIcon("chevron-down", cls="w-3 h-3 ml-1"))
 
     data_context = kwargs.pop('data_context', None)
     data_attributes = {'data-context': data_context} if data_context else {}
+
+    button_class = " ".join(base_classes + [style_classes, button_cls]).strip()
+
+    wrapper_base_cls = "relative flex" if display_mode == "stacked" else "relative inline-flex"
+    if wrapper_cls:
+        wrapper_base_cls = f"{wrapper_base_cls} {wrapper_cls}".strip()
 
     return Div(
         hidden_input,
@@ -118,9 +178,10 @@ def DropdownContextButton(
             *button_children,
             id=button_id,
             data_original_text=label_text,
+            data_placeholder_text=placeholder,
             onclick=f"toggleDropdown('{dropdown_id}')",
             type="button",
-            cls=f"{base_classes} {style_classes} {kwargs.pop('cls', '')}"
+            cls=button_class
         ),
         Div(
             *[Button(
@@ -139,9 +200,9 @@ def DropdownContextButton(
             id=dropdown_id,
             cls=("absolute bottom-full left-0 mb-1 bg-base-200 border border-base-300 "
                  "rounded-xl shadow-lg z-50 w-auto whitespace-nowrap overflow-hidden"),
-            style="display: none;"
+            style="display: none;",
         ),
-        cls="relative inline-flex",
+        cls=wrapper_base_cls,
         **data_attributes,
         **kwargs
     )
@@ -163,7 +224,7 @@ def render_compliance_subsection(title: str, check: ComplianceCheck):
         cls="flex items-center gap-x-3 px-3 py-2"
     )
 
-def render_compliance_section(title: str, icon_name: str, subsections: List[FT], all_checks: List[ComplianceCheck], context_name: str, comment: Optional[str]):
+def render_compliance_section(title: str, icon_name: str, subsections: List[FT], all_checks: List[ComplianceCheck], context_name: str, comment: Optional[str], decision: Optional[str] = None):
     """Renders a main compliance category with its subsections and a read-only comment area."""
 
     relevant_checks = [c for c in all_checks if c.is_relevant]
@@ -181,6 +242,24 @@ def render_compliance_section(title: str, icon_name: str, subsections: List[FT],
             f"{len([c for c in relevant_checks if c.is_met])}/{len(relevant_checks)} alapunkti täidetud"
             if relevant_checks else "Otsus"
         )
+
+    if context_name == "otsus":
+        decision_display = decision or "Otsus valimata"
+        if decision:
+            decision_display = f"Otsus: {decision}"
+        status_text = decision_display
+        if decision == "Anda":
+            border_cls = "border-green-500"
+            accent_bar_cls = "bg-green-500"
+            status_icon = UkIcon("check-circle", cls="w-5 h-5 text-green-500")
+        elif decision == "Mitte anda":
+            border_cls = "border-red-500"
+            accent_bar_cls = "bg-red-500"
+            status_icon = UkIcon("x-circle", cls="w-5 h-5 text-red-500")
+        else:
+            border_cls = "border-gray-300"
+            accent_bar_cls = "bg-gray-300"
+            status_icon = UkIcon("minus", cls="w-5 h-5 text-gray-500")
 
     header = Div(
         Div(cls=f"w-1.5 h-full absolute left-0 top-0 {accent_bar_cls}"),
@@ -233,7 +312,7 @@ def render_compliance_dashboard(state: ComplianceDashboardState) -> FT:
         render_compliance_section("Haridus", "book-open", education_subsections, [state.education], "haridus", state.haridus_comment),
         render_compliance_section("Töökogemus", "briefcase", experience_subsections, [state.total_experience, state.matching_experience], "tookogemus", state.tookogemus_comment),
         render_compliance_section("Koolitus", "award", training_subsections, [state.base_training, state.conditional_training, state.manager_training, state.cpd_training], "koolitus", state.koolitus_comment),
-        render_compliance_section("Otsus", "list-checks", [], [], "otsus", state.otsus_comment),
+        render_compliance_section("Otsus", "list-checks", [], [], "otsus", state.otsus_comment, state.final_decision),
         cls="p-4 space-y-4"
     )
 
@@ -286,7 +365,39 @@ def render_center_panel(qual_data: Dict, user_data: Dict, state: ComplianceDashb
         education_old_or_foreign_value = "on"
 
     final_decision_value = getattr(state, "final_decision", "")
-    
+
+    haridus_split_control = Div(
+        DropdownContextButton(
+            icon_name=None,
+            label_text="Vali",
+            dropdown_options=education_dropdown_options,
+            name="education_level",
+            current_value=education_current_value,
+            display_mode="stacked",
+            title_text="Haridus",
+            placeholder_text="Vali",
+            rounded=False,
+            button_cls="items-start",
+            wrapper_cls="flex-1"
+        ),
+        Div(cls="w-px bg-base-300 self-stretch"),
+        DropdownContextButton(
+            icon_name=None,
+            label_text="Ei",
+            dropdown_options={"on": "Jah", "": "Ei"},
+            name="education_old_or_foreign",
+            current_value=education_old_or_foreign_value,
+            display_mode="stacked",
+            title_text=">10/F",
+            placeholder_text="Ei",
+            rounded=False,
+            button_cls="items-start",
+            wrapper_cls="flex min-w-[7rem]"
+        ),
+        data_context="haridus",
+        cls="flex items-stretch rounded-full border border-base-300 bg-white shadow-sm"
+    )
+
     final_decision_area = Form(
         Input(type="hidden", name="active_context", id="active-context-input"),
         Div(
@@ -300,31 +411,17 @@ def render_center_panel(qual_data: Dict, user_data: Dict, state: ComplianceDashb
                 ),
                 Div(
                     Div(
-                        # Redesigned Haridus Button
-                        Div(
-                            DropdownContextButton(
-                                icon_name=None, label_text=">10a / välis",
-                                dropdown_options={"on": "Jah", "": "Ei"}, name="education_old_or_foreign",
-                                data_context="haridus",
-                                current_value=education_old_or_foreign_value
-                            ),
-                            DropdownContextButton(
-                                icon_name="book-open", label_text="Haridus",
-                                dropdown_options=education_dropdown_options, name="education_level",
-                                data_context="haridus",
-                                current_value=education_current_value
-                            ),
-                            cls="flex items-center"
-                        ),
+                        haridus_split_control,
                         ContextButton(icon_name="briefcase", label_text="Töökogemus", data_context="tookogemus"),
                         ContextButton(icon_name="award", label_text="Täiendkoolitus", data_context="koolitus"),
                         DropdownContextButton(
                             icon_name="list-checks", label_text="Otsus",
                             dropdown_options={"Anda": "Anda", "Mitte anda": "Mitte anda"}, name="final_decision",
                             data_context="otsus",
-                            current_value=final_decision_value
+                            current_value=final_decision_value,
+                            placeholder_text="Vali otsus"
                         ),
-                        cls="flex flex-wrap items-center gap-x-2"
+                        cls="flex flex-wrap items-center gap-2"
                     ),
                     ContextButton(icon_name="send", label_text=""),
                     cls="flex flex-wrap items-center justify-between gap-x-2 p-2 bg-base-100 rounded-b-lg"
@@ -359,9 +456,9 @@ def render_center_panel(qual_data: Dict, user_data: Dict, state: ComplianceDashb
 
                 window.selectDropdownOption = function(buttonId, optionText, optionValue) {
                     const button = document.getElementById(buttonId);
-                    const span = button ? button.querySelector('span') : null;
+                    const valueSpan = button ? button.querySelector('[data-role="dropdown-value"]') : null;
                     const hiddenInput = document.getElementById(`hidden-${buttonId}`);
-                    if (!button || !span || !hiddenInput) return;
+                    if (!button || !valueSpan || !hiddenInput) return;
 
                     hiddenInput.value = optionValue;
 
@@ -378,12 +475,13 @@ def render_center_panel(qual_data: Dict, user_data: Dict, state: ComplianceDashb
                     );
 
                     let appliedClasses = [];
+                    const placeholderText = button.dataset.placeholderText || button.dataset.originalText || '';
 
                     if (!optionValue) {
-                        span.textContent = button.dataset.originalText;
+                        valueSpan.textContent = placeholderText;
                         appliedClasses = defaultClasses;
                     } else {
-                        span.textContent = optionText;
+                        valueSpan.textContent = optionText;
                         if (buttonId.includes('final_decision')) {
                             appliedClasses = optionValue === 'Anda' ? greenClasses : redClasses;
                         } else {
@@ -442,12 +540,15 @@ def render_center_panel(qual_data: Dict, user_data: Dict, state: ComplianceDashb
 
                         document.querySelectorAll('#final-decision-area [data-context]').forEach(el => {
                             const isActive = !!contextName && el.dataset.context === contextName;
-                            const highlightTarget = el.matches('button') ? el : el.querySelector('button');
-                            if (!highlightTarget) return;
-                            highlightTarget.classList.toggle('bg-blue-100', isActive);
-                            highlightTarget.classList.toggle('dark:bg-blue-900', isActive);
-                            highlightTarget.classList.toggle('ring-2', isActive);
-                            highlightTarget.classList.toggle('ring-blue-500', isActive);
+                            if (el.matches('button')) {
+                                ['bg-blue-100', 'dark:bg-blue-900', 'ring-2', 'ring-blue-500'].forEach(cls => {
+                                    el.classList.toggle(cls, isActive);
+                                });
+                            } else {
+                                ['ring-2', 'ring-blue-500', 'ring-offset-1', 'ring-offset-white', 'dark:ring-offset-slate-900', 'shadow-md'].forEach(cls => {
+                                    el.classList.toggle(cls, isActive);
+                                });
+                            }
                         });
                     },
                     loadCommentForActiveContext() {
@@ -471,6 +572,18 @@ def render_center_panel(qual_data: Dict, user_data: Dict, state: ComplianceDashb
                 dashboard.applyHighlights();
                 dashboard.loadCommentForActiveContext();
                 window.evDashboard = dashboard;
+
+                const textarea = dashboard.getMainCommentBox();
+                if (textarea && !textarea.dataset.contextBindingAttached) {
+                    const ensureDecisionContext = () => {
+                        if (!window.evDashboard.currentContext) {
+                            window.evDashboard.setActiveContext('otsus');
+                        }
+                    };
+                    textarea.addEventListener('focus', ensureDecisionContext);
+                    textarea.addEventListener('input', ensureDecisionContext);
+                    textarea.dataset.contextBindingAttached = 'true';
+                }
 
                 if (!window.evDashboardListenersAttached) {
                     document.addEventListener('click', function(event) {
