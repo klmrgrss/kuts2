@@ -14,6 +14,8 @@ from ui.evaluator_v2.center_panel import render_compliance_dashboard
 QUALIFICATION_LEVEL_TO_RULE_ID = {
     "Ehituse tööjuht, TASE 5": "toojuht_tase_5",
     "Ehitusjuht, TASE 6": "ehitusjuht_tase_6",
+    "toojuht_tase_5": "toojuht_tase_5",
+    "ehitusjuht_tase_6": "ehitusjuht_tase_6",
 }
 
 class EvaluatorWorkbenchController:
@@ -21,82 +23,90 @@ class EvaluatorWorkbenchController:
         self.db = db
         self.evaluations_table = db.t.evaluations
         self.validation_engine = validation_engine
-        self.main_controller = main_controller # Reference to the main controller
+        self.main_controller = main_controller 
 
     async def re_evaluate_application(self, request: Request, qual_id: str):
         print("\n--- [DEBUG] ENTERING RE-EVALUATION ENDPOINT ---")
         try:
-            user_email, level, activity = qual_id.split('-', 2)
+            user_email, level, activity = qual_id.split(':::', 2)
             form_data = await request.form()
             
             print(f"--- [DEBUG] Raw form data received: {form_data}")
 
-            # --- Restore previous state or create a new one ---
+            # 1. Restore previous state
             try:
                 saved_evaluation = self.evaluations_table.get(qual_id)
                 saved_state_data = json.loads(saved_evaluation['evaluation_state_json'])
                 best_state = self.validation_engine.dict_to_state(saved_state_data)
-                print(f"--- [DEBUG] Loaded existing evaluation state for {qual_id}")
             except (NotFoundError, json.JSONDecodeError):
-                best_state = None # Will trigger re-validation later
-                print(f"--- [DEBUG] No existing state found for {qual_id}. Will create new.")
+                # If no state, perform initial validation
+                applicant_data = self.main_controller._get_applicant_data_for_validation(user_email)
+                qualification_rule_id = QUALIFICATION_LEVEL_TO_RULE_ID.get(level, "toojuht_tase_5")
+                all_states = self.validation_engine.validate(applicant_data, qualification_rule_id)
+                best_state = next((s for s in all_states if s.overall_met), all_states[0])
 
-            # --- Get evaluator input from form ---
+            # 2. Get evaluator inputs from form
             selected_education = form_data.get("education_level")
             is_old_or_foreign = form_data.get("education_old_or_foreign") == "on"
             comment = form_data.get("main_comment")
             active_context = form_data.get("active_context")
             final_decision = form_data.get("final_decision")
 
-            print(
-                f"--- [DEBUG] Evaluator Inputs: Education='{selected_education}', Old/Foreign={is_old_or_foreign}, "
-                f"Final decision='{final_decision}', Context='{active_context}' ---"
-            )
-            
-            # --- Get base applicant data ---
-            applicant_data = self.main_controller._get_applicant_data_for_validation(user_email)
-            
-            # --- If state has changed, re-run validation ---
-            # A change is defined as a new education selection or a change in the old/foreign flag.
-            has_state_changed = (best_state is None) or \
-                                (selected_education is not None and applicant_data.education != selected_education) or \
-                                (applicant_data.is_education_old_or_foreign != is_old_or_foreign)
+            # 3. Detect changes in overrides
+            # Compare current form values with what's in the state (not original applicant data)
+            current_edu = best_state.education.provided if best_state.education else "any"
+            current_old_foreign = bool(best_state.education_old_or_foreign)
 
-            if has_state_changed:
-                print("--- [DEBUG] State has changed. Re-running full validation.")
-                applicant_data.education = selected_education or "any"
+            # If selected_education is empty string (from dropdown), we interpret it as a specific choice
+            # but we need to check if it has changed from the CURRENT state.
+            has_override_changed = (selected_education is not None and selected_education != current_edu) or \
+                                   (is_old_or_foreign != current_old_foreign)
+
+            if has_override_changed:
+                print(f"--- [DEBUG] Override changed: {current_edu} -> {selected_education}")
+                # Re-run validation with the new override
+                applicant_data = self.main_controller._get_applicant_data_for_validation(user_email)
+                if selected_education is not None:
+                    applicant_data.education = selected_education or "any"
                 applicant_data.is_education_old_or_foreign = is_old_or_foreign
 
                 qualification_rule_id = QUALIFICATION_LEVEL_TO_RULE_ID.get(level, "toojuht_tase_5")
                 all_states = self.validation_engine.validate(applicant_data, qualification_rule_id)
-                new_best_state = next((s for s in all_states if s.overall_met), all_states[0])
+                
+                # Sorter: Prioritize states that match the criteria better
+                # 1. Overall Met
+                # 2. Has Education Requirement (if we just changed education)
+                def state_sort_key(s):
+                    # We want overall_met=True first
+                    score = 0
+                    if s.overall_met: score += 100
+                    if s.education.is_relevant: score += 1
+                    return score
 
-                # Preserve comments from the old state if it existed
-                if best_state:
-                    new_best_state.haridus_comment = best_state.haridus_comment
-                    new_best_state.tookogemus_comment = best_state.tookogemus_comment
-                    new_best_state.koolitus_comment = best_state.koolitus_comment
-                    new_best_state.otsus_comment = best_state.otsus_comment
-                    new_best_state.final_decision = getattr(best_state, "final_decision", None)
+                sorted_states = sorted(all_states, key=state_sort_key, reverse=True)
+                new_best_state = sorted_states[0]
+
+                # Preserve carry-over data (comments and decisions)
+                new_best_state.haridus_comment = best_state.haridus_comment
+                new_best_state.tookogemus_comment = best_state.tookogemus_comment
+                new_best_state.koolitus_comment = best_state.koolitus_comment
+                new_best_state.otsus_comment = best_state.otsus_comment
+                new_best_state.final_decision = best_state.final_decision
 
                 best_state = new_best_state
-                print(f"--- [DEBUG] New best validation state: Package '{best_state.package_id}', Met: {best_state.overall_met}")
-            else:
-                print("--- [DEBUG] State has not changed. Only updating comments.")
-
-            if best_state:
-                if selected_education is not None and hasattr(best_state, "education"):
-                    best_state.education.provided = selected_education or best_state.education.provided
-                best_state.education_old_or_foreign = is_old_or_foreign
-                best_state.final_decision = final_decision or None
-
-            # --- Update comments based on active context ---
+            
+            # 4. Update the active context's comment if provided
             if active_context and comment is not None:
                 comment_field_name = f"{active_context}_comment"
                 if hasattr(best_state, comment_field_name):
                     setattr(best_state, comment_field_name, comment)
-                    print(f"--- [DEBUG] Updated comment for '{active_context}': '{comment[:30]}...'")
+                    print(f"--- [DEBUG] Updated comment for '{active_context}'")
 
+            # 5. Update final decision if provided
+            if final_decision is not None:
+                best_state.final_decision = final_decision or None
+
+            # 6. Final Sync & Save
             self._save_evaluation_state(qual_id, request.session.get("user_email"), best_state)
             
             return render_compliance_dashboard(best_state)
@@ -116,14 +126,12 @@ class EvaluatorWorkbenchController:
                     "evaluation_state_json": json.dumps(state_dict),
                     "updated_at": str(datetime.datetime.now())
                 }, pk_values=qual_id)
-                print(f"--- [DEBUG] Updated evaluation state for {qual_id}")
             except NotFoundError:
                 self.evaluations_table.insert({
                     "qual_id": qual_id,
                     "evaluator_email": evaluator_email,
                     "evaluation_state_json": json.dumps(state_dict)
                 }, pk='qual_id')
-                print(f"--- [DEBUG] Inserted new evaluation state for {qual_id}")
 
         except Exception as db_error:
             print(f"--- [ERROR] Failed to save evaluation state for {qual_id}: {db_error}")

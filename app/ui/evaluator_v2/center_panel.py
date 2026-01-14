@@ -432,7 +432,7 @@ def render_center_panel(qual_data: Dict, user_data: Dict, state: ComplianceDashb
         ),
         id="final-decision-area",
         hx_post=f"/evaluator/d/re-evaluate/{qual_id}",
-        hx_trigger="change delay:500ms, keyup delay:500ms from:#main-comment-textarea",
+        hx_trigger="submit, change",
         hx_target="#compliance-dashboard-container",
         hx_swap="innerHTML",
         cls="pb-4 pt-2 bg-white"

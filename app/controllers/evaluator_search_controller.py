@@ -36,7 +36,7 @@ class EvaluatorSearchController:
                 total_specialisations = len(kt.get(level, {}).get(activity, []))
 
                 flattened_data.append({
-                    "qual_id": f"{user_email}-{level}-{activity}",
+                    "qual_id": f"{user_email}:::{level}:::{activity}",
                     "applicant_name": applicant_name,
                     "qualification_name": activity,
                     "level": level,

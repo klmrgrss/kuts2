@@ -16,6 +16,9 @@ from config.qualification_data import kt
 QUALIFICATION_LEVEL_TO_RULE_ID = {
     "Ehituse tööjuht, TASE 5": "toojuht_tase_5",
     "Ehitusjuht, TASE 6": "ehitusjuht_tase_6",
+    # Slugs/IDs as well for robustness
+    "toojuht_tase_5": "toojuht_tase_5",
+    "ehitusjuht_tase_6": "ehitusjuht_tase_6",
 }
 
 class EvaluatorController:
@@ -57,7 +60,8 @@ class EvaluatorController:
 
     def show_v2_application_detail(self, request: Request, qual_id: str):
         try:
-            user_email, level, activity = qual_id.split('-', 2)
+            # Use fixed separator
+            user_email, level, activity = qual_id.split(':::', 2)
 
             try:
                 saved_evaluation = self.evaluations_table.get(qual_id)
@@ -96,6 +100,15 @@ class EvaluatorController:
             return Div(f"Error: {e}", id="ev-center-panel", hx_swap_oob="true"), Div(id="ev-right-panel", hx_swap_oob="true")
 
     def _get_applicant_data_for_validation(self, user_email: str) -> ApplicantData:
+        # 1. Fetch Education from DB
+        user_education = self.db.t.education("user_email=?", [user_email])
+        best_edu = "any"
+        if user_education:
+            from logic.validator import EDUCATION_HIERARCHY
+            sorted_edu = sorted(user_education, key=lambda x: EDUCATION_HIERARCHY.get(x.get('education_category', 'any'), 0), reverse=True)
+            best_edu = sorted_edu[0].get('education_category', 'any')
+
+        # 2. Fetch Work Experience
         work_experiences = self.work_exp_table("user_email=?", [user_email])
         total_years = calculate_total_experience_years([
             (datetime.datetime.strptime(exp['start_date'], '%Y-%m').date(),
@@ -104,7 +117,7 @@ class EvaluatorController:
         ])
         
         return ApplicantData(
-            education="any",
+            education=best_edu,
             work_experience_years=total_years,
             matching_experience_years=total_years,
             has_prior_level_4=True, base_training_hours=40, manager_training_hours=30,
