@@ -37,6 +37,14 @@ def landing_page_navbar() -> FT:
 def public_navbar() -> FT:
     return Div( Div( A( UkIcon( "brick-wall", width=24, height=24, cls="inline-block mr-2 align-middle text-pink-500" ), H4("Ehitamise valdkonna kutsete taotlemine", cls="inline-block align-middle"), href="/", cls="flex items-center" ), cls="flex items-center" ), Div( A(Button("Logi sisse", cls=ButtonT.ghost), href="/login"), A(Button("Registreeru", cls=ButtonT.secondary), href="/register"), cls="flex items-center space-x-2" ), cls="flex justify-between items-center p-4 bg-background border-b border-border shadow-sm" )
 
+# --- Theme Toggle ---
+def ThemeToggle() -> FT:
+    return Button(
+        UkIcon("moon", cls="dark:hidden w-5 h-5"),
+        UkIcon("sun", cls="hidden dark:block w-5 h-5 text-yellow-400"),
+        onclick="toggleTheme()",
+        cls=ButtonT.ghost + " rounded-full p-2 ml-2"
+    )
 
 # --- app_navbar ---
 def app_navbar(request: Request, db: Any) -> FT:
@@ -87,6 +95,7 @@ def app_navbar(request: Request, db: Any) -> FT:
     )
 
     wide_screen_right = Div(
+        ThemeToggle(),
         evaluator_chip,
         A(
             UkIcon("user", cls="inline-block mr-2 align-middle"),
@@ -109,6 +118,7 @@ def app_navbar(request: Request, db: Any) -> FT:
             A(UkIcon("brick-wall", width=28, height=28, cls="text-pink-500"), href="/dashboard"),
             cls="flex-none"
         ),
+        ThemeToggle(),
         Div(
             A(
                 UkIcon("user", cls="inline-block mr-1 align-middle"),
@@ -208,6 +218,7 @@ def evaluator_navbar(request: Request, db: Any) -> FT:
             cls="flex items-center"
         ),
         Div(
+            ThemeToggle(),
             A(
                 UkIcon("user", cls="inline-block mr-2 align-middle"),
                 Span(display_name, cls="text-sm"),

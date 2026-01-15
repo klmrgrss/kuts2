@@ -53,7 +53,6 @@ def base_layout(title: str, *content: Any, theme_headers: tuple = Theme.blue.hea
         Script(src=flatpickr_locale_et_js_cdn),
         Script(src=flatpickr_month_plugin_js_cdn),
         Script(src="/static/js/tab_scroll.js", defer=True),
-        Script(src="/static/js/education_form.js", defer=True),
         Script(src="/static/js/form_validator.js", defer=True),
         Script(src="/static/js/flatpickr_init.js", defer=True),
         Script(src="/static/js/qualification_scroll.js", defer=True),
@@ -73,6 +72,19 @@ def base_layout(title: str, *content: Any, theme_headers: tuple = Theme.blue.hea
                     summary { list-style: none; } /* For Firefox */
                     summary::-webkit-details-marker { display: none; } /* For Chrome, Safari */
                     """),
+        Script("""
+        // Immediate theme application to prevent FOUC
+        (function() {
+            var isDark = localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches);
+            if (isDark) document.documentElement.classList.add('dark');
+            else document.documentElement.classList.remove('dark');
+        })();
+        
+        function toggleTheme() {
+            var isDark = document.documentElement.classList.toggle('dark');
+            localStorage.theme = isDark ? 'dark' : 'light';
+        }
+        """)
     ])
     return Html( Head( Meta(charset="UTF-8"), Meta(name="viewport", content="width=device-width, initial-scale=1.0"), Title(title, id="page-title"), *all_hdrs ), Body( *content, Div(id="toast-container"), cls="bg-background text-foreground" ), lang="et" )
 
@@ -93,7 +105,7 @@ def app_layout(request: Request, title: str, content: Any, active_tab: str, db: 
     )
     main_content_container = Container(
         Div(content, id="tab-content-container"),
-        cls=f"{ContainerT.xl} pt-8 md:max-w-screen-md md:mx-auto"
+        cls=f"{ContainerT.xl} pt-8 w-full {container_class} md:mx-auto"
     )
 
     footer_container = Div(footer, id="footer-container") if footer else Div(id="footer-container")

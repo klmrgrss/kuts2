@@ -1,4 +1,4 @@
-# controllers/work_experience.py
+# app/controllers/work_experience.py
 from fasthtml.common import *
 from starlette.requests import Request
 from starlette.responses import Response, RedirectResponse
@@ -7,149 +7,103 @@ from ui.layouts import app_layout, ToastAlert
 from ui.nav_components import tab_nav
 from .utils import get_badge_counts
 from monsterui.all import *
-import traceback
-from typing import List, Optional
-
-# Import the V2 view and the data model
 from ui.work_experience_view_v2 import render_work_experience_form_v2
 from models import WorkExperience
-
+from utils.log import log, error
 
 class WorkExperienceController:
-    def __init__(self, db):
+    def __init__(self, db): 
         self.db = db
-        self.experience_table = db.t.work_experience
-        self.applied_qual_table = db.t.applied_qualifications
+        self.exp_tbl = db.t.work_experience
+        self.qual_tbl = db.t.applied_qualifications
 
-    def _get_saved_activities(self, user_email: str) -> list[str]:
-        activities = []
+    def _get_activities(self, uid: str) -> list[str]:
         try:
-            all_quals = self.applied_qual_table(order_by='id')
-            user_quals = [q for q in all_quals if q.get('user_email') == user_email]
-            activities = sorted(list(set(q.get('qualification_name') for q in user_quals if q.get('qualification_name'))))
+            quals = self.qual_tbl('user_email = ?', [uid])
+            return sorted({q['qualification_name'] for q in quals if q.get('qualification_name')})
         except Exception as e:
-            print(f"--- ERROR fetching saved activities for {user_email}: {e} ---")
-        return activities
+            error(f"Act fetch error {uid}: {e}")
+            return []
 
-    def show_workex_tab(self, request: Request, experience_to_edit: Optional[dict] = None):
-        user_email = request.session.get("user_email")
-        if not user_email: return Div("Authentication Error", cls="text-red-500 p-4")
-        
-        page_title = "Töökogemus | Ehitamise valdkonna kutsete taotlemine"
-        badge_counts = get_badge_counts(self.db, user_email)
-        available_activities = self._get_saved_activities(user_email)
-        
-        work_experience_content = None
-        footer = None
+    def show_workex_tab(self, req: Request, edit_data: dict = None):
+        uid = req.session.get("user_email")
+        if not uid: return Div("Autentimisviga", cls="text-red-500 p-4")
 
-        if not available_activities:
-            warning_message = Card(CardBody(P("Enne töökogemuse lisamist vali tegevusalad 'Taotletavad kutsed' lehel.", cls="text-warning text-center"), A(Button("Vali kutsed", cls="btn btn-secondary mt-4"), href="/app/kutsed")), cls="border-warning")
-            work_experience_content = Div(warning_message, cls="max-w-5xl mx-auto")
+        acts = self._get_activities(uid)
+        content, footer = None, None
+        
+        if not acts:
+            content = Div(Card(CardBody(P("Enne töökogemuse lisamist vali tegevusalad 'Kutsed' lehel.", cls="text-warning text-center"), A(Button("Vali kutsed", cls="btn btn-secondary mt-4"), href="/app/kutsed")), cls="border-warning"), cls="max-w-5xl mx-auto")
         else:
-            experiences = [exp for exp in self.experience_table(order_by='id') if exp.get('user_email') == user_email]
+            exps = self.exp_tbl('user_email = ?', [uid])
+            sel_act = req.query_params.get('activity')
+            if not sel_act and not edit_data and len(acts) == 1: sel_act = acts[0]
             
-            selected_activity = request.query_params.get('activity')
-            
-            if request.method == "GET" and not selected_activity and not experience_to_edit and available_activities:
-                 if len(available_activities) == 1:
-                     selected_activity = available_activities[0]
-
-            work_experience_content, footer = render_work_experience_form_v2(
-                available_activities=available_activities, 
-                experiences=experiences, 
-                experience=experience_to_edit, 
-                selected_activity=selected_activity
+            content, footer = render_work_experience_form_v2(
+                available_activities=acts, 
+                experiences=exps, 
+                experience=edit_data, 
+                selected_activity=sel_act
             )
 
-        if request.headers.get('HX-Request'):
-            updated_tab_nav = tab_nav(active_tab="workex", request=request, badge_counts=badge_counts)
-            oob_footer = Div(footer, id="footer-container", hx_swap_oob="innerHTML") if footer else Div(id="footer-container", hx_swap_oob="innerHTML")
-            return work_experience_content, oob_footer, Div(updated_tab_nav, id="tab-navigation-container", hx_swap_oob="outerHTML"), Title(page_title, id="page-title", hx_swap_oob="innerHTML")
-        else:
-            return app_layout(
-                request=request, 
-                title=page_title, 
-                content=work_experience_content, 
-                footer=footer,
-                active_tab="workex", 
-                badge_counts=badge_counts, 
-                container_class="max-w-7xl",
-                db=self.db # <-- THE FIX IS HERE
-            )
+        if req.headers.get('HX-Request'):
+             counts = get_badge_counts(self.db, uid)
+             ft = Div(footer, id="footer-container", hx_swap_oob="innerHTML") if footer else Div(id="footer-container", hx_swap_oob="innerHTML")
+             return content, ft, Div(tab_nav("workex", req, counts), id="tab-navigation-container", hx_swap_oob="outerHTML"), Title("Töökogemus | Taotlemine", id="page-title", hx_swap_oob="innerHTML")
 
-    def show_workex_edit_form(self, request: Request, experience_id: int):
-        user_email = request.session.get("user_email")
-        if not user_email: return Div("Authentication Error", cls="text-red-500 p-4")
+        return app_layout(req, "Töökogemus | Taotlemine", content, "workex", self.db, footer=footer, badge_counts=get_badge_counts(self.db, uid), container_class="max-w-7xl")
+
+    def show_workex_edit_form(self, req: Request, eid: int):
+        uid = req.session.get("user_email")
+        if not uid: return Div("Autentimisviga", cls="text-red-500 p-4")
         try:
-            experience_data = self.experience_table[experience_id]
-            if experience_data.get('user_email') != user_email: return Div("Access Denied", cls="text-red-500 p-4")
-            return self.show_workex_tab(request, experience_to_edit=experience_data)
-        except NotFoundError:
-            return Div(f"Error: Work experience with ID {experience_id} not found.", cls="text-red-500 p-4")
+            row = self.exp_tbl[eid]
+            if row['user_email'] != uid: return Div("Ligipääs puudub", cls="text-red-500")
+            return self.show_workex_tab(req, edit_data=row)
+        except NotFoundError: return Div("Kirjet ei leitud", cls="text-red-500")
 
-    async def save_workex_experience(self, request: Request):
-        user_email = request.session.get("user_email")
-        if not user_email: return Response("Authentication Error", status_code=403)
-
-        form_data = await request.form()
-        print(f"--- DEBUG [save_workex_experience]: Raw form data received: {form_data} ---")
-
-        experience_id_str = form_data.get("experience_id")
-        is_edit = experience_id_str and experience_id_str != 'None' and experience_id_str.isdigit()
-        experience_id = int(experience_id_str) if is_edit else None
-
-        model_fields = [f.name for f in WorkExperience.__dataclass_fields__.values()]
-        experience_data = {
-            key: form_data.get(key) for key in model_fields if form_data.get(key) is not None
-        }
+    async def save_workex_experience(self, req: Request):
+        uid = req.session.get("user_email")
+        if not uid: return Response("Autentimisviga", 403)
         
-        start_date = form_data.get("start_date")
-        if start_date is not None:
-            experience_data['start_date'] = start_date
-        end_date = form_data.get("end_date")
-        if end_date is not None:
-            experience_data['end_date'] = end_date
-
-        experience_data['user_email'] = user_email
-        experience_data['permit_required'] = 1 if form_data.get("permit_required") == 'on' else 0
-        
-        required_fields = ["role"]
-        if any(not experience_data.get(field) for field in required_fields):
-            return RedirectResponse("/app/workex?error=missing_fields", status_code=303)
-
         try:
+            form = await req.form()
+            eid_str = form.get("experience_id")
+            is_edit = eid_str and eid_str != 'None' and eid_str.isdigit()
+            eid = int(eid_str) if is_edit else None
+
+            # Dynamic field mapping
+            data = {k: form.get(k) for k in WorkExperience.__dataclass_fields__ if form.get(k) is not None}
+            data.update({
+                'user_email': uid,
+                'permit_required': 1 if form.get("permit_required") == 'on' else 0,
+                'start_date': form.get("start_date"), # Explicit to ensure no overwrite if None? original logic overwrite if not None.
+                'end_date': form.get("end_date")
+            })
+            if not data['start_date']: data.pop('start_date', None)
+            if not data['end_date']: data.pop('end_date', None)
+
+            if not data.get("role"): return RedirectResponse("/app/workex?error=missing_fields", 303)
+
             if is_edit:
-                current_record = self.experience_table[experience_id]
-                if current_record.get('user_email') != user_email: return Response("Forbidden", status_code=403)
-                self.experience_table.update(experience_data, id=experience_id)
+                if self.exp_tbl[eid]['user_email'] != uid: return Response("Forbidden", 403)
+                self.exp_tbl.update(data, id=eid)
             else:
-                experience_data.pop('id', None)
-                self.experience_table.insert(experience_data)
+                data.pop('id', None)
+                self.exp_tbl.insert(data)
+                
+            return self.show_workex_tab(req)
         except Exception as e:
-            traceback.print_exc()
-            return RedirectResponse("/app/workex?error=save_failed", status_code=303)
+            error(f"Workex save error {uid}: {e}")
+            return RedirectResponse("/app/workex?error=save_failed", 303)
 
-        return self.show_workex_tab(request)
-
-    def delete_workex_experience(self, request: Request, experience_id: int):
-        user_email = request.session.get("user_email")
-        if not user_email:
-            return ToastAlert("Authentication Error", alert_type="error")
-
+    def delete_workex_experience(self, req: Request, eid: int):
+        uid = req.session.get("user_email")
+        if not uid: return ToastAlert("Autentimine vajalik", alert_type="error")
         try:
-            experience_to_delete = self.experience_table[experience_id]
-            if experience_to_delete.get('user_email') != user_email:
-                return ToastAlert("Access Denied", alert_type="error")
-
-            self.experience_table.delete(experience_id)
-            print(f"--- [DELETE WORKEX] Successfully deleted record ID: {experience_id} for user {user_email}")
-
-            return self.show_workex_tab(request)
-
-        except NotFoundError:
-            print(f"--- ERROR [DELETE WORKEX] Record ID: {experience_id} not found.")
-            return self.show_workex_tab(request)
+            if self.exp_tbl[eid]['user_email'] != uid: return ToastAlert("Ligipääs puudub", alert_type="error")
+            self.exp_tbl.delete(eid)
+            return self.show_workex_tab(req)
         except Exception as e:
-            print(f"--- ERROR [DELETE WORKEX] Failed to delete record ID: {experience_id}. Error: {e}")
-            traceback.print_exc()
-            return ToastAlert("Kustutamine ebaõnnestus.", alert_type="error")
+            error(f"Workex del error {uid}: {e}")
+            return ToastAlert("Kustutamine ebaõnnestus", alert_type="error")

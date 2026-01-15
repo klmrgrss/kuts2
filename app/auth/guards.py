@@ -36,31 +36,39 @@ def require_role(*roles: str) -> Callable[[GuardedHandler], GuardedHandler]:
     allowed = allowed_roles(*roles) if roles else ALL_ROLES
 
     def decorator(handler: GuardedHandler) -> GuardedHandler:
-        @wraps(handler)
-        async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
+        # 1. Capture signature immediately
+        sig = inspect.signature(handler)
+
+        def _inject_auth(args: tuple, kwargs: dict) -> Response | None:
             request = _extract_request(args, kwargs)
             response_or_user = _check_access(request, allowed)
             if isinstance(response_or_user, Response):
                 return response_or_user
+            
+            # Smart injection: only pass current_user if asked or kwargs accepted
+            if "current_user" in sig.parameters:
+                kwargs["current_user"] = response_or_user
+            elif "kwargs" not in sig.parameters:
+                kwargs.pop("current_user", None)
+            return None
 
-            kwargs.setdefault("current_user", response_or_user)
-            result = handler(*args, **kwargs)
-            if inspect.isawaitable(result):
-                return await result
-            return result
+        if inspect.iscoroutinefunction(handler):
+            @wraps(handler)
+            async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
+                error_response = _inject_auth(args, kwargs)
+                if error_response: return error_response
+                return await handler(*args, **kwargs)
+            
+            async_wrapper.__signature__ = sig
+            return async_wrapper  # type: ignore[return-value]
 
         @wraps(handler)
         def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
-            request = _extract_request(args, kwargs)
-            response_or_user = _check_access(request, allowed)
-            if isinstance(response_or_user, Response):
-                return response_or_user
-
-            kwargs.setdefault("current_user", response_or_user)
+            error_response = _inject_auth(args, kwargs)
+            if error_response: return error_response
             return handler(*args, **kwargs)
 
-        if inspect.iscoroutinefunction(handler):
-            return async_wrapper  # type: ignore[return-value]
+        sync_wrapper.__signature__ = sig
         return sync_wrapper  # type: ignore[return-value]
 
     return decorator
@@ -74,6 +82,12 @@ def _extract_request(args: Tuple[Any, ...], kwargs: dict[str, Any]) -> Request:
     request = kwargs.get("request")
     if isinstance(request, Request):
         return request
+    
+    # Scan all kwargs for a Request object (handles mapped arguments like 'req')
+    for val in kwargs.values():
+        if isinstance(val, Request):
+            return val
+            
     raise RuntimeError("Route handler must receive a starlette Request as the first argument")
 
 

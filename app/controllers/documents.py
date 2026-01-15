@@ -6,171 +6,98 @@ from ui.layouts import app_layout
 from ui.nav_components import tab_nav
 from .utils import get_badge_counts
 from ui.documents_page import render_documents_page
-import os
-import uuid
-import json
-import traceback
-import datetime
-from pathlib import Path
-# --- Add GCS and security imports ---
 from google.cloud import storage
 from google.oauth2 import service_account
 from werkzeug.utils import secure_filename
+from utils.log import log, error, debug
+from pathlib import Path
+import os, uuid, json, datetime
 
-ALLOW_LOCAL_FALLBACK = os.environ.get("ALLOW_LOCAL_STORAGE_FALLBACK", "").lower() in {"1", "true", "yes"}
-
-# --- Define the GCS bucket name (replace with your actual bucket name) ---
-# It's best practice to load this from an environment variable.
-GCS_BUCKET_NAME = os.environ.get("GCS_BUCKET_NAME", "your-gcs-bucket-name-here")
-
+GCS_BUCKET = os.environ.get("GCS_BUCKET_NAME", "your-gcs-bucket-name-here")
+ALLOW_LOCAL = os.environ.get("ALLOW_LOCAL_STORAGE_FALLBACK", "").lower() in {"1", "true", "yes"}
 
 class DocumentsController:
     def __init__(self, db):
-        self.db = db
-        self.documents_table = db.t.documents
-        self.storage_client = None
-        self.bucket = None
-        self.local_storage_dir: Path | None = None
-        self._local_fallback_enabled = False
+        self.db, self.tbl = db, db.t.documents
+        self.documents_table = self.tbl # Alias for main.py compatibility
+        self.bucket, self.local_dir = self._setup_storage()
+        self.local_storage_dir = self.local_dir # Alias for main.py compatibility
 
-        bucket_name = GCS_BUCKET_NAME
+    def _setup_storage(self):
         try:
-            if not bucket_name or bucket_name == "your-gcs-bucket-name-here":
-                raise ValueError("GCS bucket name is not configured.")
-
-            credentials = None
-            raw_service_account = os.environ.get("GCS_SA_JSON")
-            if raw_service_account:
-                try:
-                    service_account_info = json.loads(raw_service_account)
-                    credentials = service_account.Credentials.from_service_account_info(service_account_info)
-                    project_id = service_account_info.get("project_id")
-                    print("--- INFO: Loaded GCS credentials from GCS_SA_JSON environment variable. ---")
-                except Exception as cred_err:
-                    print(f"--- WARNING: Failed to parse GCS_SA_JSON credentials: {cred_err}. Falling back to default credentials. ---")
-                    credentials = None
-                    project_id = None
-            else:
-                project_id = None
-
-            if credentials:
-                self.storage_client = storage.Client(credentials=credentials, project=project_id)
-            else:
-                self.storage_client = storage.Client()
-            self.bucket = self.storage_client.bucket(bucket_name)
-            print(f"--- SUCCESS: Successfully connected to GCS and bucket '{bucket_name}'. ---")
+            if not GCS_BUCKET or "name-here" in GCS_BUCKET: raise ValueError("GCS Bucket not config")
+            
+            creds = None
+            if raw := os.environ.get("GCS_SA_JSON"):
+                info = json.loads(raw)
+                creds = service_account.Credentials.from_service_account_info(info)
+            
+            client = storage.Client(credentials=creds, project=creds.project_id if creds else None)
+            bucket = client.bucket(GCS_BUCKET)
+            debug(f"GCS connected: {GCS_BUCKET}")
+            return bucket, None
         except Exception as e:
-            print(f"--- WARNING: GCS unavailable: {e} ---")
-            self.storage_client = None
-            self.bucket = None
+            error(f"GCS init failed: {e}")
+            if ALLOW_LOCAL:
+                ldir = Path(__file__).parents[2] / "Uploads"
+                ldir.mkdir(parents=True, exist_ok=True)
+                debug(f"Using local storage: {ldir}")
+                return None, ldir
+            error("Cloud storage required & local disabled")
+            return None, None
 
-            if ALLOW_LOCAL_FALLBACK:
-                fallback_dir = Path(__file__).resolve().parents[2] / "Uploads"
-                try:
-                    fallback_dir.mkdir(parents=True, exist_ok=True)
-                    self.local_storage_dir = fallback_dir
-                    self._local_fallback_enabled = True
-                    print(f"--- INFO: Using local upload directory at '{self.local_storage_dir}'. ---")
-                except Exception as dir_err:
-                    print(f"--- FATAL ERROR: Could not prepare local upload directory: {dir_err} ---")
-                    self.local_storage_dir = None
-                    self._local_fallback_enabled = False
-            else:
-                print("--- ERROR: Cloud storage is required and local fallback is disabled. ---")
+    def show_documents_tab(self, req: Request):
+        uid = req.session.get("user_email")
+        if not uid: return Div("Autentimisviga", cls="text-red-500 p-4")
 
+        docs = self.tbl('user_email = ?', [uid]) # Optimized fetch
+        content = render_documents_page(docs)
 
-    def show_documents_tab(self, request: Request):
-        user_email = request.session.get("user_email")
-        if not user_email:
-            return Div("Authentication Error", cls="text-red-500 p-4")
+        if req.headers.get('HX-Request'):
+             counts = get_badge_counts(self.db, uid)
+             return (content, Div(tab_nav("dokumendid", req, counts), id="tab-navigation-container", hx_swap_oob="outerHTML"), Title("Dokumendid | Taotlemine", id="page-title", hx_swap_oob="innerHTML"))
+        
+        return app_layout(req, "Dokumendid | Taotlemine", content, "dokumendid", self.db, badge_counts=get_badge_counts(self.db, uid))
 
-        page_title = "Dokumentide lisamine | Ehitamise valdkonna kutsete taotlemine"
-        badge_counts = get_badge_counts(self.db, user_email)
-
-        # Fetch existing documents to display them on the page
-        all_docs = self.documents_table(order_by='id')
-        user_documents = [doc for doc in all_docs if doc.get('user_email') == user_email]
-
-        # Render the page content using a new view function
-        content = render_documents_page(user_documents)
-
-        if request.headers.get('HX-Request'):
-            updated_tab_nav = tab_nav(active_tab="dokumendid", request=request, badge_counts=badge_counts)
-            oob_nav = Div(updated_tab_nav, id="tab-navigation-container", hx_swap_oob="outerHTML")
-            oob_title = Title(page_title, id="page-title", hx_swap_oob="innerHTML")
-            return content, oob_nav, oob_title
-        else:
-            return app_layout(
-                request=request, title=page_title, content=content,
-                active_tab="dokumendid", badge_counts=badge_counts,
-                db=self.db
-            )
-
-    async def upload_document(self, request: Request, document_type: str):
-        user_email = request.session.get("user_email")
-        if not user_email:
-            return Response("Authentication Error", status_code=403)
-
-        # FIX: Check for storage availability at the start of the method.
-        if not self.bucket and not self._local_fallback_enabled:
-            return Response("Cloud storage is currently unavailable. Please try again later.", status_code=503)
+    async def upload_document(self, req: Request, dtype: str):
+        uid = req.session.get("user_email")
+        if not uid: return Response("Autentimisviga", 403)
+        if not self.bucket and not self.local_dir: return Response("Salvestusruumi viga", 503)
 
         try:
-            form_data = await request.form()
-            doc_file = form_data.get("document_file")
-            description = form_data.get("description", "")
-
-            if not doc_file or not doc_file.filename:
-                 return Response("File not provided", status_code=400)
-
-            # --- Secure File Handling ---
-            original_filename = secure_filename(doc_file.filename)
-            if not original_filename:
-                return Response("Invalid filename", status_code=400)
-            file_content = await doc_file.read()
-            file_extension = os.path.splitext(original_filename)[1]
-            storage_identifier = f"{user_email}/{uuid.uuid4()}{file_extension}"
+            form = await req.form()
+            f = form.get("document_file")
+            desc = form.get("description", "")
+            
+            if not f or not f.filename: return Response("Fail puudub", 400)
+            
+            fname = secure_filename(f.filename) or f"file_{uuid.uuid4().hex}"
+            ext = Path(fname).suffix
+            content = await f.read()
+            sid = ""
 
             if self.bucket:
-                blob = self.bucket.blob(storage_identifier)
-                blob.upload_from_string(file_content, content_type=doc_file.content_type)
+                sid = f"{uid}/{uuid.uuid4()}{ext}"
+                self.bucket.blob(sid).upload_from_string(content, content_type=f.content_type)
             else:
-                sanitized_email = secure_filename(user_email) or uuid.uuid4().hex
-                user_folder = self.local_storage_dir / sanitized_email
-                user_folder.mkdir(parents=True, exist_ok=True)
-                unique_name = f"{uuid.uuid4()}{file_extension}"
-                local_path = user_folder / unique_name
-                with open(local_path, "wb") as out_file:
-                    out_file.write(file_content)
-                storage_identifier = f"local:{(Path(sanitized_email) / unique_name).as_posix()}"
+                uname = secure_filename(uid) or uuid.uuid4().hex
+                path = self.local_dir / uname / f"{uuid.uuid4()}{ext}"
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(content)
+                sid = f"local:{path.relative_to(self.local_dir)}"
 
-            # --- Prepare Data for DB ---
-            metadata = {}
-            if document_type == 'education':
-                metadata = {
-                    "institution": form_data.get("institution", ""),
-                    "specialty": form_data.get("specialty", ""),
-                    "graduation_date": form_data.get("graduation_date", "")
-                }
-                if not description:
-                    description = f"{metadata.get('institution', '')} - {metadata.get('specialty', '')}"
+            meta = {}
+            if dtype == 'education':
+                meta = {"institution": form.get("institution", ""), "specialty": form.get("specialty", ""), "graduation_date": form.get("graduation_date", "")}
+                if not desc: desc = f"{meta['institution']} - {meta['specialty']}"
 
-            db_data = {
-                "user_email": user_email,
-                "document_type": document_type,
-                "description": description,
-                "metadata": json.dumps(metadata),
-                "original_filename": original_filename,
-                "storage_identifier": storage_identifier,
-                "upload_timestamp": str(datetime.datetime.now())
-            }
-
-            self.documents_table.insert(db_data)
-
-            # FIX: Return a response with the HX-Redirect header for HTMX.
+            self.tbl.insert({
+                "user_email": uid, "document_type": dtype, "description": desc,
+                "metadata": json.dumps(meta), "original_filename": fname,
+                "storage_identifier": sid, "upload_timestamp": str(datetime.datetime.now())
+            })
+            
             return Response(headers={'HX-Redirect': '/app/dokumendid'})
-
         except Exception as e:
-            print(f"--- ERROR [upload_document]: {e} ---")
-            traceback.print_exc()
-            return Response("File upload failed", status_code=500)
+            error(f"Upload error {uid}: {e}")
+            return Response("Üleslaadimine ebaõnnestus", 500)

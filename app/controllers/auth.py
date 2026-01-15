@@ -11,6 +11,10 @@ from auth.roles import APPLICANT, EVALUATOR, ADMIN, normalize_role
 from auth.utils import get_password_hash, verify_password
 import traceback
 from typing import Any, Dict, Optional
+import hashlib, base64
+from services import smart_id_service
+from auth.utils import calculate_verification_code
+from utils.log import log, debug, error
 
 class AuthController:
     """ Handles user authentication (login, registration, logout). """
@@ -41,6 +45,53 @@ class AuthController:
             ),
             id="smart-id-login-flow"
         )
+
+    async def initiate_smart_id(self, national_id: str) -> FT:
+        if not national_id: return self.get_login_form("Isikukood on vajalik.")
+        
+        digest = hashlib.sha256(os.urandom(32)).digest()
+        encoded = base64.b64encode(digest).decode('utf-8')
+        
+        sess = await smart_id_service.initiate_authentication(national_id, encoded)
+        if not sess or "sessionID" not in sess: return self.get_login_form("Sessiooni alustamine ebaõnnestus.")
+        
+        code = calculate_verification_code(digest)
+        return Div(
+            H3(f"Kontrollkood: {code}", cls="text-center font-bold text-2xl tracking-wider"),
+            P("Sisesta PIN1 oma Smart-ID rakenduses.", cls="text-center"),
+            Div(cls="loading loading-lg mx-auto block"),
+            hx_get=f"/auth/smart-id/status/{sess['sessionID']}",
+            hx_trigger="load delay:3s", hx_swap="innerHTML",
+            id="smart-id-login-flow", cls="space-y-4"
+        )
+
+    async def check_smart_id_status(self, req: Request, session_id: str) -> FT:
+        status = await smart_id_service.check_session_status(session_id)
+        if not status: 
+            return Div(
+                P("Kontroll ebaõnnestus.", cls="text-red-500 text-center"), 
+                A(Button("Proovi uuesti"), href="/", cls="btn btn-secondary w-full"), 
+                id="smart-id-login-flow", cls="space-y-4"
+            )
+        
+        state = status.get("state")
+        if state == "RUNNING":
+            return Div(
+                H3("Kontrollkood: ...", cls="text-center font-bold text-2xl tracking-wider"),
+                P("Ootan PIN1...", cls="text-center"),
+                Div(cls="loading loading-lg mx-auto block"),
+                hx_get=f"/auth/smart-id/status/{session_id}",
+                hx_trigger="load delay:3s", hx_swap="innerHTML",
+                id="smart-id-login-flow", cls="space-y-4"
+            )
+        elif state == "COMPLETE": 
+            return await self.process_smart_id_login(req, status)
+        else:
+            return Div(
+                P(f"Sisselogimine ebaõnnestus: {state}", cls="text-red-500 text-center"), 
+                A(Button("Proovi uuesti"), href="/", cls="btn btn-secondary w-full"), 
+                id="smart-id-login-flow", cls="space-y-4 text-center"
+            )
 
     @staticmethod
     def _parse_subject_fields(status_data: Dict[str, Any]) -> Dict[str, str]:

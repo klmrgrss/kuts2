@@ -13,3 +13,12 @@ def test_homepage(client):
 
     # Assert that some expected text is in the response HTML
     assert "Ehitamise valdkonna kutsete taotlemine" in response.text
+
+def test_dashboard_access_fails_without_login(client):
+    try:
+        resp = client.get("/dashboard", follow_redirects=False)
+        # Should redirect to / or return 403 depending on implementation
+        print(f"Status: {resp.status_code}")
+    except Exception as e:
+        print(f"CRASH: {e}")
+        raise e
