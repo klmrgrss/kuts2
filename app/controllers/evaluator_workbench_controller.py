@@ -10,6 +10,7 @@ import dataclasses
 from logic.validator import ValidationEngine
 from logic.models import ApplicantData, ComplianceDashboardState
 from ui.evaluator_v2.center_panel import render_compliance_dashboard
+from ui.evaluator_v2.application_list import render_application_item
 
 QUALIFICATION_LEVEL_TO_RULE_ID = {
     "Ehituse tööjuht, TASE 5": "toojuht_tase_5",
@@ -19,11 +20,12 @@ QUALIFICATION_LEVEL_TO_RULE_ID = {
 }
 
 class EvaluatorWorkbenchController:
-    def __init__(self, db, validation_engine, main_controller):
+    def __init__(self, db, validation_engine, main_controller, search_controller):
         self.db = db
         self.evaluations_table = db.t.evaluations
         self.validation_engine = validation_engine
         self.main_controller = main_controller 
+        self.search_controller = search_controller
 
     async def re_evaluate_application(self, request: Request, qual_id: str):
         print("\n--- [DEBUG] ENTERING RE-EVALUATION ENDPOINT ---")
@@ -109,7 +111,21 @@ class EvaluatorWorkbenchController:
             # 6. Final Sync & Save
             self._save_evaluation_state(qual_id, request.session.get("user_email"), best_state)
             
-            return render_compliance_dashboard(best_state)
+            dashboard = render_compliance_dashboard(best_state, qual_id)
+            
+            # --- OOB update for the application list item ---
+            app_data = self.search_controller.get_application_by_id(qual_id)
+            print(f"--- [DEBUG] Got app_data for OOB: {app_data}")
+            if app_data:
+                list_item = render_application_item(app_data, include_oob=False)
+                list_item = render_application_item(app_data, include_oob=False)
+                # Use explicit outerHTML swap targeting the safe DOM ID
+                safe_dom_id = list_item.id
+                list_item.attrs['hx_swap_oob'] = f"outerHTML:#{safe_dom_id}"
+                print(f"--- [DEBUG] Returning OOB list_item with decision: {app_data.get('final_decision')} targeting #{safe_dom_id}")
+                return dashboard, list_item
+
+            return dashboard
 
         except Exception as e:
             print(f"--- [ERROR] Re-evaluation failed: {e} ---")

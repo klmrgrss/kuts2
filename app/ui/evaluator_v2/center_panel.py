@@ -121,6 +121,8 @@ def DropdownContextButton(
                 highlight_color = 'green'
             elif resolved_value == "Mitte anda":
                 highlight_color = 'red'
+            elif resolved_value == "Täiendav tegevus":
+                highlight_color = 'blue'
         else:
             highlight_color = 'blue'
 
@@ -255,7 +257,11 @@ def render_compliance_section(title: str, icon_name: str, subsections: List[FT],
         elif decision == "Mitte anda":
             border_cls = "border-red-500"
             accent_bar_cls = "bg-red-500"
-            status_icon = UkIcon("x-circle", cls="w-5 h-5 text-red-500")
+            status_icon = UkIcon("shield-off", cls="w-5 h-5 text-red-500")
+        elif decision == "Täiendav tegevus":
+            border_cls = "border-blue-500"
+            accent_bar_cls = "bg-blue-500"
+            status_icon = UkIcon("shield-check", cls="w-5 h-5 text-blue-500")
         else:
             border_cls = "border-gray-300"
             accent_bar_cls = "bg-gray-300"
@@ -288,7 +294,10 @@ def render_compliance_section(title: str, icon_name: str, subsections: List[FT],
         data_context=context_name
     )
 
-def render_compliance_dashboard(state: ComplianceDashboardState) -> FT:
+from ui.evaluator_v2.application_list import get_safe_dom_id
+
+def render_compliance_dashboard(state: ComplianceDashboardState, qual_id: str = "") -> FT:
+    """Renders the main compliance dashboard. qual_id is used for client-side script targeting."""
     """Renders the compliance dashboard with four main, grouped sections."""
     if state.overall_met:
         header = H3(f"Vastab tingimustele (Variant: {state.package_id})", cls="text-lg font-semibold text-green-700 p-2 bg-green-50 rounded-md text-center")
@@ -416,13 +425,79 @@ def render_center_panel(qual_data: Dict, user_data: Dict, state: ComplianceDashb
                         ContextButton(icon_name="award", label_text="Täiendkoolitus", data_context="koolitus"),
                         DropdownContextButton(
                             icon_name="list-checks", label_text="Otsus",
-                            dropdown_options={"Anda": "Anda", "Mitte anda": "Mitte anda"}, name="final_decision",
+                            dropdown_options={"Anda": "Anda", "Mitte anda": "Mitte anda", "Täiendav tegevus": "Täiendav tegevus"}, name="final_decision",
                             data_context="otsus",
                             current_value=final_decision_value,
                             placeholder_text="Vali otsus"
                         ),
                         cls="flex flex-wrap items-center gap-2"
                     ),
+                    # --- Client-Side Icon Updater Script ---
+                    # Uses the qual_id to find the safe DOM ID and updates the icon class immediately
+                    Script(f"""
+                        document.addEventListener('submit', function(e) {{
+                            if (e.target && e.target.matches('form[hx-post$="/re-evaluate"]')) {{
+                                const formData = new FormData(e.target);
+                                const decision = formData.get('final_decision');
+                                const safeId = "{get_safe_dom_id(qual_id) if qual_id else ''}";
+                                if (!safeId) return;
+
+                                const listItem = document.getElementById(safeId);
+                                if (!listItem) return;
+
+                                const iconContainer = listItem.querySelector('div.flex.items-center.justify-center');
+                                if (!iconContainer) return;
+                                
+                                // Reset classes
+                                iconContainer.innerHTML = '';
+                                let newIcon = '';
+                                let newClass = 'w-5 h-5 ';
+
+                                if (decision === 'Anda') {{
+                                    newIcon = 'shield-check';
+                                    newClass += 'text-green-500';
+                                }} else if (decision === 'Mitte anda') {{
+                                    newIcon = 'shield-off';
+                                    newClass += 'text-red-500';
+                                }} else if (decision === 'Täiendav tegevus') {{
+                                    newIcon = 'shield-check';
+                                    newClass += 'text-blue-500';
+                                }} else {{
+                                    newIcon = 'shield';
+                                    newClass += 'text-gray-200';
+                                }}
+                                
+                                // Create new icon (using UIkit or SVG structure directly if needed, but innerHTML is easiest for mock)
+                                // Since UkIcon renders an svg/img/span, we interpret it roughly. 
+                                // For UkIcon to work dynamically we might need to trigger UIKit update, 
+                                // but swapping the innerHTML with a known SVG or just text class is faster.
+                                // We will rely on OOB for perfect SVG, this is "optimistic" and "post-submit" feedback.
+                                // Actually, let's just update the class of the existing SVG if it exists, or wait for OOB.
+                                // But OOB is failing. 
+                                // Let's try to set the generic UK-icon attribute and let UIkit re-parse if possible, 
+                                // OR manually inject the SVG roughly. All shields look similar, color is key.
+                                
+                                // Simple approach: Change color class of the existing element
+                                const existingIcon = iconContainer.querySelector('[uk-icon], svg, span');
+                                
+                                if (existingIcon) {{
+                                    existingIcon.classList.remove('text-gray-200', 'text-gray-400', 'text-green-500', 'text-red-500', 'text-blue-500');
+                                    // Extract color from newClass
+                                    const colorCls = newClass.split(' ').pop(); 
+                                    existingIcon.classList.add(colorCls);
+                                    
+                                    // Force icon shape change
+                                    existingIcon.setAttribute('uk-icon', newIcon);
+                                    
+                                    // Manually clear and reinject SVG for immediate feedback if UIkit doesn't observe attributes
+                                    // This is a robust fallback for "optimistic" UI
+                                    if (window.UIkit && window.UIkit.icon) {{
+                                       window.UIkit.icon(existingIcon, {{icon: newIcon}});
+                                    }}
+                                }}
+                            }}
+                        }});
+                    """),
                     ContextButton(icon_name="send", label_text=""),
                     cls="flex flex-wrap items-center justify-between gap-x-2 p-2 bg-base-100 rounded-b-lg"
                 ),
@@ -483,7 +558,9 @@ def render_center_panel(qual_data: Dict, user_data: Dict, state: ComplianceDashb
                     } else {
                         valueSpan.textContent = optionText;
                         if (buttonId.includes('final_decision')) {
-                            appliedClasses = optionValue === 'Anda' ? greenClasses : redClasses;
+                            if (optionValue === 'Anda') appliedClasses = greenClasses;
+                            else if (optionValue === 'Mitte anda') appliedClasses = redClasses;
+                            else if (optionValue === 'Täiendav tegevus') appliedClasses = blueClasses;
                         } else {
                             appliedClasses = blueClasses;
                         }

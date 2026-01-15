@@ -29,8 +29,14 @@ def test_integration():
     engine = ValidationEngine(rules_path)
     
     # Setup controllers
-    eval_controller = EvaluatorController(db, None, None, engine)
-    workbench = EvaluatorWorkbenchController(db, engine, eval_controller)
+    # Mock Search Controller
+    class MockSearchController:
+        def get_application_by_id(self, qid):
+            return {"qual_id": qid, "final_decision": "Anda"} # Mock return for OOB check
+
+    search_controller = MockSearchController()
+    eval_controller = EvaluatorController(db, search_controller, None, engine)
+    workbench = EvaluatorWorkbenchController(db, engine, eval_controller, search_controller)
     eval_controller.workbench_controller = workbench
     
     user_email = "test-user-dash@example.com"

@@ -87,9 +87,11 @@ try:
     education_controller = EducationController(db)
     documents_controller = DocumentsController(db)
     review_controller = ReviewController(db)
-    evaluator_search_controller = EvaluatorSearchController(db)
-    evaluator_controller = EvaluatorController(db, None, None, validation_engine) # Temp
-    evaluator_workbench_controller = EvaluatorWorkbenchController(db, validation_engine, evaluator_controller)
+    evaluator_search_controller = EvaluatorSearchController(db, validation_engine)
+    evaluator_controller = EvaluatorController(db, evaluator_search_controller, None, validation_engine)
+    evaluator_workbench_controller = EvaluatorWorkbenchController(db, validation_engine, evaluator_controller, evaluator_search_controller)
+    # Link workbench back to main controller
+    evaluator_controller.workbench_controller = evaluator_workbench_controller
     # Now, properly link them
     evaluator_controller.search_controller = evaluator_search_controller
     evaluator_controller.workbench_controller = evaluator_workbench_controller
