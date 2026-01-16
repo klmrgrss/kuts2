@@ -46,8 +46,7 @@ def render_compliance_section(title: str, icon_name: str, subsections: List[FT],
     )
 
 def render_compliance_dashboard(state: ComplianceDashboardState):
-    header_cls = "text-lg font-semibold p-2 rounded-md text-center " + ("text-green-700 bg-green-50" if state.overall_met else "text-red-700 bg-red-50")
-    header = H3(f"{'Vastab tingimustele' if state.overall_met else 'Tingimused ei ole täidetud'} (Variant: {state.package_id})", cls=header_cls)
+    # Header moved to main panel
     
     sections = [
         render_compliance_subsection("Haridustase", state.education),
@@ -60,7 +59,7 @@ def render_compliance_dashboard(state: ComplianceDashboardState):
     ]
     
     return Div(
-        header,
+        # header removed
         render_compliance_section("Haridus", "book-open", [sections[0]] if sections[0] else [], [state.education], "haridus", state.haridus_comment),
         render_compliance_section("Töökogemus", "briefcase", [s for s in sections[1:3] if s], [state.total_experience, state.matching_experience], "tookogemus", state.tookogemus_comment),
         render_compliance_section("Koolitus", "award", [s for s in sections[3:] if s], [state.base_training, state.conditional_training, state.manager_training, state.cpd_training], "koolitus", state.koolitus_comment),
@@ -74,14 +73,21 @@ def render_center_panel(qual_data: Dict, user_data: Dict, state: ComplianceDashb
     specs = qual_data.get('specialisations', [])
     qual_id = qual_data.get('qual_id', '')
 
+    status_txt = f"{'Vastab tingimustele' if state.overall_met else 'Tingimused ei ole täidetud'} (Variant: {state.package_id})"
+    status_cls = "text-xs font-bold uppercase tracking-wider mb-0.5 " + ("text-green-600" if state.overall_met else "text-red-600")
+
     header = Details(
         Summary(Div(
-            LevelPill(qlevel),
-            Div(H2(aname, cls="text-xl font-bold truncate"), P("·", cls="mx-1"), P(f"{qname}", cls="text-sm truncate"), cls="flex items-center min-w-0"),
-            DivHStacked(P("Spetsialiseerumised", cls="text-xs"), P(f"({qual_data.get('selected_specialisations_count',len(specs))}/{len(specs)})", cls="text-xs font-bold"), UkIcon("chevron-down", cls="w-4 h-4"), cls="justify-self-end flex items-center"),
-            cls="grid grid-cols-[auto,1fr,auto] items-center gap-x-3"), cls="list-none cursor-pointer col-span-3"),
-        Div(Ul(*[Li(s) for s in specs], cls="list-disc list-inside text-xs"), cls="col-start-2 ml-4 mt-2"),
-        open=False, cls="border-b bg-gray-50 dark:bg-gray-900 dark:border-gray-700 sticky top-0 z-10 grid grid-cols-[auto,1fr,auto] gap-x-3 p-3 shadow-sm"
+            P(status_txt, cls=status_cls + " w-full mb-1"),
+            Div(
+                LevelPill(qlevel),
+                Div(H2(aname, cls="text-xl font-bold truncate"), P("·", cls="mx-1"), P(f"{qname}", cls="text-sm truncate"), cls="flex items-center min-w-0"),
+                DivHStacked(P("Spetsialiseerumised", cls="text-xs"), P(f"({qual_data.get('selected_specialisations_count',len(specs))}/{len(specs)})", cls="text-xs font-bold"), UkIcon("chevron-down", cls="w-4 h-4"), cls="justify-self-end flex items-center"),
+                cls="grid grid-cols-[auto,1fr,auto] items-center gap-x-3 w-full"
+            ),
+            cls="flex flex-col w-full"), cls="list-none cursor-pointer w-full"),
+        Div(Ul(*[Li(s) for s in specs], cls="list-disc list-inside text-xs"), cls="ml-12 mt-2 text-gray-600 dark:text-gray-400"),
+        open=False, cls="border-b bg-gray-50 dark:bg-gray-900 dark:border-gray-700 sticky top-0 z-10 p-3 shadow-sm w-full"
     )
 
     # --- Footer Construction ---
