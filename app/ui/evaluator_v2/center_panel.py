@@ -8,12 +8,17 @@ from ui.evaluator_v2.application_list import get_safe_dom_id
 
 # --- Reusable Components ---
 
-def render_compliance_subsection(title: str, check: ComplianceCheck):
+def render_compliance_subsection(title: str, check: ComplianceCheck, show_title: bool = True):
     if not check.is_relevant: return None
     icon = UkIcon("check-circle", cls="w-5 h-5 text-green-500") if check.is_met else UkIcon("x-circle", cls="w-5 h-5 text-red-500")
-    return Div(icon, Div(P(title, cls="font-semibold text-sm"), P(f"Nõue: {check.required}, Esitatud: {check.provided}", cls="text-xs text-gray-500 dark:text-gray-400")), cls="flex items-center gap-x-3 px-3 py-2")
+    
+    content = Div(P(f"Nõue: {check.required}, Esitatud: {check.provided}", cls="text-xs text-gray-500 dark:text-gray-400"))
+    if show_title:
+        content = Div(P(title, cls="font-semibold text-sm"), content)
+        
+    return Div(icon, content, cls="flex items-center gap-x-3 px-3 py-2")
 
-def render_compliance_section(title: str, icon_name: str, subsections: List[FT], all_checks: List[ComplianceCheck], context_name: str, comment: Optional[str], decision: Optional[str] = None):
+def render_compliance_section(title: str, icon_name: str, subsections: List[FT], all_checks: List[ComplianceCheck], context_name: str, comment: Optional[str], decision: Optional[str] = None, inline_details: Optional[str] = None):
     relevant = [c for c in all_checks if c.is_relevant]
     if not relevant and context_name != "otsus":
          border, accent, icon, text = "border-gray-300 dark:border-gray-700 opacity-50", "bg-gray-300", UkIcon("minus", cls="text-gray-500"), "Ei ole asjakohane"
@@ -29,10 +34,21 @@ def render_compliance_section(title: str, icon_name: str, subsections: List[FT],
             icon = UkIcon("check-circle", cls="text-green-500") if all_met else UkIcon("x-circle", cls="text-red-500")
             text = f"{len([c for c in relevant if c.is_met])}/{len(relevant)} täidetud" if context_name!="otsus" else "Otsus"
 
+    header_content = [
+        Div(cls=f"w-1.5 h-full absolute left-0 top-0 {accent}"), UkIcon(icon_name, cls="w-5 h-5"), H5(title, cls="font-semibold")
+    ]
+    
+    if inline_details:
+        header_content.append(Span(inline_details, cls="text-xs text-gray-500 dark:text-gray-400 truncate flex-1 ml-2"))
+    else:
+        # If no inline details, add a spacer to push status to right if desired, or keep packed
+        header_content.append(Div(cls="flex-1"))
+
+    header_content.extend([icon, Span(text, cls="text-sm text-gray-500 dark:text-gray-400 truncate")])
+
     return Div(
         Div(
-            Div(cls=f"w-1.5 h-full absolute left-0 top-0 {accent}"), UkIcon(icon_name, cls="w-5 h-5"), H5(title, cls="font-semibold"),
-            icon, Span(text, cls="text-sm text-gray-500 dark:text-gray-400 truncate"),
+            *header_content,
             cls="flex items-center gap-x-3 w-full p-3 relative bg-white dark:bg-gray-800 rounded-t-lg"
         ),
         Div(
@@ -49,7 +65,7 @@ def render_compliance_dashboard(state: ComplianceDashboardState):
     # Header moved to main panel
     
     sections = [
-        render_compliance_subsection("Haridustase", state.education),
+        render_compliance_subsection("Haridustase", state.education, show_title=False),
         render_compliance_subsection("Töökogemus kokku", state.total_experience),
         render_compliance_subsection("Vastav töökogemus", state.matching_experience),
         render_compliance_subsection("Baaskoolitus", state.base_training),
@@ -58,10 +74,19 @@ def render_compliance_dashboard(state: ComplianceDashboardState):
         render_compliance_subsection("Täiendkoolitus", state.cpd_training)
     ]
     
+    edu_details = f"Nõue: {state.education.required}, Esitatud: {state.education.provided}" if state.education.is_relevant else None
+    
+    exp_parts = []
+    if state.total_experience.is_relevant: 
+        exp_parts.append(f"Kokku: {state.total_experience.provided} (Nõue {state.total_experience.required})")
+    if state.matching_experience.is_relevant:
+        exp_parts.append(f"Vastav: {state.matching_experience.provided} (Nõue {state.matching_experience.required})")
+    exp_details = " | ".join(exp_parts) if exp_parts else None
+
     return Div(
         # header removed
-        render_compliance_section("Haridus", "book-open", [sections[0]] if sections[0] else [], [state.education], "haridus", state.haridus_comment),
-        render_compliance_section("Töökogemus", "briefcase", [s for s in sections[1:3] if s], [state.total_experience, state.matching_experience], "tookogemus", state.tookogemus_comment),
+        render_compliance_section("Haridus", "book-open", [], [state.education], "haridus", state.haridus_comment, inline_details=edu_details),
+        render_compliance_section("Töökogemus", "briefcase", [], [state.total_experience, state.matching_experience], "tookogemus", state.tookogemus_comment, inline_details=exp_details),
         render_compliance_section("Koolitus", "award", [s for s in sections[3:] if s], [state.base_training, state.conditional_training, state.manager_training, state.cpd_training], "koolitus", state.koolitus_comment),
         render_compliance_section("Otsus", "list-checks", [], [], "otsus", state.otsus_comment, state.final_decision),
         id="compliance-dashboard-container",
@@ -273,4 +298,4 @@ def render_center_panel(qual_data: Dict, user_data: Dict, state: ComplianceDashb
         })();
     """)
 
-    return Div(header, render_compliance_dashboard(state), footer, js_script, id="ev-center-panel", cls="flex flex-col h-full bg-white dark:bg-gray-900 overflow-y-auto relative")
+    return Div(header, render_compliance_dashboard(state), footer, js_script, id="ev-center-panel", cls="flex flex-col h-full bg-white dark:bg-gray-900 overflow-y-auto relative [scrollbar-width:thin] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-gray-300 dark:[&::-webkit-scrollbar-thumb]:bg-gray-600 [&::-webkit-scrollbar-thumb]:rounded-full")

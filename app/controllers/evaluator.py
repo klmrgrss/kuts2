@@ -36,6 +36,7 @@ class EvaluatorController:
         applications_data = self.search_controller._get_flattened_applications()
         center_panel = Div("Select an application to view details.", cls="p-4 text-center text-gray-500")
         right_panel = Div(cls="p-4")
+        selected_qual_id = None
 
         if applications_data:
             selected_qual_id = applications_data[0].get('qual_id')
@@ -46,8 +47,8 @@ class EvaluatorController:
                 traceback.print_exc()
                 center_panel = Div("Error loading application.", cls="p-4 text-red-500")
 
-        left_panel_desktop = render_left_panel(applications_data)
-        left_panel_drawer = render_left_panel(applications_data, id_suffix="-drawer")
+        left_panel_desktop = render_left_panel(applications_data, active_qual_id=selected_qual_id)
+        left_panel_drawer = render_left_panel(applications_data, id_suffix="-drawer", active_qual_id=selected_qual_id)
 
         return ev_layout(
             request=request, title="Hindamiskeskkond v2",
@@ -63,18 +64,27 @@ class EvaluatorController:
             # Use fixed separator
             user_email, level, activity = qual_id.split(':::', 2)
 
+            # 1. Always run fresh validation
+            qualification_rule_id = QUALIFICATION_LEVEL_TO_RULE_ID.get(level, "toojuht_tase_5")
+            applicant_data = self._get_applicant_data_for_validation(user_email)
+            all_states = self.validation_engine.validate(applicant_data, qualification_rule_id)
+            best_state = next((s for s in all_states if s.overall_met), all_states[0])
+            
+            # 2. Rehydrate comments/decision from saved state if exists
             try:
                 saved_evaluation = self.evaluations_table.get(qual_id)
-                saved_state_data = json.loads(saved_evaluation['evaluation_state_json'])
-                best_state = self.validation_engine.dict_to_state(saved_state_data)
-                print(f"--- [DEBUG] Loaded saved evaluation state for {qual_id}")
-            except (NotFoundError, json.JSONDecodeError):
-                print(f"--- [DEBUG] No valid saved state for {qual_id}. Running initial validation.")
-                qualification_rule_id = QUALIFICATION_LEVEL_TO_RULE_ID.get(level, "toojuht_tase_5")
-                applicant_data = self._get_applicant_data_for_validation(user_email)
-                all_states = self.validation_engine.validate(applicant_data, qualification_rule_id)
-                best_state = next((s for s in all_states if s.overall_met), all_states[0])
-                self.workbench_controller._save_evaluation_state(qual_id, request.session.get("user_email"), best_state)
+                if saved_evaluation:
+                    saved_state_data = json.loads(saved_evaluation['evaluation_state_json'])
+                    saved_state = self.validation_engine.dict_to_state(saved_state_data)
+                    
+                    best_state.haridus_comment = saved_state.haridus_comment
+                    best_state.tookogemus_comment = saved_state.tookogemus_comment
+                    best_state.koolitus_comment = saved_state.koolitus_comment
+                    best_state.otsus_comment = saved_state.otsus_comment
+                    best_state.final_decision = saved_state.final_decision
+                    print(f"--- [DEBUG] Rehydrated comments/decision for {qual_id}")
+            except Exception as e:
+                print(f"--- [WARN] Failed to rehydrate saved state: {e}")
 
             user_data = self.users_table[user_email]
             user_quals = [q for q in self.qual_table() if q.get('user_email') == user_email and q.get('level') == level and q.get('qualification_name') == activity]

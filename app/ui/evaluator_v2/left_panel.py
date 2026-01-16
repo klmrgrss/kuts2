@@ -6,7 +6,7 @@ from .application_list import render_application_list
 
 
 
-def render_left_panel(applications: List[Dict], id_suffix: str = "") -> FT:
+def render_left_panel(applications: List[Dict], id_suffix: str = "", active_qual_id: str = None) -> FT:
     """
     Renders the full left panel, including the search controls
     and the initial list of applications. Accepts an optional id_suffix.
@@ -33,7 +33,7 @@ def render_left_panel(applications: List[Dict], id_suffix: str = "") -> FT:
     return Div(
         header,
         Div(
-            render_application_list(applications),
+            render_application_list(applications, active_qual_id=active_qual_id),
             id=list_container_id
         ),
         cls="h-full bg-white dark:bg-gray-900 border-r dark:border-gray-700 overflow-auto [scrollbar-width:none]"
