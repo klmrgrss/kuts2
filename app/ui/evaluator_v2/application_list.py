@@ -20,7 +20,7 @@ def render_application_item(app: Dict, include_oob: bool = True) -> FT:
         "hx_swap": "innerHTML",
         "hx_params": "none",
         "_": "on click remove .bg-blue-100 from <a/> in #application-list-container then add .bg-blue-100 to me",
-        "cls": "block p-3 border-b hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        "cls": "block p-3 border-b hover:bg-gray-100 dark:hover:bg-gray-800 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
     }
     
     if include_oob:
@@ -34,7 +34,7 @@ def render_application_item(app: Dict, include_oob: bool = True) -> FT:
         # This span takes up the available space and allows the text inside to be truncated
         Span(f"{level_abbr} / {qual_name}", cls="truncate"),
         # The parent div is a flex container
-        cls="flex justify-between items-baseline text-xs text-gray-600"
+        cls="flex justify-between items-baseline text-xs text-gray-600 dark:text-gray-400"
     )
 
     precheck_met = app.get('precheck_met')
@@ -43,7 +43,7 @@ def render_application_item(app: Dict, include_oob: bool = True) -> FT:
     # Unified Icon Logic
     # Priority: Human Decision (Color) > Precheck (Gray) > Placeholder
     icon_name = "shield"
-    icon_cls = "w-5 h-5 text-gray-200" # Default placeholder
+    icon_cls = "w-5 h-5 text-gray-200 dark:text-gray-700" # Default placeholder
 
     if final_decision:
         if final_decision == "Anda":
@@ -56,7 +56,7 @@ def render_application_item(app: Dict, include_oob: bool = True) -> FT:
             icon_name = "shield-check"
             icon_cls = "w-5 h-5 text-blue-500"
     elif precheck_met is not None:
-        icon_cls = "w-5 h-5 text-gray-400"
+        icon_cls = "w-5 h-5 text-gray-400 dark:text-gray-500"
         if precheck_met is True:
             icon_name = "shield-check"
         else:
@@ -67,7 +67,7 @@ def render_application_item(app: Dict, include_oob: bool = True) -> FT:
             # Single Icon Column
             Div(
                 UkIcon(icon_name, cls=icon_cls),
-                cls="flex items-center justify-center mr-3 pr-3 border-r border-gray-100 h-10"
+                cls="flex items-center justify-center mr-3 pr-3 border-r border-gray-100 dark:border-gray-700 h-10"
             ),
             # Text Content
             Div(

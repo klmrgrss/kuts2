@@ -15,8 +15,8 @@ def render_right_panel(documents: List[Dict], work_experience: List[Dict]) -> FT
         Summary(
             UkIcon("book-open", cls="w-5 h-5"),
             "Haridus",
-            Span(f"({len(education_docs)})", cls="ml-1 text-gray-500"),
-            cls="flex items-center gap-x-2 font-semibold cursor-pointer p-3 border-b"
+            Span(f"({len(education_docs)})", cls="ml-1 text-gray-500 dark:text-gray-400"),
+            cls="flex items-center gap-x-2 font-semibold cursor-pointer p-3 border-b dark:border-gray-700"
         ),
         Div(
             *[
@@ -24,7 +24,7 @@ def render_right_panel(documents: List[Dict], work_experience: List[Dict]) -> FT
                   href=f"/files/view/{doc.get('id')}",
                   target="_blank",
                   # --- THE FIX: Added truncate ---
-                  cls="block p-2 hover:bg-gray-100 text-sm link truncate")
+                  cls="block p-2 hover:bg-gray-100 dark:hover:bg-gray-800 text-sm link truncate")
                 for doc in education_docs
             ] if education_docs else [P("Hariduse dokumente ei leitud.", cls="p-3 text-sm text-gray-500")],
         ),
@@ -37,8 +37,8 @@ def render_right_panel(documents: List[Dict], work_experience: List[Dict]) -> FT
         Summary(
             UkIcon("award", cls="w-5 h-5"),
             "Täiendkoolitus",
-            Span(f"({len(training_docs)})", cls="ml-1 text-gray-500"),
-            cls="flex items-center gap-x-2 font-semibold cursor-pointer p-3 border-b"
+            Span(f"({len(training_docs)})", cls="ml-1 text-gray-500 dark:text-gray-400"),
+            cls="flex items-center gap-x-2 font-semibold cursor-pointer p-3 border-b dark:border-gray-700"
         ),
         Div(
             *[
@@ -46,7 +46,7 @@ def render_right_panel(documents: List[Dict], work_experience: List[Dict]) -> FT
                   href=f"/files/view/{doc.get('id')}",
                   target="_blank",
                   # --- THE FIX: Added truncate ---
-                  cls="block p-2 hover:bg-gray-100 text-sm link truncate")
+                  cls="block p-2 hover:bg-gray-100 dark:hover:bg-gray-800 text-sm link truncate")
                 for doc in training_docs
             ] if training_docs else [P("Täiendkoolituse dokumente ei leitud.", cls="p-3 text-sm text-gray-500")],
         ),
@@ -58,8 +58,8 @@ def render_right_panel(documents: List[Dict], work_experience: List[Dict]) -> FT
         Summary(
             UkIcon("briefcase", cls="w-5 h-5"),
             "Töökogemus",
-            Span(f"({len(work_experience)})", cls="ml-1 text-gray-500"),
-            cls="flex items-center gap-x-2 font-semibold cursor-pointer p-3 border-b"
+            Span(f"({len(work_experience)})", cls="ml-1 text-gray-500 dark:text-gray-400"),
+            cls="flex items-center gap-x-2 font-semibold cursor-pointer p-3 border-b dark:border-gray-700"
         ),
         Div(
             *[
@@ -80,5 +80,5 @@ def render_right_panel(documents: List[Dict], work_experience: List[Dict]) -> FT
         work_exp_section,
         id="ev-right-panel",
         hx_swap_oob="true",
-        cls="h-full bg-white border-l divide-y"
+        cls="h-full bg-white dark:bg-gray-900 border-l dark:border-gray-700 divide-y dark:divide-gray-700"
     )

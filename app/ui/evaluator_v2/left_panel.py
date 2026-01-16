@@ -27,7 +27,7 @@ def render_left_panel(applications: List[Dict], id_suffix: str = "") -> FT:
             UkIcon("search", cls="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none"),
             cls="relative w-full"
         ),
-        cls="p-3 border-b bg-gray-50 sticky top-0 z-10"
+        cls="p-3 border-b bg-gray-50 dark:bg-gray-900 dark:border-gray-700 sticky top-0 z-10"
     )
 
     return Div(
@@ -36,5 +36,5 @@ def render_left_panel(applications: List[Dict], id_suffix: str = "") -> FT:
             render_application_list(applications),
             id=list_container_id
         ),
-        cls="h-full bg-white border-r overflow-auto [scrollbar-width:none]"
+        cls="h-full bg-white dark:bg-gray-900 border-r dark:border-gray-700 overflow-auto [scrollbar-width:none]"
     )

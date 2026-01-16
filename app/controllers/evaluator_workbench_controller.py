@@ -10,7 +10,7 @@ import dataclasses
 from logic.validator import ValidationEngine
 from logic.models import ApplicantData, ComplianceDashboardState
 from ui.evaluator_v2.center_panel import render_compliance_dashboard
-from ui.evaluator_v2.application_list import render_application_item
+from ui.evaluator_v2.application_list import render_application_item, render_application_list
 
 QUALIFICATION_LEVEL_TO_RULE_ID = {
     "Ehituse tööjuht, TASE 5": "toojuht_tase_5",
@@ -109,21 +109,26 @@ class EvaluatorWorkbenchController:
                 best_state.final_decision = final_decision or None
 
             # 6. Final Sync & Save
+            # 6. Final Sync & Save
             self._save_evaluation_state(qual_id, request.session.get("user_email"), best_state)
             
-            dashboard = render_compliance_dashboard(best_state, qual_id)
+            dashboard = render_compliance_dashboard(best_state)
             
-            # --- OOB update for the application list item ---
-            app_data = self.search_controller.get_application_by_id(qual_id)
-            print(f"--- [DEBUG] Got app_data for OOB: {app_data}")
-            if app_data:
-                list_item = render_application_item(app_data, include_oob=False)
-                list_item = render_application_item(app_data, include_oob=False)
-                # Use explicit outerHTML swap targeting the safe DOM ID
-                safe_dom_id = list_item.id
-                list_item.attrs['hx_swap_oob'] = f"outerHTML:#{safe_dom_id}"
-                print(f"--- [DEBUG] Returning OOB list_item with decision: {app_data.get('final_decision')} targeting #{safe_dom_id}")
-                return dashboard, list_item
+            # --- OOB update: Full Sidebar Refresh (Ensures consistency) ---
+            # Fetch all applications to render the updated list
+            all_apps = self.search_controller._get_flattened_applications()
+            updated_list_content = render_application_list(all_apps)
+            
+            # Create OOB swap for the container
+            # We target the specific container ID defined in left_panel.py
+            list_container = Div(
+                updated_list_content,
+                id="application-list-container",
+                hx_swap_oob="true"
+            )
+            print(f"--- [DEBUG] OOB Update - Refreshing full application list ({len(all_apps)} items)")
+            
+            return dashboard, list_container
 
             return dashboard
 
