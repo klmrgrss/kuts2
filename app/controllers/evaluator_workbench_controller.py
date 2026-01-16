@@ -117,7 +117,8 @@ class EvaluatorWorkbenchController:
             # --- OOB update: Full Sidebar Refresh (Ensures consistency) ---
             # Fetch all applications to render the updated list
             all_apps = self.search_controller._get_flattened_applications()
-            updated_list_content = render_application_list(all_apps)
+            # Pass the current qual_id to ensure highlighting persists, and disable OOB for items
+            updated_list_content = render_application_list(all_apps, include_oob=False, active_qual_id=qual_id)
             
             # Create OOB swap for the container
             # We target the specific container ID defined in left_panel.py
@@ -126,7 +127,7 @@ class EvaluatorWorkbenchController:
                 id="application-list-container",
                 hx_swap_oob="true"
             )
-            print(f"--- [DEBUG] OOB Update - Refreshing full application list ({len(all_apps)} items)")
+            print(f"--- [DEBUG] OOB Update - Refreshing full application list ({len(all_apps)} items) with active: {qual_id}")
             
             return dashboard, list_container
 

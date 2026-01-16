@@ -10,17 +10,32 @@ def get_safe_dom_id(qual_id: str) -> str:
     """Returns a CSS-safe ID for DOM elements."""
     return "app-" + hashlib.md5(qual_id.encode()).hexdigest()
 
-def render_application_item(app: Dict, include_oob: bool = True) -> FT:
+def render_application_item(app: Dict, include_oob: bool = True, active_qual_id: str = None) -> FT:
     """Renders a single application list item."""
     qual_id = app.get('qual_id', '')
     dom_id = get_safe_dom_id(qual_id)
+    
+    is_active = (qual_id == active_qual_id)
+    base_cls = "block p-3 border-b hover:bg-gray-100 dark:hover:bg-gray-800 dark:border-gray-700 focus:outline-none transition-colors"
+    active_cls = "bg-blue-50 dark:bg-blue-900/20 shadow-inner"
+    
+    final_cls = f"{base_cls} {active_cls}" if is_active else base_cls
+
+    # JS to toggle classes safely (Hyperscript struggles with colons/slashes in selectors)
+    toggle_js = (
+        "document.querySelectorAll('#application-list-container a').forEach(el=>{"
+        "el.classList.remove('bg-blue-50','dark:bg-blue-900/20','shadow-inner');"
+        "});"
+        "this.classList.add('bg-blue-50','dark:bg-blue-900/20','shadow-inner');"
+    )
+
     attrs = {
         "hx_get": f"/evaluator/d/application/{qual_id}",
         "hx_target": "#ev-center-panel",
         "hx_swap": "innerHTML",
         "hx_params": "none",
-        "_": "on click remove .bg-blue-100 from <a/> in #application-list-container then add .bg-blue-100 to me",
-        "cls": "block p-3 border-b hover:bg-gray-100 dark:hover:bg-gray-800 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        "onclick": toggle_js,
+        "cls": final_cls
     }
     
     if include_oob:
@@ -84,7 +99,7 @@ def render_application_item(app: Dict, include_oob: bool = True) -> FT:
         **attrs
     )
 
-def render_application_list(applications: List[Dict], include_oob: bool = True) -> FT:
+def render_application_list(applications: List[Dict], include_oob: bool = True, active_qual_id: str = None) -> FT:
     """
     Renders the list of application items.
     Conditionally includes the hx_swap_oob attribute.
@@ -92,5 +107,5 @@ def render_application_list(applications: List[Dict], include_oob: bool = True) 
     if not applications:
         return P("No applications found.", cls="p-4 text-center text-gray-500")
 
-    application_items = [render_application_item(app, include_oob) for app in applications]
+    application_items = [render_application_item(app, include_oob, active_qual_id) for app in applications]
     return tuple(application_items)
