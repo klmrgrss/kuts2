@@ -6,10 +6,10 @@ from .application_list import render_application_list
 
 
 
-def render_left_panel(applications: List[Dict], id_suffix: str = "", active_qual_id: str = None) -> FT:
+def render_left_panel(applications: List[Dict], id_suffix: str = "", active_qual_id: str = None, bg_class: str = "bg-white dark:bg-gray-900") -> FT:
     """
     Renders the full left panel, including the search controls
-    and the initial list of applications. Accepts an optional id_suffix.
+    and the initial list of applications. Accepts an optional id_suffix and bg_class.
     """
     search_input_id = f"search-input{id_suffix}"
     list_container_id = f"application-list-container{id_suffix}"
@@ -27,7 +27,7 @@ def render_left_panel(applications: List[Dict], id_suffix: str = "", active_qual
             UkIcon("search", cls="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none"),
             cls="relative w-full"
         ),
-        cls="p-3 border-b bg-gray-50 dark:bg-gray-900 dark:border-gray-700 sticky top-0 z-10"
+        cls=f"p-3 border-b border-gray-100 dark:border-gray-700 sticky top-0 z-10 {bg_class}"
     )
 
     return Div(
@@ -36,5 +36,5 @@ def render_left_panel(applications: List[Dict], id_suffix: str = "", active_qual
             render_application_list(applications, active_qual_id=active_qual_id),
             id=list_container_id
         ),
-        cls="h-full bg-white dark:bg-gray-900 border-r dark:border-gray-700 overflow-auto [scrollbar-width:none]"
+        cls=f"h-full border-r dark:border-gray-700 overflow-auto [scrollbar-width:none] {bg_class}"
     )

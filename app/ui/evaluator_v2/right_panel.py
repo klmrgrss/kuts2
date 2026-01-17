@@ -3,11 +3,12 @@ from fasthtml.common import *
 from monsterui.all import *
 from typing import List, Dict
 
-def render_right_panel(documents: List[Dict], work_experience: List[Dict]) -> FT:
+def render_right_panel(documents: List[Dict], work_experience: List[Dict], bg_class: str = "bg-white dark:bg-gray-900", id_suffix: str = "") -> FT:
     """
     Renders the right panel with applicant's documents and work history
-    in collapsible accordion sections.
+    in collapsible accordion sections. Accepts optional bg_class and id_suffix.
     """
+    panel_id = f"ev-right-panel{id_suffix}"
 
     # --- Education Section ---
     education_docs = [doc for doc in documents if doc.get('document_type') == 'education']
@@ -78,7 +79,7 @@ def render_right_panel(documents: List[Dict], work_experience: List[Dict]) -> FT
         education_section,
         training_section,
         work_exp_section,
-        id="ev-right-panel",
+        id=panel_id,
         hx_swap_oob="true",
-        cls="h-full bg-white dark:bg-gray-900 border-l dark:border-gray-700 divide-y dark:divide-gray-700"
+        cls=f"h-full border-l dark:border-gray-700 divide-y dark:divide-gray-700 {bg_class}"
     )

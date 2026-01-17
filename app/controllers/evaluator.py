@@ -41,14 +41,22 @@ class EvaluatorController:
         if applications_data:
             selected_qual_id = applications_data[0].get('qual_id')
             try:
-                center_panel, right_panel = self.show_v2_application_detail(request, selected_qual_id)
+                # Unpack all 3 panels
+                center_panel, right_panel, right_panel_drawer = self.show_v2_application_detail(request, selected_qual_id)
             except Exception as e:
                 print(f"--- ERROR pre-loading application detail: {e} ---")
                 traceback.print_exc()
                 center_panel = Div("Error loading application.", cls="p-4 text-red-500")
 
         left_panel_desktop = render_left_panel(applications_data, active_qual_id=selected_qual_id)
-        left_panel_drawer = render_left_panel(applications_data, id_suffix="-drawer", active_qual_id=selected_qual_id)
+        
+        # Drawer Left: Application List (Light / Darker Dark)
+        left_panel_drawer = render_left_panel(
+            applications_data, 
+            id_suffix="-drawer", 
+            active_qual_id=selected_qual_id,
+            bg_class="bg-white dark:bg-gray-950" 
+        )
 
         return ev_layout(
             request=request, title="Hindamiskeskkond v2",
@@ -56,6 +64,7 @@ class EvaluatorController:
             center_panel_content=center_panel,
             right_panel_content=right_panel,
             drawer_left_panel_content=left_panel_drawer,
+            drawer_right_panel_content=right_panel_drawer,
             db=self.db
         )
 
@@ -102,12 +111,24 @@ class EvaluatorController:
 
             center_panel = render_center_panel(qual_data, user_data, best_state)
             right_panel = render_right_panel(user_documents, user_work_experience)
+            
+            # Additional Drawer Panel with unique ID and Style
+            right_panel_drawer = render_right_panel(
+                user_documents, 
+                user_work_experience, 
+                bg_class="bg-slate-200 dark:bg-gray-800",
+                id_suffix="-drawer"
+            )
 
-            return center_panel, right_panel
+            return center_panel, right_panel, right_panel_drawer
 
         except Exception as e:
             traceback.print_exc()
-            return Div(f"Error: {e}", id="ev-center-panel", hx_swap_oob="true"), Div(id="ev-right-panel", hx_swap_oob="true")
+            return (
+                Div(f"Error: {e}", id="ev-center-panel", hx_swap_oob="true"), 
+                Div(id="ev-right-panel", hx_swap_oob="true"),
+                Div(id="ev-right-panel-drawer", hx_swap_oob="true")
+            )
 
     def _get_applicant_data_for_validation(self, user_email: str) -> ApplicantData:
         # 1. Fetch Education from DB

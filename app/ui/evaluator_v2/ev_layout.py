@@ -13,8 +13,9 @@ def ev_layout(
     center_panel_content: Any,
     right_panel_content: Any,
     db: Any,
-    # Add a new parameter for the drawer's version of the left panel
-    drawer_left_panel_content: Any
+    # Add parameters for the drawer's version of panels
+    drawer_left_panel_content: Any,
+    drawer_right_panel_content: Any = None # Optional for backward compat if needed, but we will pass it
 ) -> FT:
     """
     Renders the evaluator layout using a responsive approach.
@@ -60,12 +61,15 @@ def ev_layout(
             Label(fr="left-drawer-toggle", aria_label="close sidebar", cls="drawer-overlay"),
             Div(
                 # Use the new, uniquely-suffixed content for the drawer
-                drawer_left_panel_content,
                 Div(
-                    right_panel_content,
-                    cls="border-t"
+                    drawer_left_panel_content,
+                    cls="flex-1 overflow-y-auto" 
                 ),
-                cls="lg:hidden flex flex-col h-full bg-base-100 w-80"
+                Div(
+                    drawer_right_panel_content or right_panel_content,
+                    cls="flex-1 overflow-y-auto border-t" 
+                ),
+                cls="lg:hidden flex flex-col h-full w-80 shadow-xl bg-gray-50 dark:bg-gray-900" # Main wrapper
             ),
             cls="drawer-side z-40"
         ),
