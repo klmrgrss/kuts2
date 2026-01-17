@@ -36,16 +36,23 @@ class EvaluatorWorkbenchController:
             print(f"--- [DEBUG] Raw form data received: {form_data}")
 
             # 1. Restore previous state
+            best_state = None
             try:
                 saved_evaluation = self.evaluations_table.get(qual_id)
-                saved_state_data = json.loads(saved_evaluation['evaluation_state_json'])
-                best_state = self.validation_engine.dict_to_state(saved_state_data)
-            except (NotFoundError, json.JSONDecodeError):
+                if saved_evaluation:
+                    saved_state_data = json.loads(saved_evaluation['evaluation_state_json'])
+                    best_state = self.validation_engine.dict_to_state(saved_state_data)
+                    print(f"--- [DEBUG] Loaded previous state for {qual_id} ---")
+            except Exception as e:
+                print(f"--- [WARN] Could not load previous state for {qual_id}: {e} ---")
+
+            if best_state is None:
                 # If no state, perform initial validation
                 applicant_data = self.main_controller._get_applicant_data_for_validation(user_email)
                 qualification_rule_id = QUALIFICATION_LEVEL_TO_RULE_ID.get(level, "toojuht_tase_5")
                 all_states = self.validation_engine.validate(applicant_data, qualification_rule_id)
                 best_state = next((s for s in all_states if s.overall_met), all_states[0])
+                print(f"--- [DEBUG] Created fresh state for {qual_id} ---")
 
             # 2. Get evaluator inputs from form
             selected_education = form_data.get("education_level")
