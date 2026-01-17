@@ -22,5 +22,5 @@ ENV DATABASE_FILE_PATH=/app/data/app.db
 # Create data directory
 RUN mkdir -p /app/data
 
-# Run the application
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Run the application, respecting the PORT environment variable
+CMD sh -c "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"
