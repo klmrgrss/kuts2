@@ -121,6 +121,14 @@ G_APP = [APPLICANT, EVALUATOR, ADMIN]
 @require_role(*G_APP)
 def get_dashboard(req): return dash_ctrl.show_dashboard(req, req.state.current_user)
 
+@rt("/dashboard/evaluators", methods=["POST"])
+@require_role(ADMIN)
+async def post_dashboard_eval(req): return await dash_ctrl.add_evaluator(req)
+
+@rt("/dashboard/evaluators/{id_code}", methods=["DELETE"])
+@require_role(ADMIN)
+def delete_dashboard_eval(req, id_code: str): return dash_ctrl.delete_evaluator(req, id_code)
+
 @rt("/app")
 @require_role(*G_APP)
 def get_app_root(req): return RedirectResponse("/dashboard", status_code=303)

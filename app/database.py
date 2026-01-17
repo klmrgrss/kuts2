@@ -354,5 +354,17 @@ def setup_database():
         db.execute("CREATE INDEX IF NOT EXISTS ix_documents_user_email ON documents (user_email)")
         print("--- 'documents' table created ---")
 
+    # === Create Allowed Evaluators Table ===
+    allowed_evaluators = db.t.allowed_evaluators
+    if allowed_evaluators not in db.t:
+        print("--- Creating 'allowed_evaluators' table ---")
+        allowed_evaluators.create(
+            national_id_number=str,
+            created_at=str,
+            added_by=str,
+            pk='national_id_number'
+        )
+        print("--- 'allowed_evaluators' table created ---")
+
     print(f"--- Database setup complete. Tables checked/created/updated. ---")
     return db

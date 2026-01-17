@@ -85,3 +85,57 @@ def render_evaluator_dashboard(data: dict) -> FT:
         # The main container with a border and rounded corners.
         cls="relative mt-8 rounded-lg border-2 border-border dark:border-gray-600"
     )
+
+
+def render_admin_dashboard(allowed_evaluators: list[dict]) -> FT:
+    """
+    Renders the administrator's dashboard for managing evaluators.
+    """
+    return Div(
+        Span("Administraatori Töölaud", cls="absolute -top-3 left-4 bg-background px-2 text-lg font-semibold text-gray-600 dark:text-gray-300"),
+        Div(
+            Div(
+                H3("Lubatud Hindajad", cls="text-xl font-bold mb-4"),
+                P("Lisa isikukoodid, kellel on õigus hindajate vaatele ligi pääseda.", cls="text-sm text-muted-foreground mb-4"),
+                
+                # List of evaluators
+                Table(
+                    Thead(Tr(Th("Isikukood", cls="text-left"), Th("Lisatud", cls="text-left"), Th("Tegevus", cls="text-right"))),
+                    Tbody(
+                        *[Tr(
+                            Td(e['national_id_number'], cls="py-2"),
+                            Td(e['created_at'] or "-", cls="py-2"),
+                            Td(
+                                Button("Eemalda", 
+                                       cls=ButtonT.destructive + " text-xs px-2 py-1", 
+                                       hx_delete=f"/dashboard/evaluators/{e['national_id_number']}",
+                                       hx_confirm=f"Kas oled kindel, et soovid eemaldada hindaja {e['national_id_number']}?",
+                                       hx_target="body"), # Full refresh to update list
+                                cls="text-right"
+                            )
+                        ) for e in allowed_evaluators]
+                    ),
+                    cls="w-full mb-6"
+                ) if allowed_evaluators else P("Ühtegi hindajat pole veel lisatud.", cls="italic text-muted-foreground mb-6"),
+
+                # Add Form
+                Form(
+                    Div(
+                        LabelInput(label="Isikukood", name="national_id_number", placeholder="nt 49001010000"),
+                        Button("Lisa Hindaja", type="submit", cls=ButtonT.primary + " mt-6"),
+                        cls="flex items-end gap-4"
+                    ),
+                    hx_post="/dashboard/evaluators",
+                    hx_target="body"
+                ),
+            ),
+            Hr(cls="my-6 border-border"),
+            Div(
+                A(Button("Ava hindamiskeskkond", cls=ButtonT.secondary), href="/evaluator/d"),
+                A("Logi välja", href="/logout", cls="text-sm text-muted-foreground hover:underline"),
+                cls="flex justify-between items-center"
+            ),
+            cls="p-6"
+        ),
+        cls="relative mt-8 rounded-lg border-2 border-border dark:border-gray-600"
+    )

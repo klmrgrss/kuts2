@@ -23,7 +23,7 @@ def StatusStrip(docs: list, doc_type: str, title: str):
     else:
         # --- THE FIX: Use the document's integer ID for the link ---
         doc_links = [
-            A(doc.get('original_filename'), href=f"/files/view/{doc.get('id')}", target="_blank", cls="link font-semibold underline")
+            A(doc.get('original_filename'), href=f"/files/view/{doc.get('id')}", target="_blank", download=True, cls="link font-semibold underline")
             for doc in relevant_docs
         ]
         items = [doc_links[0]]

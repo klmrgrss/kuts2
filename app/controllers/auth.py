@@ -169,17 +169,57 @@ class AuthController:
 
             print(f"--- DEBUG [AuthController]: Smart-ID success for {national_id} ({full_name}) ---")
 
+            # Check if user is an allowed evaluator
+            is_allowed_evaluator = False
+            try:
+                # Check existence in allowed_evaluators table
+                if self.db.t.allowed_evaluators[national_id]:
+                    is_allowed_evaluator = True
+            except:
+                is_allowed_evaluator = False
+
             try:
                 user_records = self.users("national_id_number = ?", [national_id])
                 if not user_records: raise NotFoundError
                 user_data = user_records[0]
                 print(f"--- DEBUG [AuthController]: Found existing user by national ID: {user_data['email']} ---")
+                
+                # Sync Role
+                current_role = normalize_role(user_data.get('role'))
+                env_admin_id = os.environ.get("ADMIN_ID_CODE")
+                
+                # Force ADMIN if matches Environment Variable
+                if env_admin_id and national_id == env_admin_id:
+                    new_role = ADMIN
+                else:
+                    # Regular Logic
+                    if current_role == ADMIN:
+                        new_role = ADMIN # Don't demote existing admins via logic (unless manual DB intervention)
+                    else:
+                        new_role = current_role
+                        if is_allowed_evaluator:
+                            new_role = EVALUATOR
+                        elif current_role == EVALUATOR:
+                            # Demote if not in allowed list anymore
+                            new_role = APPLICANT
+                    
+                if new_role != current_role:
+                    print(f"--- DEBUG [AuthController]: Updating role for {national_id} from {current_role} to {new_role} ---")
+                    user_data['role'] = new_role
+                    self.users.update(user_data)
 
             except NotFoundError:
                 print(f"--- DEBUG [AuthController]: User with national ID {national_id} not found. Creating new user. ---")
+                
+                env_admin_id = os.environ.get("ADMIN_ID_CODE")
+                if env_admin_id and national_id == env_admin_id:
+                    initial_role = ADMIN
+                else:
+                    initial_role = EVALUATOR if is_allowed_evaluator else APPLICANT
+                
                 new_user = {
                     "email": email, "hashed_password": "", "full_name": full_name,
-                    "birthday": None, "role": APPLICANT, "national_id_number": national_id
+                    "birthday": None, "role": initial_role, "national_id_number": national_id
                 }
                 self.users.insert(new_user, pk='email')
                 user_data = new_user
