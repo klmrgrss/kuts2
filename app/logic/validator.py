@@ -28,22 +28,34 @@ class ValidationEngine:
         """
         Recursively converts a dictionary back into a ComplianceDashboardState object.
         """
-        # Create ComplianceCheck objects for all nested check dictionaries
+        # print(f"--- [DEBUG] dict_to_state keys: {list(state_dict.keys())}")
+        
         state_fields = ComplianceDashboardState.__dataclass_fields__.keys()
+        check_fields = ComplianceCheck.__dataclass_fields__.keys()
+        
         checks = {}
         scalar_fields = {}
 
         for key, value in state_dict.items():
-            if key not in state_fields:
+            try:
+                if key not in state_fields:
+                    continue
+                
+                if isinstance(value, dict):
+                    # Filter nested dict to only contain keys valid for ComplianceCheck
+                    # This prevents "unexpected keyword argument" errors if DB has stale extra keys
+                    valid_check_data = {k: v for k, v in value.items() if k in check_fields}
+                    checks[key] = ComplianceCheck(**valid_check_data)
+                elif value is None and key in [f for f in state_fields if f in ['education', 'total_experience', 'matching_experience', 'base_training', 'manager_training', 'conditional_training', 'cpd_training', 'prior_level_4']]:
+                    # If a Check field is None (shouldn't happen with default_factory, but good to be safe), use default
+                    checks[key] = ComplianceCheck()
+                else:
+                    scalar_fields[key] = value
+            except Exception as e:
+                print(f"--- [ERROR] dict_to_state failed on key '{key}': {e}")
+                # Don't raise, just skip this field to allow partial hydration
                 continue
-            if isinstance(value, dict):
-                checks[key] = ComplianceCheck(**value)
-            else:
-                scalar_fields[key] = value
 
-        # Create the main state object, unpacking scalar values alongside
-        # the reconstructed ComplianceCheck objects so comment fields and
-        # evaluator toggles survive round-trips through JSON.
         return ComplianceDashboardState(
             **scalar_fields,
             **checks
