@@ -80,7 +80,6 @@ class EvaluatorController:
             best_state = next((s for s in all_states if s.overall_met), all_states[0])
             
             # 2. Rehydrate comments/decision from saved state if exists
-            # 2. Rehydrate comments/decision from saved state if exists
             try:
                 saved_evaluation = self.evaluations_table.get(qual_id)
                 if saved_evaluation:
