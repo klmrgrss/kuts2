@@ -165,7 +165,7 @@ def tab_nav(active_tab: str, request: Request, badge_counts: Dict = None) -> FT:
         nav_items.append(Li(link, role='presentation', cls="flex-shrink-0"))
 
     tab_list = Ul( *nav_items, id="tab-list-container", cls="flex flex-nowrap -mb-px text-sm font-medium text-center text-muted-foreground" )
-    nav_container = Div( tab_list, cls="flex justify-center md:justify-s border-b border-border overflow-x-auto overflow-y-hidden" )
+    nav_container = Div( tab_list, cls="flex justify-start border-b border-border overflow-x-auto overflow-y-hidden" )
     return Nav(nav_container, aria_label="Application Tabs", cls="bg-background")
 
 
@@ -181,7 +181,7 @@ def render_sticky_header(request: Request, active_tab: str, db: Any, badge_count
             tab_nav_wrapper,
             cls=f"w-full {container_class} md:mx-auto"
         ),
-        cls="sticky top-0 z-50 bg-background shadow-md"
+        cls="sticky top-0 z-50 bg-background shadow-md min-w-full"
     )
 
 def evaluator_navbar(request: Request, db: Any) -> FT:

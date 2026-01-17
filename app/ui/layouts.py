@@ -86,7 +86,7 @@ def base_layout(title: str, *content: Any, theme_headers: tuple = Theme.blue.hea
         }
         """)
     ])
-    return Html( Head( Meta(charset="UTF-8"), Meta(name="viewport", content="width=device-width, initial-scale=1.0"), Title(title, id="page-title"), *all_hdrs ), Body( *content, Div(id="toast-container"), cls="bg-background text-foreground" ), lang="et" )
+    return Html( Head( Meta(charset="UTF-8"), Meta(name="viewport", content="width=device-width, initial-scale=1.0"), Title(title, id="page-title"), *all_hdrs ), Body( *content, Div(id="toast-container"), cls="bg-background text-foreground overflow-x-hidden" ), lang="et" )
 
 
 # --- public_layout function ---
@@ -103,9 +103,10 @@ def app_layout(request: Request, title: str, content: Any, active_tab: str, db: 
     sticky_header = render_sticky_header(
         request=request, active_tab=active_tab, db=db, badge_counts=badge_counts, container_class=container_class
     )
-    main_content_container = Container(
-        Div(content, id="tab-content-container"),
-        cls=f"{ContainerT.xl} pt-8 w-full {container_class} md:mx-auto"
+    # TEST: Removing uk-container to verify user theory (CONFIRMED FIX)
+    main_content_container = Div(
+        Div(content, id="tab-content-container", cls="overflow-x-auto max-w-[100vw]"),
+        cls=f"pt-8 w-full px-4 md:mx-auto {container_class}"
     )
 
     footer_container = Div(footer, id="footer-container") if footer else Div(id="footer-container")
