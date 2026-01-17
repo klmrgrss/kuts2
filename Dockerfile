@@ -15,8 +15,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application code
 COPY . .
 
-# Environment variables
 ENV PYTHONUNBUFFERED=1
+ENV PYTHONPATH=/app/app
 ENV DATABASE_FILE_PATH=/app/data/app.db
 
 # Create data directory

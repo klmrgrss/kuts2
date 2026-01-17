@@ -2,6 +2,11 @@
 import sys, os, json, datetime, traceback
 from pathlib import Path
 from dotenv import load_dotenv
+
+# --- Setup Path (Must be before local imports) ---
+APP_ROOT = str(Path(__file__).parent)
+if APP_ROOT not in sys.path: sys.path.insert(0, APP_ROOT)
+
 from starlette.middleware import Middleware
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.routing import Mount
@@ -40,9 +45,6 @@ from controllers.evaluator_workbench_controller import EvaluatorWorkbenchControl
 from controllers.dashboard import DashboardController
 
 # --- Setup ---
-APP_ROOT = str(Path(__file__).parent)
-if APP_ROOT not in sys.path: sys.path.insert(0, APP_ROOT)
-
 load_dotenv()
 APP_DIR, STATIC_DIR = Path(__file__).parent, Path(__file__).parent/'static'
 UPLOAD_DIR = APP_DIR.parent/'Uploads'
