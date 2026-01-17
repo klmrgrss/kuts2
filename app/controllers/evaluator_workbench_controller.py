@@ -117,21 +117,22 @@ class EvaluatorWorkbenchController:
             # --- OOB update: Full Sidebar Refresh (Ensures consistency) ---
             # Fetch all applications to render the updated list
             all_apps = self.search_controller._get_flattened_applications()
-            # Pass the current qual_id to ensure highlighting persists, and disable OOB for items
-            updated_list_content = render_application_list(all_apps, include_oob=False, active_qual_id=qual_id)
             
-            # Create OOB swap for the container
-            # We target the specific container ID defined in left_panel.py
-            list_container = Div(
-                updated_list_content,
-                id="application-list-container",
-                hx_swap_oob="true"
-            )
-            print(f"--- [DEBUG] OOB Update - Refreshing full application list ({len(all_apps)} items) with active: {qual_id}")
+            # 1. Desktop List Content
+            desktop_list_content = render_application_list(all_apps, include_oob=False, active_qual_id=qual_id)
             
-            return dashboard, list_container
+            # 2. Drawer List Content (Same content logic, effectively just regenerating the FT components)
+            drawer_list_content = render_application_list(all_apps, include_oob=False, active_qual_id=qual_id)
 
-            return dashboard
+            # Create OOB swaps for BOTH containers
+            oob_swaps = (
+                Div(desktop_list_content, id="application-list-container", hx_swap_oob="true"),
+                Div(drawer_list_content, id="application-list-container-drawer", hx_swap_oob="true")
+            )
+            
+            print(f"--- [DEBUG] OOB Update - Refreshing application lists ({len(all_apps)} items) with active: {qual_id}")
+            
+            return dashboard, *oob_swaps
 
         except Exception as e:
             print(f"--- [ERROR] Re-evaluation failed: {e} ---")
