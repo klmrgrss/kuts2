@@ -116,7 +116,11 @@ class EvaluatorWorkbenchController:
             
             # --- OOB update: Full Sidebar Refresh (Ensures consistency) ---
             # Fetch all applications to render the updated list
-            all_apps = self.search_controller._get_flattened_applications()
+            # We pass the current 'best_state' as an override to ensure the list reflects the NEW decision immediately,
+            # bypassing any potential DB commit/read latency.
+            all_apps = self.search_controller._get_flattened_applications(
+                override_eval_states={qual_id: best_state}
+            )
             
             # 1. Desktop List Content
             desktop_list_content = render_application_list(all_apps, include_oob=False, active_qual_id=qual_id)

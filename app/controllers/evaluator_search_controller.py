@@ -14,15 +14,18 @@ class EvaluatorSearchController:
         self.users_table = db.t.users
         self.qual_table = db.t.applied_qualifications
 
-    def _get_flattened_applications(self):
+    def _get_flattened_applications(self, override_eval_states=None):
         """
         Fetches and flattens application data for the search list.
+        Optional override_eval_states: dict {qual_id: ComplianceDashboardState/dict}
         """
         all_users = self.users_table()
         all_quals = self.qual_table()
         all_evals = self.db.t.evaluations()
         user_name_lookup = {user.get('email'): user.get('full_name', 'N/A') for user in all_users}
         eval_lookup = {}
+        
+        # 1. Load from DB
         for ev in all_evals:
             try:
                 state = json.loads(ev.get('evaluation_state_json', '{}'))
@@ -31,6 +34,21 @@ class EvaluatorSearchController:
                     "final_decision": state.get('final_decision')
                 }
             except: continue
+            
+        # 2. Apply Overrides (Robustness against DB latency)
+        if override_eval_states:
+            for q_id, state_obj in override_eval_states.items():
+                # Allow passing either the State object or a dict or a pre-digested dict
+                if hasattr(state_obj, 'overall_met'): # It's a State object
+                    eval_lookup[q_id] = {
+                        "precheck_met": state_obj.overall_met,
+                        "final_decision": state_obj.final_decision
+                    }
+                elif isinstance(state_obj, dict):
+                     eval_lookup[q_id] = {
+                        "precheck_met": state_obj.get('overall_met'),
+                        "final_decision": state_obj.get('final_decision')
+                    }
 
         grouped_by_activity = defaultdict(lambda: defaultdict(list))
         for qual in all_quals:
