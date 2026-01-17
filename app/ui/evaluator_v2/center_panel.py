@@ -24,15 +24,19 @@ def render_compliance_section(title: str, icon_name: str, subsections: List[FT],
          border, accent, icon, text = "border-gray-300 dark:border-gray-700 opacity-50", "bg-gray-300", UkIcon("minus", cls="text-gray-500"), "Ei ole asjakohane"
     else:
         all_met = all(c.is_met for c in relevant) if relevant else True
-        if context_name == "otsus" and decision:
-            if decision == "Anda": border, accent, icon, text = "border-green-500", "bg-green-500", UkIcon("check-circle", cls="text-green-500"), f"Otsus: {decision}"
-            elif decision == "Mitte anda": border, accent, icon, text = "border-red-500", "bg-red-500", UkIcon("shield-off", cls="text-red-500"), f"Otsus: {decision}"
-            else: border, accent, icon, text = "border-blue-500", "bg-blue-500", UkIcon("shield-check", cls="text-blue-500"), f"Otsus: {decision}"
+        if context_name == "otsus":
+            if decision:
+                if decision == "Anda": border, accent, icon, text = "border-green-500", "bg-green-500", UkIcon("check-circle", cls="text-green-500"), f"Otsus: {decision}"
+                elif decision == "Mitte anda": border, accent, icon, text = "border-red-500", "bg-red-500", UkIcon("shield-off", cls="text-red-500"), f"Otsus: {decision}"
+                else: border, accent, icon, text = "border-blue-500", "bg-blue-500", UkIcon("shield-check", cls="text-blue-500"), f"Otsus: {decision}"
+            else:
+                 # Default "Pending" State for Otsus
+                 border, accent, icon, text = "border-gray-300 dark:border-gray-600", "bg-gray-300 dark:bg-gray-600", UkIcon("help-circle", cls="text-gray-400"), "Otsus tegemata"
         else:
             border = "border-green-500" if all_met else "border-red-500"
             accent = "bg-green-500" if all_met else "bg-red-500"
             icon = UkIcon("check-circle", cls="text-green-500") if all_met else UkIcon("x-circle", cls="text-red-500")
-            text = f"{len([c for c in relevant if c.is_met])}/{len(relevant)} täidetud" if context_name!="otsus" else "Otsus"
+            text = f"{len([c for c in relevant if c.is_met])}/{len(relevant)} täidetud"
 
     header_content = [
         Div(cls=f"w-1.5 h-full absolute left-0 top-0 {accent}"), UkIcon(icon_name, cls="w-5 h-5"), H5(title, cls="font-semibold")
