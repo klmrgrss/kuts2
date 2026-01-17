@@ -36,8 +36,11 @@ class DashboardController:
             title = "Administraatori Töölaud"
 
         elif is_evaluator(user_role):
-            # Pure Evaluator -> Redirect to Evaluator Dashboard V2
-            return RedirectResponse("/evaluator/d", status_code=303)
+            # Evaluator View (Dashboard accessible via /dashboard or link)
+            evaluator_apps = self.evaluator_controller.search_controller._get_flattened_applications()
+            evaluator_data = {"applications_to_review": len(evaluator_apps)}
+            content = render_evaluator_dashboard(evaluator_data)
+            title = "Hindaja Töölaud"
 
         else: # Default to applicant view
             # For applicants, fetch their application status

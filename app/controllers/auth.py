@@ -229,8 +229,15 @@ class AuthController:
             request.session['role'] = normalize_role(user_data.get('role'), default=APPLICANT)
 
             print(f"--- DEBUG [AuthController]: Session created for {user_data['email']}. Redirecting to dashboard. ---")
-
-            return Response(headers={'HX-Redirect': '/dashboard'})
+            
+            redirect_url = '/dashboard'
+            role_for_redirect = normalize_role(user_data.get('role'))
+            
+            # Direct Evaluators to their main view
+            if role_for_redirect == EVALUATOR:
+                redirect_url = '/evaluator/d'
+                
+            return Response(headers={'HX-Redirect': redirect_url})
 
         except Exception as e:
             print(f"--- ERROR [AuthController]: Failed to process Smart-ID login: {e} ---")
