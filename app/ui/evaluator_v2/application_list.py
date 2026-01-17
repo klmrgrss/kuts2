@@ -21,9 +21,9 @@ def render_application_item(app: Dict, include_oob: bool = True, active_qual_id:
     
     final_cls = f"{base_cls} {active_cls}" if is_active else base_cls
 
-    # JS to toggle classes safely (Hyperscript struggles with colons/slashes in selectors)
+    # JS to toggle classes safely (Relative traversal fixes mobile/drawer ID mismatch)
     toggle_js = (
-        "document.querySelectorAll('#application-list-container a').forEach(el=>{"
+        "this.closest('div').querySelectorAll('a').forEach(el=>{"
         "el.classList.remove('bg-blue-50','dark:bg-blue-900/20','shadow-inner');"
         "});"
         "this.classList.add('bg-blue-50','dark:bg-blue-900/20','shadow-inner');"
