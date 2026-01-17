@@ -80,18 +80,36 @@ class EvaluatorController:
             best_state = next((s for s in all_states if s.overall_met), all_states[0])
             
             # 2. Rehydrate comments/decision from saved state if exists
+            # 2. Rehydrate comments/decision from saved state if exists
             try:
                 saved_evaluation = self.evaluations_table.get(qual_id)
                 if saved_evaluation:
                     saved_state_data = json.loads(saved_evaluation['evaluation_state_json'])
+                    print(f"--- [DEBUG] Loaded Saved State for {qual_id}: decision='{saved_state_data.get('final_decision')}' ---")
+                    
                     saved_state = self.validation_engine.dict_to_state(saved_state_data)
                     
+                    # Copy Comments
                     best_state.haridus_comment = saved_state.haridus_comment
                     best_state.tookogemus_comment = saved_state.tookogemus_comment
                     best_state.koolitus_comment = saved_state.koolitus_comment
                     best_state.otsus_comment = saved_state.otsus_comment
+                    
+                    # Copy Decision
                     best_state.final_decision = saved_state.final_decision
-                    print(f"--- [DEBUG] Rehydrated comments/decision for {qual_id}")
+
+                    # Copy Overrides to ensure dashboard consistency
+                    if saved_state.education_old_or_foreign is not None:
+                        best_state.education_old_or_foreign = saved_state.education_old_or_foreign
+                    
+                    # If education was overridden in saved state, we should reflect that
+                    # Note: We can't easily re-run validation here without refactoring, 
+                    # but we can update the display fields if they differ.
+                    if saved_state.education and saved_state.education.provided != best_state.education.provided:
+                         best_state.education.provided = saved_state.education.provided
+                         # Ideally we should re-calculate is_met, but for now let's just sync the text
+                         # to avoid confusing the user.
+                    
             except Exception as e:
                 print(f"--- [WARN] Failed to rehydrate saved state: {e}")
 
