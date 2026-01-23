@@ -73,44 +73,24 @@ class EvaluatorController:
             # Use fixed separator
             user_email, level, activity = qual_id.split(':::', 2)
 
-            # 1. Always run fresh validation
-            qualification_rule_id = QUALIFICATION_LEVEL_TO_RULE_ID.get(level, "toojuht_tase_5")
-            applicant_data = self._get_applicant_data_for_validation(user_email)
-            all_states = self.validation_engine.validate(applicant_data, qualification_rule_id)
-            best_state = next((s for s in all_states if s.overall_met), all_states[0])
-            
-            # 2. Rehydrate comments/decision from saved state if exists
+            # 1. Prefer saved evaluation state for persistence
+            best_state = None
             try:
                 saved_evaluation = self.evaluations_table.get(qual_id)
                 if saved_evaluation:
                     saved_state_data = json.loads(saved_evaluation['evaluation_state_json'])
                     print(f"--- [DEBUG] Loaded Saved State for {qual_id}: decision='{saved_state_data.get('final_decision')}' ---")
                     
-                    saved_state = self.validation_engine.dict_to_state(saved_state_data)
-                    
-                    # Copy Comments
-                    best_state.haridus_comment = saved_state.haridus_comment
-                    best_state.tookogemus_comment = saved_state.tookogemus_comment
-                    best_state.koolitus_comment = saved_state.koolitus_comment
-                    best_state.otsus_comment = saved_state.otsus_comment
-                    
-                    # Copy Decision
-                    best_state.final_decision = saved_state.final_decision
-
-                    # Copy Overrides to ensure dashboard consistency
-                    if saved_state.education_old_or_foreign is not None:
-                        best_state.education_old_or_foreign = saved_state.education_old_or_foreign
-                    
-                    # If education was overridden in saved state, we should reflect that
-                    # Note: We can't easily re-run validation here without refactoring, 
-                    # but we can update the display fields if they differ.
-                    if saved_state.education and saved_state.education.provided != best_state.education.provided:
-                         best_state.education.provided = saved_state.education.provided
-                         # Ideally we should re-calculate is_met, but for now let's just sync the text
-                         # to avoid confusing the user.
-                    
+                    best_state = self.validation_engine.dict_to_state(saved_state_data)
             except Exception as e:
                 print(f"--- [WARN] Failed to rehydrate saved state: {e}")
+
+            # 2. If no saved state, run fresh validation (pre-check)
+            if best_state is None:
+                qualification_rule_id = QUALIFICATION_LEVEL_TO_RULE_ID.get(level, "toojuht_tase_5")
+                applicant_data = self._get_applicant_data_for_validation(user_email)
+                all_states = self.validation_engine.validate(applicant_data, qualification_rule_id)
+                best_state = next((s for s in all_states if s.overall_met), all_states[0])
 
             user_data = self.users_table[user_email]
             user_quals = [q for q in self.qual_table() if q.get('user_email') == user_email and q.get('level') == level and q.get('qualification_name') == activity]
