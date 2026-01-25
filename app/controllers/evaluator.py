@@ -77,6 +77,7 @@ class EvaluatorController:
 
             # 1. Prefer saved evaluation state for persistence
             best_state = None
+            saved_evaluation = None
             try:
                 saved_evaluation = self.evaluations_table.get(qual_id)
                 if saved_evaluation:
