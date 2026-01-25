@@ -38,11 +38,13 @@ class EvaluatorWorkbenchController:
             debug(f"Raw form data received: {form_data}")
 
             # 1. Restore previous state
+            # 1. Restore previous state using raw SQL
             best_state = None
             try:
-                saved_evaluation = self.evaluations_table.get(qual_id)
-                if saved_evaluation:
-                    saved_state_data = json.loads(saved_evaluation['evaluation_state_json'])
+                rows = list(self.db.execute("SELECT evaluation_state_json FROM evaluations WHERE qual_id = ?", (qual_id,)))
+                if rows:
+                    evaluation_state_json = rows[0][0]
+                    saved_state_data = json.loads(evaluation_state_json)
                     best_state = self.validation_engine.dict_to_state(saved_state_data)
                     debug(f"Loaded previous state for {qual_id}")
             except Exception as e:
@@ -157,14 +159,18 @@ class EvaluatorWorkbenchController:
         try:
             state_dict = dataclasses.asdict(state)
             
-            # Use insert with replace=True for robust upsert functionality
-            # This handles both new records and updates to existing ones (via PK 'qual_id')
-            self.evaluations_table.insert({
-                "qual_id": qual_id,
-                "evaluator_email": evaluator_email,
-                "evaluation_state_json": json.dumps(state_dict),
-                "updated_at": str(datetime.datetime.now())
-            }, pk='qual_id', replace=True)
+            # Use raw SQL for robust INSERT OR REPLACE
+            sql = """
+                INSERT OR REPLACE INTO evaluations 
+                (qual_id, evaluator_email, evaluation_state_json, updated_at) 
+                VALUES (?, ?, ?, ?)
+            """
+            self.db.execute(sql, (
+                qual_id, 
+                evaluator_email, 
+                json.dumps(state_dict), 
+                str(datetime.datetime.now())
+            ))
 
             # 2. Sync to applied_qualifications (Legacy/Robustness)
             # This ensures that even if the JSON state acts up, the core decision is preserved in the main table.

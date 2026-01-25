@@ -77,14 +77,17 @@ class EvaluatorController:
 
             # 1. Prefer saved evaluation state for persistence
             best_state = None
-            saved_evaluation = None
+            loaded_from_db = False
             try:
-                saved_evaluation = self.evaluations_table.get(qual_id)
-                if saved_evaluation:
-                    saved_state_data = json.loads(saved_evaluation['evaluation_state_json'])
+                # Use raw SQL for retrieval
+                rows = list(self.db.execute("SELECT evaluation_state_json FROM evaluations WHERE qual_id = ?", (qual_id,)))
+                if rows:
+                    evaluation_state_json = rows[0][0] # First row, first column
+                    saved_state_data = json.loads(evaluation_state_json)
                     debug(f"Loaded Saved State for {qual_id}: decision='{saved_state_data.get('final_decision')}'")
                     
                     best_state = self.validation_engine.dict_to_state(saved_state_data)
+                    loaded_from_db = True
             except Exception as e:
                 debug(f"Failed to rehydrate saved state: {e} ({type(e).__name__})")
 
@@ -120,7 +123,7 @@ class EvaluatorController:
             right_panel = render_right_panel(user_documents, user_work_experience)
             
             # Log the final state being presented
-            self._log_application_state(qual_id, best_state, source="Saved Evaluation" if saved_evaluation else "Fresh Validation")
+            self._log_application_state(qual_id, best_state, source="Saved Evaluation" if loaded_from_db else "Fresh Validation")
 
             # Additional Drawer Panel with unique ID and Style
             right_panel_drawer = render_right_panel(
