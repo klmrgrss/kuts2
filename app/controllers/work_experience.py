@@ -33,7 +33,17 @@ class WorkExperienceController:
         content, footer = None, None
         
         if not acts:
-            content = Div(Card(CardBody(P("Enne töökogemuse lisamist vali tegevusalad 'Kutsed' lehel.", cls="text-warning text-center"), A(Button("Vali kutsed", cls="btn btn-secondary mt-4"), href="/app/kutsed")), cls="border-warning"), cls="max-w-5xl mx-auto")
+            content = Div(
+                Div(
+                    P("Ühtegi tegevusala pole valitud. Töökogemuse lisamiseks vali esmalt taotletavad kutsed"), # Removed font-bold
+                    cls="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative text-center mb-6"
+                ),
+                Div(
+                    A(Button("Vali taotletavad kutsed", cls="btn btn-error text-white"), href="/app/kutsed"),
+                    cls="flex justify-center"
+                ),
+                cls="max-w-5xl mx-auto" # Match form width
+            )
         else:
             exps = self.exp_tbl('user_email = ?', [uid])
             sel_act = req.query_params.get('activity')
@@ -49,9 +59,9 @@ class WorkExperienceController:
         if req.headers.get('HX-Request'):
              counts = get_badge_counts(self.db, uid)
              ft = Div(footer, id="footer-container", hx_swap_oob="innerHTML") if footer else Div(id="footer-container", hx_swap_oob="innerHTML")
-             return content, ft, Div(tab_nav("workex", req, counts), id="tab-navigation-container", hx_swap_oob="outerHTML"), Title("Töökogemus | Taotlemine", id="page-title", hx_swap_oob="innerHTML")
+             return content, ft, Div(tab_nav("workex", req, counts), id="tab-navigation-container", hx_swap_oob="outerHTML"), Title("Töökogemuse lisamine | Ehitamise kutsed", id="page-title", hx_swap_oob="innerHTML")
 
-        return app_layout(req, "Töökogemus | Taotlemine", content, "workex", self.db, footer=footer, badge_counts=get_badge_counts(self.db, uid), container_class="max-w-7xl")
+        return app_layout(req, "Töökogemuse lisamine | Ehitamise kutsed", content, "workex", self.db, footer=footer, badge_counts=get_badge_counts(self.db, uid), container_class="max-w-7xl")
 
     def show_workex_edit_form(self, req: Request, eid: int):
         uid = req.session.get("user_email")

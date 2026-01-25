@@ -11,6 +11,7 @@ from collections import defaultdict
 from ui.layouts import app_layout
 from ui.nav_components import tab_nav
 from ui.review_view import render_review_page
+from .utils import get_badge_counts
 from config.qualification_data import kt # <-- Import qualification master data
 
 class ReviewController:
@@ -125,13 +126,16 @@ class ReviewController:
         if not user_email:
              return Div("Authentication Error", cls="text-red-500 p-4")
 
-        page_title = "Taotluse ülevaatamine | Ehitamise valdkonna kutsete taotlemine"
+        page_title = "Taotluse esitamine | Ehitamise kutsed"
 
         application_data = self._get_all_application_data(user_email)
         review_content = render_review_page(application_data)
 
+        # Fetch badge counts
+        counts = get_badge_counts(self.db, user_email)
+
         if request.headers.get('HX-Request'):
-            updated_tab_nav = tab_nav(active_tab="ulevaatamine", request=request, badge_counts={})
+            updated_tab_nav = tab_nav(active_tab="ulevaatamine", request=request, badge_counts=counts)
             oob_nav = Div(updated_tab_nav, id="tab-navigation-container", hx_swap_oob="outerHTML")
             oob_title = Title(page_title, id="page-title", hx_swap_oob="innerHTML")
             return review_content, Div(id="footer-container", hx_swap_oob="innerHTML"), oob_nav, oob_title
@@ -141,7 +145,8 @@ class ReviewController:
                 title=page_title,
                 content=review_content,
                 active_tab="ulevaatamine",
-                db=self.db
+                db=self.db,
+                badge_counts=counts
             )
 
     async def submit_application(self, request: Request):

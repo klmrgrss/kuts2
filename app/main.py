@@ -94,7 +94,7 @@ app, rt = fast_app(
 
 # --- Public Routes ---
 @rt("/")
-def get_landing(req): return public_layout("Tere tulemast!", render_landing_page())
+def get_landing(req): return public_layout("Avaleht | Ehitamise kutsed", render_landing_page())
 
 @rt("/favicon.ico")
 def get_favicon(req): return FileResponse(STATIC_DIR/'favicon.ico')

@@ -50,11 +50,11 @@ class QualificationController:
                 return (
                     content,
                     Div(tab_nav("kutsed", req, counts), id="tab-navigation-container", hx_swap_oob="outerHTML"),
-                    Title("Kutsed | Taotlemine", id="page-title", hx_swap_oob="innerHTML"),
+                    Title("Taotletavad kutsed | Ehitamise kutsed", id="page-title", hx_swap_oob="innerHTML"),
                     Div(footer, id="footer-container", hx_swap_oob="innerHTML") if footer else ""
                 )
             
-            return app_layout(req, "Kutsed | Taotlemine", content, "kutsed", self.db, footer=footer, badge_counts=get_badge_counts(self.db, uid))
+            return app_layout(req, "Taotletavad kutsed | Ehitamise kutsed", content, "kutsed", self.db, footer=footer, badge_counts=get_badge_counts(self.db, uid))
         except Exception as e:
             error(f"Qual init error {uid}: {e}")
             return app_layout(req, "Viga", Div(f"Viga: {e}", cls="text-red-500"), "kutsed", self.db)

@@ -46,7 +46,7 @@ class DashboardController:
             # For applicants, fetch their application status
             applicant_data, applicant_name = self.applicant_controller._get_applicant_data(user_email)
             content = render_applicant_dashboard(applicant_data, applicant_name)
-            title = "Minu Töölaud"
+            title = "Minu töölaud | Ehitamise kutsed"
 
         request.session['visited_dashboard'] = True
         

@@ -55,9 +55,9 @@ class DocumentsController:
 
         if req.headers.get('HX-Request'):
              counts = get_badge_counts(self.db, uid)
-             return (content, Div(id="footer-container", hx_swap_oob="innerHTML"), Div(tab_nav("dokumendid", req, counts), id="tab-navigation-container", hx_swap_oob="outerHTML"), Title("Dokumendid | Taotlemine", id="page-title", hx_swap_oob="innerHTML"))
+             return (content, Div(id="footer-container", hx_swap_oob="innerHTML"), Div(tab_nav("dokumendid", req, counts), id="tab-navigation-container", hx_swap_oob="outerHTML"), Title("Dokumentide lisamine | Ehitamise kutsed", id="page-title", hx_swap_oob="innerHTML"))
         
-        return app_layout(req, "Dokumendid | Taotlemine", content, "dokumendid", self.db, badge_counts=get_badge_counts(self.db, uid))
+        return app_layout(req, "Dokumentide lisamine | Ehitamise kutsed", content, "dokumendid", self.db, badge_counts=get_badge_counts(self.db, uid))
 
     async def upload_document(self, req: Request, dtype: str):
         uid = req.session.get("user_email")

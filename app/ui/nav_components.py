@@ -136,33 +136,73 @@ def app_navbar(request: Request, db: Any) -> FT:
 
 def tab_nav(active_tab: str, request: Request, badge_counts: Dict = None) -> FT:
     badge_counts = badge_counts or {}
-    nav_items = []
-    active_tab_classes = 'border-primary text-primary'
-    inactive_tab_classes = 'border-transparent hover:text-muted-foreground hover:border-border'
+    
+    # Define ordered steps with custom label splitting for mobile
+    # Tuple: (id, full_text_for_desktop, [list_of_parts_for_mobile])
+    ORDERED_TABS_DATA = [
+        ("kutsed", "Taotletavad kutsed", ["Taotletavad", " kutsed"]),
+        ("workex", "Töökogemus", ["Töökogemus"]),
+        ("dokumendid", "Dokumentide lisamine", ["Dokumentide", " lisamine"]),
+        ("ulevaatamine", "Taotluse ülevaatamine", ["Taotluse", " ülevaatamine"])
+    ]
+    
+    # Find active index
+    active_idx = -1
+    for i, (tid, _, _) in enumerate(ORDERED_TABS_DATA):
+        if tid == active_tab:
+            active_idx = i
+            break
+            
+    steps = []
+    for i, (tab_id, full_name, parts) in enumerate(ORDERED_TABS_DATA):
+        is_completed_or_active = i <= active_idx
+        is_active = i == active_idx
+        
+        step_classes = "step cursor-pointer min-w-fit px-2"
+        if is_completed_or_active:
+            step_classes += " step-primary"
+            
+        # Link content styling
+        # Removed whitespace-nowrap to allow multiline on mobile if needed, 
+        # though we controle it via Br() mostly.
+        link_text_cls = "text-sm leading-tight md:leading-normal"
+        if is_active:
+             link_text_cls += " font-bold text-primary"
+        else:
+             link_text_cls += " text-muted-foreground hover:text-foreground"
+        
+        # Build Label
+        # If parts > 1, insert Br(cls="md:hidden") between them. 
+        # On desktop (md:), the text flows naturally or we force nowrap.
+        # Actually simplest: Join with space, and insert Br(cls="md:hidden")
+        
+        label_content = []
+        for idx, part in enumerate(parts):
+            if idx > 0:
+                label_content.append(Br(cls="md:hidden"))
+            label_content.append(part)
 
-    for tab_id, tab_name in TABS.items():
-        is_active = (tab_id == active_tab)
-        badge = None
+        # Determine badge
         count = badge_counts.get(tab_id)
-        if count is not None and count > 0:
-            badge = Span(str(count), cls="uk-badge text-green-500 ml-2")
+        badge = Span(str(count), cls="badge badge-sm badge-secondary ml-1 align-middle") if count and count > 0 else ""
 
-        link_classes = f"inline-block p-4 border-b-2 rounded-t-lg {active_tab_classes if is_active else inactive_tab_classes} {'tab-active' if is_active else ''}"
-
+        link_content = Span(*label_content, badge, cls=link_text_cls)
+        
         link = A(
-            tab_name,
-            badge if badge else '',
+            link_content,
             hx_get=f'/app/{tab_id}',
             hx_target='#tab-content-container',
             hx_swap='innerHTML',
             hx_push_url="true",
-            cls=link_classes
+            cls="block py-2 focus:outline-none text-center"
         )
-        nav_items.append(Li(link, role='presentation', cls="flex-shrink-0"))
+        
+        steps.append(Li(link, cls=step_classes, data_content=str(i + 1)))
 
-    tab_list = Ul( *nav_items, id="tab-list-container", cls="flex flex-nowrap -mb-px text-sm font-medium text-center text-muted-foreground" )
-    nav_container = Div( tab_list, cls="flex justify-start border-b border-border overflow-x-auto overflow-y-hidden" )
-    return Nav(nav_container, aria_label="Application Tabs", cls="bg-background")
+    return Div(
+        Ul(*steps, cls="steps steps-horizontal steps-sm w-full"),
+        cls="w-full overflow-x-auto py-4 bg-background border-b border-border px-4"
+    )
 
 
 def render_sticky_header(request: Request, active_tab: str, db: Any, badge_counts: Dict = None, container_class: str = "md:max-w-screen-lg") -> FT:
