@@ -157,12 +157,14 @@ class EvaluatorWorkbenchController:
         try:
             state_dict = dataclasses.asdict(state)
             
-            self.evaluations_table.upsert({
+            # Use insert with replace=True for robust upsert functionality
+            # This handles both new records and updates to existing ones (via PK 'qual_id')
+            self.evaluations_table.insert({
                 "qual_id": qual_id,
                 "evaluator_email": evaluator_email,
                 "evaluation_state_json": json.dumps(state_dict),
                 "updated_at": str(datetime.datetime.now())
-            }, pk='qual_id')
+            }, pk='qual_id', replace=True)
 
             # 2. Sync to applied_qualifications (Legacy/Robustness)
             # This ensures that even if the JSON state acts up, the core decision is preserved in the main table.
