@@ -55,7 +55,7 @@ class DocumentsController:
 
         if req.headers.get('HX-Request'):
              counts = get_badge_counts(self.db, uid)
-             return (content, Div(tab_nav("dokumendid", req, counts), id="tab-navigation-container", hx_swap_oob="outerHTML"), Title("Dokumendid | Taotlemine", id="page-title", hx_swap_oob="innerHTML"))
+             return (content, Div(id="footer-container", hx_swap_oob="innerHTML"), Div(tab_nav("dokumendid", req, counts), id="tab-navigation-container", hx_swap_oob="outerHTML"), Title("Dokumendid | Taotlemine", id="page-title", hx_swap_oob="innerHTML"))
         
         return app_layout(req, "Dokumendid | Taotlemine", content, "dokumendid", self.db, badge_counts=get_badge_counts(self.db, uid))
 

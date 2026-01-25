@@ -134,7 +134,7 @@ class ReviewController:
             updated_tab_nav = tab_nav(active_tab="ulevaatamine", request=request, badge_counts={})
             oob_nav = Div(updated_tab_nav, id="tab-navigation-container", hx_swap_oob="outerHTML")
             oob_title = Title(page_title, id="page-title", hx_swap_oob="innerHTML")
-            return review_content, oob_nav, oob_title
+            return review_content, Div(id="footer-container", hx_swap_oob="innerHTML"), oob_nav, oob_title
         else:
             return app_layout(
                 request=request,
@@ -162,4 +162,4 @@ class ReviewController:
         updated_tab_nav = tab_nav(active_tab="ulevaatamine", request=request, badge_counts={})
         oob_nav = Div(updated_tab_nav, id="tab-navigation-container", hx_swap_oob="outerHTML")
 
-        return success_message, oob_nav
+        return success_message, Div(id="footer-container", hx_swap_oob="innerHTML"), oob_nav
