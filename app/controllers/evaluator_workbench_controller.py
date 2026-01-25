@@ -46,7 +46,7 @@ class EvaluatorWorkbenchController:
                     best_state = self.validation_engine.dict_to_state(saved_state_data)
                     debug(f"Loaded previous state for {qual_id}")
             except Exception as e:
-                debug(f"Could not load previous state for {qual_id}: {e}")
+                debug(f"Could not load previous state for {qual_id}: {e} ({type(e).__name__})")
 
             if best_state is None:
                 # If no state, perform initial validation

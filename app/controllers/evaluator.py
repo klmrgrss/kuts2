@@ -86,7 +86,7 @@ class EvaluatorController:
                     
                     best_state = self.validation_engine.dict_to_state(saved_state_data)
             except Exception as e:
-                debug(f"Failed to rehydrate saved state: {e}")
+                debug(f"Failed to rehydrate saved state: {e} ({type(e).__name__})")
 
             user_data = self.users_table[user_email]
             user_quals = [q for q in self.qual_table() if q.get('user_email') == user_email and q.get('level') == level and q.get('qualification_name') == activity]
