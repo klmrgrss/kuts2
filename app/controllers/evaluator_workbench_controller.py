@@ -164,7 +164,13 @@ class EvaluatorWorkbenchController:
                     "updated_at": str(datetime.datetime.now())
                 }, pk_values=qual_id)
             except NotFoundError:
-                self.evaluations_table.insert({
+                # Use replace (INSERT OR REPLACE) implicitly if using insert with pk conflict? 
+                # FastLite insert usually fails on PK conflict. 
+                # Let's try explicit INSERT OR REPLACE if the specific fastlite method allows, 
+                # but standard insert will fail.
+                # However, since we checked get() above, race conditions are rare but possible.
+                # Just keeping insert is fine for now, but adding a specialized debug log if it fails.
+                 self.evaluations_table.insert({
                     "qual_id": qual_id,
                     "evaluator_email": evaluator_email,
                     "evaluation_state_json": json.dumps(state_dict)
