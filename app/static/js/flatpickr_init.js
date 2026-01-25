@@ -26,7 +26,8 @@ function initFlatpickrMonthInputsIn(root) {
                 ],
                 altInput: false,
                 allowInput: false,
-                onChange: function(selectedDates, dateStr, instance) {
+                disableMobile: true,
+                onChange: function (selectedDates, dateStr, instance) {
                     // Dispatch a 'change' event to trigger form validation
                     instance.element.dispatchEvent(new Event('change', { bubbles: true }));
                 }
@@ -59,7 +60,7 @@ function initFlatpickrDateInputsIn(root) {
                 altInput: false,
                 allowInput: false,
                 maxDate: "today",
-                onChange: function(selectedDates, dateStr, instance) {
+                onChange: function (selectedDates, dateStr, instance) {
                     instance.element.dispatchEvent(new Event('change', { bubbles: true }));
                 }
             });
@@ -93,7 +94,7 @@ function initializeAllPickersIn(rootElement) {
 document.addEventListener('DOMContentLoaded', () => initializeAllPickersIn(document));
 
 // Run after each HTMX swap, scanning only the newly added content
-document.body.addEventListener('htmx:afterSettle', function(event) {
+document.body.addEventListener('htmx:afterSettle', function (event) {
     if (event.detail.target) {
         initializeAllPickersIn(event.detail.target);
     }

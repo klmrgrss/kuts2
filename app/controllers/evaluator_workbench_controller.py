@@ -37,7 +37,6 @@ class EvaluatorWorkbenchController:
             
             debug(f"Raw form data received: {form_data}")
 
-            # 1. Restore previous state
             # 1. Restore previous state using raw SQL
             best_state = None
             try:
