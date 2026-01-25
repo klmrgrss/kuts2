@@ -85,15 +85,22 @@ class EvaluatorController:
             except Exception as e:
                 print(f"--- [WARN] Failed to rehydrate saved state: {e}")
 
+            user_data = self.users_table[user_email]
+            user_quals = [q for q in self.qual_table() if q.get('user_email') == user_email and q.get('level') == level and q.get('qualification_name') == activity]
+
             # 2. If no saved state, run fresh validation (pre-check)
             if best_state is None:
                 qualification_rule_id = QUALIFICATION_LEVEL_TO_RULE_ID.get(level, "toojuht_tase_5")
                 applicant_data = self._get_applicant_data_for_validation(user_email)
                 all_states = self.validation_engine.validate(applicant_data, qualification_rule_id)
                 best_state = next((s for s in all_states if s.overall_met), all_states[0])
-
-            user_data = self.users_table[user_email]
-            user_quals = [q for q in self.qual_table() if q.get('user_email') == user_email and q.get('level') == level and q.get('qualification_name') == activity]
+                
+                # Hydrate decision from legacy table if available
+                if user_quals and user_quals[0].get('eval_decision'):
+                    best_state.final_decision = user_quals[0].get('eval_decision')
+                    if user_quals[0].get('eval_comment'):
+                        best_state.otsus_comment = user_quals[0].get('eval_comment')
+                    print(f"--- [DEBUG] Hydrated decision '{best_state.final_decision}' from applied_qualifications ---")
             
             qual_data = {
                 "level": level, "qualification_name": activity, 

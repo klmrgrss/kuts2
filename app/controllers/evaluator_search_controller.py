@@ -75,6 +75,10 @@ class EvaluatorSearchController:
                     precheck_met = eval_info.get('precheck_met')
                     final_decision = eval_info.get('final_decision')
                 
+                # Fallback: If decision not in JSON state, check the main table column
+                if not final_decision:
+                    final_decision = qual.get('eval_decision')
+                
                 # If no precheck met status in DB, we could optionally run a fast check here
                 # but for now we rely on the saved state. If None, it shows "Pending" in UI.
 

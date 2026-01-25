@@ -26,6 +26,7 @@ class EvaluatorWorkbenchController:
         self.validation_engine = validation_engine
         self.main_controller = main_controller 
         self.search_controller = search_controller
+        self.qual_table = db.t.applied_qualifications
 
     async def re_evaluate_application(self, request: Request, qual_id: str):
         print("\n--- [DEBUG] ENTERING RE-EVALUATION ENDPOINT ---")
@@ -166,6 +167,23 @@ class EvaluatorWorkbenchController:
                     "evaluator_email": evaluator_email,
                     "evaluation_state_json": json.dumps(state_dict)
                 }, pk='qual_id')
+
+            # 2. Sync to applied_qualifications (Legacy/Robustness)
+            # This ensures that even if the JSON state acts up, the core decision is preserved in the main table.
+            try:
+                user_email, level, activity = qual_id.split(':::', 2)
+                decision = state.final_decision
+                comment = state.otsus_comment
+                
+                sql_update = """
+                    UPDATE applied_qualifications 
+                    SET eval_decision = ?, eval_comment = ? 
+                    WHERE user_email = ? AND level = ? AND qualification_name = ?
+                """
+                self.db.execute(sql_update, (decision, comment, user_email, level, activity))
+                print(f"--- [DEBUG] Synced decision '{decision}' to applied_qualifications for {qual_id}")
+            except Exception as sync_err:
+                print(f"--- [WARN] Failed to sync to applied_qualifications: {sync_err}")
 
         except Exception as db_error:
             print(f"--- [ERROR] Failed to save evaluation state for {qual_id}: {db_error}")

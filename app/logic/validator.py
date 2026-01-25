@@ -5,6 +5,7 @@ from .models import (
     ComplianceCheck, ComplianceDashboardState
 )
 from typing import List, Dict, Tuple
+import unicodedata
 
 try:
     import tomllib
@@ -84,8 +85,18 @@ class ValidationEngine:
             state.education.is_relevant = True
             state.education.required = package.education_requirement
             state.education.provided = applicant.education
-            required_rank = EDUCATION_HIERARCHY.get(package.education_requirement, 0)
-            provided_rank = EDUCATION_HIERARCHY.get(applicant.education, 0)
+            
+            # Normalize strings to NFC to handle 'õ' and other chars consistently
+            req_key = unicodedata.normalize('NFC', package.education_requirement)
+            prov_key = unicodedata.normalize('NFC', applicant.education) if applicant.education else "any"
+            
+            # Debug check: verify if key exists
+            if req_key not in EDUCATION_HIERARCHY:
+                print(f"--- [WARNING] Education requirement '{req_key}' (raw: {package.education_requirement!r}) not found in hierarchy!")
+
+            required_rank = EDUCATION_HIERARCHY.get(req_key, 0)
+            provided_rank = EDUCATION_HIERARCHY.get(prov_key, 0)
+            
             state.education.is_met = provided_rank >= required_rank
             if not state.education.is_met: state.overall_met = False
 
