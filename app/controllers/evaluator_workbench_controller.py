@@ -11,6 +11,7 @@ from logic.validator import ValidationEngine
 from logic.models import ApplicantData, ComplianceDashboardState
 from ui.evaluator_v2.center_panel import render_compliance_dashboard
 from ui.evaluator_v2.application_list import render_application_item, render_application_list
+from utils.log import debug, error
 
 QUALIFICATION_LEVEL_TO_RULE_ID = {
     "Ehituse tööjuht, TASE 5": "toojuht_tase_5",
@@ -34,7 +35,7 @@ class EvaluatorWorkbenchController:
             user_email, level, activity = qual_id.split(':::', 2)
             form_data = await request.form()
             
-            print(f"--- [DEBUG] Raw form data received: {form_data}")
+            debug(f"Raw form data received: {form_data}")
 
             # 1. Restore previous state
             best_state = None
@@ -43,9 +44,9 @@ class EvaluatorWorkbenchController:
                 if saved_evaluation:
                     saved_state_data = json.loads(saved_evaluation['evaluation_state_json'])
                     best_state = self.validation_engine.dict_to_state(saved_state_data)
-                    print(f"--- [DEBUG] Loaded previous state for {qual_id} ---")
+                    debug(f"Loaded previous state for {qual_id}")
             except Exception as e:
-                print(f"--- [WARN] Could not load previous state for {qual_id}: {e} ---")
+                debug(f"Could not load previous state for {qual_id}: {e}")
 
             if best_state is None:
                 # If no state, perform initial validation
@@ -53,7 +54,7 @@ class EvaluatorWorkbenchController:
                 qualification_rule_id = QUALIFICATION_LEVEL_TO_RULE_ID.get(level, "toojuht_tase_5")
                 all_states = self.validation_engine.validate(applicant_data, qualification_rule_id)
                 best_state = next((s for s in all_states if s.overall_met), all_states[0])
-                print(f"--- [DEBUG] Created fresh state for {qual_id} ---")
+                debug(f"Created fresh state for {qual_id}")
 
             # 2. Get evaluator inputs from form
             selected_education = form_data.get("education_level")
@@ -73,7 +74,7 @@ class EvaluatorWorkbenchController:
                                    (is_old_or_foreign != current_old_foreign)
 
             if has_override_changed:
-                print(f"--- [DEBUG] Override changed: {current_edu} -> {selected_education}")
+                debug(f"[ACTION] Override changed for {qual_id}: Education '{current_edu}'->'{selected_education}', Foreign: {current_old_foreign}->{is_old_or_foreign}")
                 # Re-run validation with the new override
                 applicant_data = self.main_controller._get_applicant_data_for_validation(user_email)
                 if selected_education is not None:
@@ -110,11 +111,12 @@ class EvaluatorWorkbenchController:
                 comment_field_name = f"{active_context}_comment"
                 if hasattr(best_state, comment_field_name):
                     setattr(best_state, comment_field_name, comment)
-                    print(f"--- [DEBUG] Updated comment for '{active_context}'")
+                    debug(f"[ACTION] Comment added to '{active_context}' (DB field: {comment_field_name}): \"{comment}\"")
 
             # 5. Update final decision if provided
             if final_decision is not None:
                 best_state.final_decision = final_decision or None
+                debug(f"[ACTION] Decision made: \"{best_state.final_decision}\"")
 
             # 6. Final Sync & Save
             # 6. Final Sync & Save

@@ -6,7 +6,7 @@ import datetime
 import json
 import traceback
 from logic.helpers import calculate_total_experience_years
-from logic.models import ApplicantData
+from logic.models import ApplicantData, ComplianceDashboardState
 from ui.evaluator_v2.ev_layout import ev_layout
 from ui.evaluator_v2.left_panel import render_left_panel
 from ui.evaluator_v2.center_panel import render_center_panel
@@ -118,6 +118,9 @@ class EvaluatorController:
             center_panel = render_center_panel(qual_data, user_data, best_state)
             right_panel = render_right_panel(user_documents, user_work_experience)
             
+            # Log the final state being presented
+            self._log_application_state(qual_id, best_state, source="Saved Evaluation" if saved_evaluation else "Fresh Validation")
+
             # Additional Drawer Panel with unique ID and Style
             right_panel_drawer = render_right_panel(
                 user_documents, 
@@ -160,3 +163,26 @@ class EvaluatorController:
             has_prior_level_4=True, base_training_hours=40, manager_training_hours=30,
             cpd_training_hours=16, is_education_old_or_foreign=False
         )
+
+    def _log_application_state(self, qual_id: str, state: ComplianceDashboardState, source: str):
+        """
+        Logs a detailed snapshot of the application state when loaded.
+        """
+        debug(f"\n--- [LOAD] Application Loaded: {qual_id} ---")
+        debug(f"    Source: {source}")
+        debug(f"    Overall Met: {'YES' if state.overall_met else 'NO'} (Package: {state.package_id})")
+        debug(f"    Current Decision: {state.final_decision or 'None'}")
+        
+        # Log active comments
+        comments = []
+        if state.haridus_comment: comments.append(f"Haridus: '{state.haridus_comment}'")
+        if state.tookogemus_comment: comments.append(f"Tookogemus: '{state.tookogemus_comment}'")
+        if state.koolitus_comment: comments.append(f"Koolitus: '{state.koolitus_comment}'")
+        if state.otsus_comment: comments.append(f"Otsus: '{state.otsus_comment}'")
+        
+        if comments:
+            debug(f"    Active Comments: {'; '.join(comments)}")
+        else:
+            debug(f"    Active Comments: None")
+            
+        debug(f"----------------------------------------------\n")
