@@ -1,6 +1,7 @@
 # app/ui/dashboard_page.py
 from fasthtml.common import *
 from monsterui.all import *
+from .nav_components import ThemeToggle
 
 
 def render_applicant_dashboard(data: dict, applicant_name: str) -> FT:
@@ -18,6 +19,8 @@ def render_applicant_dashboard(data: dict, applicant_name: str) -> FT:
     return Div(
         # Applicant's name, styled as a floating label on the top border of the container.
         Span(applicant_name, cls="absolute -top-3 left-4 bg-background px-2 text-lg font-semibold text-gray-600 dark:text-gray-300"),
+        # Theme Toggle in the top right corner
+        Div(ThemeToggle(), cls="absolute -top-3 right-4 bg-background px-2"),
         Div(
             # Main content area of the dashboard.
             Div(

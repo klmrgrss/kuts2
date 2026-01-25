@@ -95,13 +95,11 @@ def app_navbar(request: Request, db: Any) -> FT:
     )
 
     wide_screen_right = Div(
-        ThemeToggle(),
         evaluator_chip,
         A(
-            UkIcon("user", cls="inline-block mr-2 align-middle"),
-            Span(display_name, cls="text-sm"),
+            UkIcon("user", cls="w-6 h-6"),
             href="/dashboard",
-            cls="flex items-center mr-4 p-2 rounded hover:bg-muted transition-colors"
+            cls="flex items-center mr-4 p-2 rounded hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
         ) if is_authenticated else Span(),
         cls="flex items-center"
     )
@@ -118,13 +116,11 @@ def app_navbar(request: Request, db: Any) -> FT:
             A(UkIcon("brick-wall", width=28, height=28, cls="text-pink-500"), href="/dashboard"),
             cls="flex-none"
         ),
-        ThemeToggle(),
         Div(
             A(
-                UkIcon("user", cls="inline-block mr-1 align-middle"),
-                Span(truncated_name, cls="text-sm"),
+                UkIcon("user", cls="w-6 h-6"),
                 href="/dashboard",
-                cls="flex items-center"
+                cls="flex items-center text-muted-foreground"
             ),
             cls="flex-1 flex justify-end"
         ),
