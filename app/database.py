@@ -366,5 +366,20 @@ def setup_database():
         )
         print("--- 'allowed_evaluators' table created ---")
 
+    # === Create Evaluations Table ===
+    evaluations = db.t.evaluations
+    if evaluations not in db.t:
+        print("--- Creating 'evaluations' table ---")
+        evaluations.create(
+            qual_id=str,
+            evaluator_email=str,
+            evaluation_state_json=str,
+            updated_at=str,
+            pk='qual_id'
+        )
+        # Index on evaluator for potential filtering later
+        db.execute("CREATE INDEX IF NOT EXISTS ix_evaluations_evaluator_email ON evaluations (evaluator_email)")
+        print("--- 'evaluations' table created ---")
+
     print(f"--- Database setup complete. Tables checked/created/updated. ---")
     return db

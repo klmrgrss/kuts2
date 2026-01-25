@@ -12,6 +12,8 @@ from ui.evaluator_v2.left_panel import render_left_panel
 from ui.evaluator_v2.center_panel import render_center_panel
 from ui.evaluator_v2.right_panel import render_right_panel
 from config.qualification_data import kt
+from utils.log import debug, error
+
 
 QUALIFICATION_LEVEL_TO_RULE_ID = {
     "Ehituse tööjuht, TASE 5": "toojuht_tase_5",
@@ -44,7 +46,7 @@ class EvaluatorController:
                 # Unpack all 3 panels
                 center_panel, right_panel, right_panel_drawer = self.show_v2_application_detail(request, selected_qual_id)
             except Exception as e:
-                print(f"--- ERROR pre-loading application detail: {e} ---")
+                error(f"Error pre-loading application detail: {e}")
                 traceback.print_exc()
                 center_panel = Div("Error loading application.", cls="p-4 text-red-500")
 
@@ -79,11 +81,11 @@ class EvaluatorController:
                 saved_evaluation = self.evaluations_table.get(qual_id)
                 if saved_evaluation:
                     saved_state_data = json.loads(saved_evaluation['evaluation_state_json'])
-                    print(f"--- [DEBUG] Loaded Saved State for {qual_id}: decision='{saved_state_data.get('final_decision')}' ---")
+                    debug(f"Loaded Saved State for {qual_id}: decision='{saved_state_data.get('final_decision')}'")
                     
                     best_state = self.validation_engine.dict_to_state(saved_state_data)
             except Exception as e:
-                print(f"--- [WARN] Failed to rehydrate saved state: {e}")
+                debug(f"Failed to rehydrate saved state: {e}")
 
             user_data = self.users_table[user_email]
             user_quals = [q for q in self.qual_table() if q.get('user_email') == user_email and q.get('level') == level and q.get('qualification_name') == activity]
@@ -100,7 +102,7 @@ class EvaluatorController:
                     best_state.final_decision = user_quals[0].get('eval_decision')
                     if user_quals[0].get('eval_comment'):
                         best_state.otsus_comment = user_quals[0].get('eval_comment')
-                    print(f"--- [DEBUG] Hydrated decision '{best_state.final_decision}' from applied_qualifications ---")
+                    debug(f"Hydrated decision '{best_state.final_decision}' from applied_qualifications")
             
             qual_data = {
                 "level": level, "qualification_name": activity, 

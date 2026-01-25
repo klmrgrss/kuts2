@@ -55,13 +55,20 @@ class EvaluatorSearchController:
             user_email = qual.get('user_email')
             level = qual.get('level')
             activity = qual.get('qualification_name')
-            specialisation = qual.get('specialisation')
-            grouped_by_activity[user_email][(level, activity)].append(specialisation)
+            # Store the full qualification object so we can access decision columns later
+            grouped_by_activity[user_email][(level, activity)].append(qual)
 
         flattened_data = []
         for user_email, activities in grouped_by_activity.items():
-            for (level, activity), specialisations in activities.items():
+            for (level, activity), qual_list in activities.items():
                 if not level or not activity: continue
+                
+                # Extract specialisations from the list of qual objects
+                specialisations = [q.get('specialisation') for q in qual_list]
+                
+                # Use the first qualification as the representative for shared data (decision, etc)
+                representative_qual = qual_list[0]
+                
                 applicant_name = user_name_lookup.get(user_email, user_email)
                 total_specialisations = len(kt.get(level, {}).get(activity, []))
 
@@ -77,7 +84,8 @@ class EvaluatorSearchController:
                 
                 # Fallback: If decision not in JSON state, check the main table column
                 if not final_decision:
-                    final_decision = qual.get('eval_decision')
+                    # FIX: Use representative_qual instead of stale 'qual' variable
+                    final_decision = representative_qual.get('eval_decision')
                 
                 # If no precheck met status in DB, we could optionally run a fast check here
                 # but for now we rely on the saved state. If None, it shows "Pending" in UI.
