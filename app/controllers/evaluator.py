@@ -117,7 +117,10 @@ class EvaluatorController:
             }
 
             user_documents = [doc for doc in self.db.t.documents() if doc.get('user_email') == user_email]
-            user_work_experience = [exp for exp in self.work_exp_table() if exp.get('user_email') == user_email]
+            user_work_experience = [
+                exp for exp in self.work_exp_table() 
+                if exp.get('user_email') == user_email and exp.get('associated_activity') == activity
+            ]
 
             center_panel = render_center_panel(qual_data, user_data, best_state)
             right_panel = render_right_panel(user_documents, user_work_experience)
