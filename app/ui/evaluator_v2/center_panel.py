@@ -65,7 +65,27 @@ def render_compliance_section(title: str, icon_name: str, subsections: List[FT],
         onclick=f"window.evDashboard.setActiveContext('{context_name}')"
     )
 
-def render_compliance_dashboard(state: ComplianceDashboardState):
+from ui.evaluator_v2.workex_table import render_work_experience_table
+
+# --- Document Helper ---
+def render_document_files(docs: list, empty_text: str = "Dokumente ei leitud.") -> FT:
+    if not docs:
+        return Div(P(empty_text, cls="text-xs text-gray-500 italic p-3"))
+    return Div(
+        *[
+            A(
+                UkIcon("file-text", cls="w-4 h-4 mr-2 text-blue-500"),
+                Span(doc.get('description') or doc.get('original_filename'), cls="truncate"),
+                href=f"/files/view/{doc.get('id')}",
+                target="_blank",
+                cls="flex items-center p-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors text-blue-600 dark:text-blue-400"
+            )
+            for doc in docs
+        ],
+        cls="p-2 space-y-1 bg-white dark:bg-gray-800 border-b dark:border-gray-700"
+    )
+
+def render_compliance_dashboard(state: ComplianceDashboardState, work_experience: List[Dict] = None, documents: List[Dict] = None):
     # Header moved to main panel
     
     sections = [
@@ -87,17 +107,33 @@ def render_compliance_dashboard(state: ComplianceDashboardState):
         exp_parts.append(f"Vastav: {state.matching_experience.provided} (Nõue {state.matching_experience.required})")
     exp_details = " | ".join(exp_parts) if exp_parts else None
 
+    # Work Experience Table Injection
+    work_ex_content = []
+    if work_experience:
+        work_ex_content.append(render_work_experience_table(work_experience))
+
+    # Documents Preparation
+    docs = documents or []
+    edu_docs = [d for d in docs if d.get('document_type') == 'education']
+    training_docs = [d for d in docs if d.get('document_type') == 'training']
+
+    # Inject Documents
+    haridus_content = [render_document_files(edu_docs, "Hariduse dokumente ei leitud.")]
+
+    koolitus_content = [render_document_files(training_docs, "Täiendkoolituse dokumente ei leitud.")]
+    koolitus_content.extend([s for s in sections[3:] if s])
+
     return Div(
         # header removed
-        render_compliance_section("Haridus", "book-open", [], [state.education], "haridus", state.haridus_comment, inline_details=edu_details),
-        render_compliance_section("Töökogemus", "briefcase", [], [state.total_experience, state.matching_experience], "tookogemus", state.tookogemus_comment, inline_details=exp_details),
-        render_compliance_section("Koolitus", "award", [s for s in sections[3:] if s], [state.base_training, state.conditional_training, state.manager_training, state.cpd_training], "koolitus", state.koolitus_comment),
+        render_compliance_section("Haridus", "book-open", haridus_content, [state.education], "haridus", state.haridus_comment, inline_details=edu_details),
+        render_compliance_section("Töökogemus", "briefcase", work_ex_content, [state.total_experience, state.matching_experience], "tookogemus", state.tookogemus_comment, inline_details=exp_details),
+        render_compliance_section("Koolitus", "award", koolitus_content, [state.base_training, state.conditional_training, state.manager_training, state.cpd_training], "koolitus", state.koolitus_comment),
         render_compliance_section("Otsus", "list-checks", [], [], "otsus", state.otsus_comment, state.final_decision),
         id="compliance-dashboard-container",
         cls="p-4 space-y-4 pb-32"
     )
 
-def render_center_panel(qual_data: Dict, user_data: Dict, state: ComplianceDashboardState) -> FT:
+def render_center_panel(qual_data: Dict, user_data: Dict, state: ComplianceDashboardState, work_experience: List[Dict] = None, documents: List[Dict] = None) -> FT:
     aname, qlevel, qname = user_data.get('full_name','N/A'), qual_data.get('level',''), qual_data.get('qualification_name','')
     specs = qual_data.get('specialisations', [])
     qual_id = qual_data.get('qual_id', '')
@@ -302,4 +338,4 @@ def render_center_panel(qual_data: Dict, user_data: Dict, state: ComplianceDashb
         })();
     """)
 
-    return Div(header, render_compliance_dashboard(state), footer, js_script, id="ev-center-panel", cls="flex flex-col h-full bg-white dark:bg-gray-900 overflow-y-auto relative [scrollbar-width:thin] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-gray-300 dark:[&::-webkit-scrollbar-thumb]:bg-gray-600 [&::-webkit-scrollbar-thumb]:rounded-full")
+    return Div(header, render_compliance_dashboard(state, work_experience, documents), footer, js_script, id="ev-center-panel", cls="flex flex-col h-full bg-white dark:bg-gray-900 overflow-y-auto relative [scrollbar-width:thin] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-gray-300 dark:[&::-webkit-scrollbar-thumb]:bg-gray-600 [&::-webkit-scrollbar-thumb]:rounded-full")

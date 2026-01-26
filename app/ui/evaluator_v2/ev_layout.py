@@ -50,7 +50,7 @@ def ev_layout(
 
                 cls=("grid w-full max-w-full min-h-0 flex-grow overflow-x-hidden "
                      "grid-cols-[minmax(0,1fr)] "
-                     "lg:grid-cols-[minmax(280px,1.2fr)_3fr_minmax(280px,1.2fr)] "
+                     "lg:grid-cols-[280px_1fr] "
                      "[&>*]:min-w-0")
             ),
             cls="drawer-content flex flex-col h-screen overflow-hidden"

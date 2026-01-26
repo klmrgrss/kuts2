@@ -47,12 +47,25 @@ APPLICANT_L5_PASS = {
         {
             "role": "Objektijuht", "object_address": "Torni 7, Tallinn",
             "start_date": "2020-01", "end_date": "2021-12", # 2 years
+            "contract_type": "PTV",
+            "company_name": "Nordic Build AS", "company_code": "10020304",
+            "client_name": "Riigi Kinnisvara AS", "permit_required": 1
         },
         {
             "role": "Tööjuht", "object_address": "Pargi 12, Tartu",
             "start_date": "2022-01", "end_date": "2022-12", # 1 year
+            "contract_type": "ATV",
+            "company_name": "Lõuna Ehitus OÜ", "company_code": "11223344",
+            "client_name": "Tartu Ülikool", "permit_required": 0
+        },
+        {
+            "role": "Ehitusinsener", "object_address": "Kesk 5, Pärnu",
+            "start_date": "2019-01", "end_date": "2019-12", # 1 year
+            "contract_type": "PTVO",
+            "company_name": "Pärnu Koduagentuur", "company_code": "55667788",
+            "client_name": "Eraklient", "permit_required": 1
         }
-    ] # Total: 3 years, should pass tj5_variant_1 (needs 3 total, 2 matching)
+    ] # Total: 4 years
 }
 
 APPLICANT_L5_FAIL = {
@@ -181,9 +194,13 @@ def populate_test_data(db):
                 "end_date": exp.get("end_date"),
                 "role": exp.get("role"),
                 "object_address": exp.get("object_address"),
-                "company_name": f"Ehitus OÜ",
-                "work_description": "Töö teostatud automaatse testi raames.",
-                "permit_required": 1
+                "contract_type": exp.get("contract_type"),
+                "company_name": exp.get("company_name", "Ehitus OÜ"),
+                "company_code": exp.get("company_code"),
+                "client_name": exp.get("client_name"),
+                "work_description": exp.get("work_description", "Töö teostatud automaatse testi raames."),
+                "permit_required": exp.get("permit_required", 1),
+                "ehr_code": exp.get("ehr_code", "123456789")
             })
         print(f"    - Added {len(applicant['experience'])} work experience record(s)")
 

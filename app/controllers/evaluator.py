@@ -64,9 +64,9 @@ class EvaluatorController:
             request=request, title="Hindamiskeskkond v2",
             left_panel_content=left_panel_desktop,
             center_panel_content=center_panel,
-            right_panel_content=right_panel,
+            right_panel_content=None,
             drawer_left_panel_content=left_panel_drawer,
-            drawer_right_panel_content=right_panel_drawer,
+            drawer_right_panel_content=None,
             db=self.db
         )
 
@@ -122,28 +122,19 @@ class EvaluatorController:
                 if exp.get('user_email') == user_email and exp.get('associated_activity') == activity
             ]
 
-            center_panel = render_center_panel(qual_data, user_data, best_state)
-            right_panel = render_right_panel(user_documents, user_work_experience)
+            center_panel = render_center_panel(qual_data, user_data, best_state, user_work_experience, user_documents)
             
             # Log the final state being presented
             self._log_application_state(qual_id, best_state, source="Saved Evaluation" if loaded_from_db else "Fresh Validation")
 
-            # Additional Drawer Panel with unique ID and Style
-            right_panel_drawer = render_right_panel(
-                user_documents, 
-                user_work_experience, 
-                bg_class="bg-slate-200 dark:bg-gray-800",
-                id_suffix="-drawer"
-            )
-
-            return center_panel, right_panel, right_panel_drawer
+            return center_panel, None, None
 
         except Exception as e:
             traceback.print_exc()
             return (
                 Div(f"Error: {e}", id="ev-center-panel", hx_swap_oob="true"), 
-                Div(id="ev-right-panel", hx_swap_oob="true"),
-                Div(id="ev-right-panel-drawer", hx_swap_oob="true")
+                None,
+                None
             )
 
     def _get_applicant_data_for_validation(self, user_email: str) -> ApplicantData:
