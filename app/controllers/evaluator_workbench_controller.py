@@ -90,6 +90,7 @@ class EvaluatorWorkbenchController:
             if rows:
                 best_state = self.validation_engine.dict_to_state(json.loads(rows[0][0]))
             
+            if not best_state:
                 # FALLBACK: Generate fresh state if not found (First interaction workaround)
                 # This mirrors the initial load logic in EvaluatorController to ensure continuity.
                 qualification_rule_id = QUALIFICATION_LEVEL_TO_RULE_ID.get(level, "toojuht_tase_5")
