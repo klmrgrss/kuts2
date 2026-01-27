@@ -21,19 +21,35 @@ def StatusStrip(docs: list, doc_type: str, title: str):
             cls="p-4 bg-red-100 text-red-800 rounded-lg my-2 flex items-center gap-x-3"
         )
     else:
-        # --- THE FIX: Use the document's integer ID for the link ---
-        doc_links = [
-            A(doc.get('original_filename'), href=f"/files/view/{doc.get('id')}", target="_blank", download=True, cls="link font-semibold underline")
-            for doc in relevant_docs
-        ]
-        items = [doc_links[0]]
-        for link in doc_links[1:]:
-            items.extend([", ", link])
-
+        # Create a list of document items, each with a link and a delete button
+        doc_items = []
+        for doc in relevant_docs:
+            doc_items.append(
+                Div(
+                    A(doc.get('original_filename'), href=f"/files/view/{doc.get('id')}", target="_blank", download=True, cls="link font-semibold underline"),
+                    Button(
+                        UkIcon("trash", cls="w-4 h-4 text-red-600 hover:text-red-800 transition-colors"),
+                        cls="btn btn-ghost btn-xs ml-2 p-1",
+                        title="Eemalda dokument",
+                        hx_delete=f"/app/dokumendid/{doc.get('id')}",
+                        hx_confirm="Oled kindel, et soovid selle dokumendi eemaldada?",
+                        hx_target="#tab-content-container",
+                        hx_swap="innerHTML"
+                    ),
+                    cls="flex items-center"
+                )
+            )
+        
+        # Join items with comma separators (visually managed via Flex/Gap)
+        # Using a flex row with gap is cleaner than manual comma injection for items with buttons
         return Div(
-            UkIcon("check-circle", cls="flex-shrink-0"),
-            Div(Span(f"{title}: ", cls="font-bold"), *items),
-            cls="p-4 bg-green-100 text-green-800 rounded-lg my-2 flex items-center gap-x-3"
+            UkIcon("check-circle", cls="flex-shrink-0 mt-1"),
+            Div(
+                Span(f"{title}: ", cls="font-bold block mb-1"), 
+                Div(*doc_items, cls="flex flex-col gap-1"), # Stacked items for clarity if multiple, or flex-wrap
+                cls="flex flex-col"
+            ),
+            cls="p-4 bg-green-100 text-green-800 rounded-lg my-2 flex items-start gap-x-3"
         )
 
 def create_upload_form(doc_type: str, description: str, accept: str, button_text: str):

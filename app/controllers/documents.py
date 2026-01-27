@@ -106,3 +106,33 @@ class DocumentsController:
         except Exception as e:
             error(f"Upload error {uid}: {e}")
             return Response("Üleslaadimine ebaõnnestus", 500)
+
+    def delete_document(self, req: Request, doc_id: int):
+        uid = req.session.get("user_email")
+        if not uid: return Response("Autentimisviga", 403)
+        
+        try:
+            doc = self.tbl[doc_id]
+            if not doc: return Response("Dokumenti ei leitud", 404)
+            if doc.get('user_email') != uid: return Response("Puudub õigus", 403)
+            
+            # Delete from DB
+            self.tbl.delete(doc_id)
+            
+            # Optional: Delete from storage
+            # (Simplification: We keep files for audit or soft-delete in real apps, 
+            # but here we could delete. For now, just DB removal is sufficient for the UI view)
+            
+            # Return updated list
+            debug(f"Document {doc_id} deleted by {uid}")
+            
+            # Re-render the tab content
+            # We call show_documents_tab but need to ensure it returns the partial content expected by HTMX
+            # We can mock the HX-Request header or just split the logic.
+            # Easiest reuse:
+            docs = self.tbl('user_email = ?', [uid])
+            return render_documents_page(docs)
+            
+        except Exception as e:
+            error(f"Delete error {uid}: {e}")
+            return Response("Kustutamine ebaõnnestus", 500)

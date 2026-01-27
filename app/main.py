@@ -191,6 +191,10 @@ def get_docs(req): return doc_ctrl.show_documents_tab(req)
 @require_role(*G_APP)
 async def post_doc_upload(req, document_type: str): return await doc_ctrl.upload_document(req, document_type)
 
+@rt("/app/dokumendid/{doc_id:int}", methods=['DELETE'])
+@require_role(*G_APP)
+def delete_document(req, doc_id: int): return doc_ctrl.delete_document(req, doc_id)
+
 @rt("/app/ulevaatamine")
 @require_role(*G_APP)
 def get_review(req): return rev_ctrl.show_review_tab(req)
