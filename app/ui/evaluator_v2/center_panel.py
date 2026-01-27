@@ -75,7 +75,12 @@ def render_document_files(docs: list, empty_text: str = "Dokumente ei leitud.") 
         *[
             A(
                 UkIcon("file-text", cls="w-4 h-4 mr-2 text-blue-500"),
-                Span(doc.get('description') or doc.get('original_filename'), cls="truncate"),
+                Span(
+                    (doc.get('description') if doc.get('description') and doc.get('description').strip() not in ('-', '') else None)
+                    or doc.get('original_filename')
+                    or "Nimetu dokument",
+                    cls="truncate"
+                ),
                 href=f"/files/view/{doc.get('id')}",
                 target="_blank",
                 cls="flex items-center p-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors text-blue-600 dark:text-blue-400"
@@ -116,6 +121,7 @@ def render_compliance_dashboard(state: ComplianceDashboardState, work_experience
     docs = documents or []
     edu_docs = [d for d in docs if d.get('document_type') == 'education']
     training_docs = [d for d in docs if d.get('document_type') == 'training']
+    emp_docs = [d for d in docs if d.get('document_type') == 'employment_proof']
 
     # Inject Documents
     haridus_content = [render_document_files(edu_docs, "Hariduse dokumente ei leitud.")]
@@ -123,10 +129,14 @@ def render_compliance_dashboard(state: ComplianceDashboardState, work_experience
     koolitus_content = [render_document_files(training_docs, "Täiendkoolituse dokumente ei leitud.")]
     koolitus_content.extend([s for s in sections[3:] if s])
 
+    # Work Experience Content (Documents + Table)
+    emp_docs_content = render_document_files(emp_docs, "Töötamise tõendeid ei leitud.")
+    final_workex_content = [emp_docs_content] + work_ex_content
+
     return Div(
         # header removed
         render_compliance_section("Haridus", "book-open", haridus_content, [state.education], "haridus", state.haridus_comment, inline_details=edu_details),
-        render_compliance_section("Töökogemus", "briefcase", work_ex_content, [state.total_experience, state.matching_experience], "tookogemus", state.tookogemus_comment, inline_details=exp_details),
+        render_compliance_section("Töökogemus", "briefcase", final_workex_content, [state.total_experience, state.matching_experience], "tookogemus", state.tookogemus_comment, inline_details=exp_details),
         render_compliance_section("Koolitus", "award", koolitus_content, [state.base_training, state.conditional_training, state.manager_training, state.cpd_training], "koolitus", state.koolitus_comment),
         render_compliance_section("Otsus", "list-checks", [], [], "otsus", state.otsus_comment, state.final_decision),
         id="compliance-dashboard-container",

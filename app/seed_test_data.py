@@ -3,6 +3,7 @@ import sys
 import os
 from pathlib import Path
 import datetime
+import shutil
 
 # --- Robust Path Setup ---
 # This setup works whether the script is run from a directory structure
@@ -24,6 +25,8 @@ except ImportError:
     from app.auth.utils import get_password_hash
     from app.auth.roles import APPLICANT
 # --- End Path Setup ---
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 
 # --- Test Data Definitions ---
@@ -149,7 +152,9 @@ def clear_previous_test_data(db):
         email = applicant["user"]["email"]
         users_table.delete_where("email = ?", [email])
         quals_table.delete_where("user_email = ?", [email])
+        quals_table.delete_where("user_email = ?", [email])
         exp_table.delete_where("user_email = ?", [email])
+        db.t.documents.delete_where("user_email = ?", [email])
         print(f"  - Cleared data for {email}")
     print("--- Cleanup complete ---")
 
@@ -164,6 +169,40 @@ def populate_test_data(db):
     for applicant in TEST_APPLICANTS:
         user_info = applicant["user"]
         email = user_info["email"]
+        
+        # --- File Setup ---
+        # Ensure uploads dir exists (relative to project root based on how main.py defines it: APP_DIR.parent/'Uploads')
+        # Here we assume a standard structure or passed in config, but for a script:
+        # We reused PROJECT_ROOT from earlier.
+        
+        UPLOADS_DIR = PROJECT_ROOT / 'Uploads'
+        os.makedirs(UPLOADS_DIR, exist_ok=True)
+        SEED_DOCS_DIR = PROJECT_ROOT / 'data' / 'seed_docs'
+
+        # Helper to seed a document
+        def seed_doc(doc_type, filename, description):
+            src = SEED_DOCS_DIR / filename
+            if not src.exists():
+                # fallback if file not created, just touch it
+                os.makedirs(SEED_DOCS_DIR, exist_ok=True)
+                with open(src, 'wb') as f: f.write(b'%PDF-1.4 empty')
+
+            # Unique ID for storage
+            storage_id = f"local:seed_{doc_type}_{email.split('@')[0]}_{filename}"
+            # Copy file
+            dest = UPLOADS_DIR / storage_id.split("local:", 1)[1]
+            shutil.copy(src, dest)
+            
+            # DB Insert
+            db.t.documents.insert({
+                "user_email": email,
+                "document_type": doc_type,
+                "description": description,
+                "original_filename": filename,
+                "storage_identifier": storage_id,
+                "upload_timestamp": str(datetime.datetime.now())
+            })
+            print(f"    - Added document: {description} ({doc_type})")
         
         # 1. Create User with all required fields
         hashed_password = get_password_hash(user_info["password"])
@@ -203,6 +242,16 @@ def populate_test_data(db):
                 "ehr_code": exp.get("ehr_code", "123456789")
             })
         print(f"    - Added {len(applicant['experience'])} work experience record(s)")
+
+        # 4. Add Documents
+        # Education Doc
+        seed_doc('education', 'diploma.pdf', 'Tallinna Tehnikaülikooli Diplom')
+        
+        # Training Doc (Täiendkoolitus)
+        seed_doc('training', 'training_sample.pdf', 'Ehitusjuhtimise täiendkoolitus 2024')
+        
+        # Employment Proof (Töötamise tõend)
+        seed_doc('employment_proof', 'employment_sample.pdf', 'Töötamise tõend (Nordic Build AS)')
 
     print("--- Population complete ---")
 

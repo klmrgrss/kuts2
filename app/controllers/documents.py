@@ -89,7 +89,12 @@ class DocumentsController:
             meta = {}
             if dtype == 'education':
                 meta = {"institution": form.get("institution", ""), "specialty": form.get("specialty", ""), "graduation_date": form.get("graduation_date", "")}
-                if not desc: desc = f"{meta['institution']} - {meta['specialty']}"
+                if not desc:
+                    # Construct description from metadata if available
+                    parts = [meta['institution'], meta['specialty']]
+                    desc = " - ".join([p for p in parts if p])
+                    # If still empty, use filename (or leave empty to let UI handle it)
+                    if not desc: desc = fname
 
             self.tbl.insert({
                 "user_email": uid, "document_type": dtype, "description": desc,
