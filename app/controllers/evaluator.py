@@ -98,7 +98,7 @@ class EvaluatorController:
             # 2. If no saved state, run fresh validation (pre-check)
             if best_state is None:
                 qualification_rule_id = QUALIFICATION_LEVEL_TO_RULE_ID.get(level, "toojuht_tase_5")
-                applicant_data = self._get_applicant_data_for_validation(user_email)
+                applicant_data = self._get_applicant_data_for_validation(user_email, activity=activity)
                 all_states = self.validation_engine.validate(applicant_data, qualification_rule_id)
                 best_state = next((s for s in all_states if s.overall_met), all_states[0])
                 
@@ -179,7 +179,7 @@ class EvaluatorController:
                 None
             )
 
-    def _get_applicant_data_for_validation(self, user_email: str) -> ApplicantData:
+    def _get_applicant_data_for_validation(self, user_email: str, activity: str = None) -> ApplicantData:
         # 1. Fetch Education from DB
         user_education = self.db.t.education("user_email=?", [user_email])
         best_edu = "any"
@@ -188,20 +188,30 @@ class EvaluatorController:
             sorted_edu = sorted(user_education, key=lambda x: EDUCATION_HIERARCHY.get(x.get('education_category', 'any'), 0), reverse=True)
             best_edu = sorted_edu[0].get('education_category', 'any')
 
-        # 2. Fetch Work Experience
-        # work_experiences = self.work_exp_table("user_email=?", [user_email]) # potential ambiguity
-        work_experiences = list(self.work_exp_table.rows_where("user_email=?", [user_email]))
+        # 2. Fetch Work Experience (All)
+        work_experiences_all = list(self.work_exp_table.rows_where("user_email=?", [user_email]))
         
+        # Calculate Total (General) Experience
         total_years = calculate_total_experience_years([
             (datetime.datetime.strptime(exp['start_date'], '%Y-%m').date(),
              datetime.datetime.strptime(exp['end_date'] or datetime.date.today().strftime('%Y-%m'), '%Y-%m').date())
-            for exp in work_experiences if exp.get('start_date')
+            for exp in work_experiences_all if exp.get('start_date')
         ])
+
+        # Calculate Matching (Specific Activity) Experience
+        matching_years = total_years
+        if activity:
+            matching_exps = [e for e in work_experiences_all if e.get('associated_activity') == activity]
+            matching_years = calculate_total_experience_years([
+                (datetime.datetime.strptime(exp['start_date'], '%Y-%m').date(),
+                 datetime.datetime.strptime(exp['end_date'] or datetime.date.today().strftime('%Y-%m'), '%Y-%m').date())
+                for exp in matching_exps if exp.get('start_date')
+            ])
         
         return ApplicantData(
             education=best_edu,
             work_experience_years=total_years,
-            matching_experience_years=total_years,
+            matching_experience_years=matching_years,
             has_prior_level_4=True, base_training_hours=40, manager_training_hours=30,
             cpd_training_hours=16, is_education_old_or_foreign=False
         )

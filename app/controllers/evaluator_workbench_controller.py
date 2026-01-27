@@ -90,11 +90,10 @@ class EvaluatorWorkbenchController:
             if rows:
                 best_state = self.validation_engine.dict_to_state(json.loads(rows[0][0]))
             
-            if not best_state:
                 # FALLBACK: Generate fresh state if not found (First interaction workaround)
                 # This mirrors the initial load logic in EvaluatorController to ensure continuity.
                 qualification_rule_id = QUALIFICATION_LEVEL_TO_RULE_ID.get(level, "toojuht_tase_5")
-                applicant_data = self.main_controller._get_applicant_data_for_validation(user_email)
+                applicant_data = self.main_controller._get_applicant_data_for_validation(user_email, activity=activity)
                 all_states = self.validation_engine.validate(applicant_data, qualification_rule_id)
                 best_state = next((s for s in all_states if s.overall_met), all_states[0])
                 
@@ -165,9 +164,10 @@ class EvaluatorWorkbenchController:
                 debug(f"Could not load previous state for {qual_id}: {e} ({type(e).__name__})")
 
             if best_state is None:
-                # If no state, perform initial validation
-                applicant_data = self.main_controller._get_applicant_data_for_validation(user_email)
+                # FALLBACK: Generate fresh state if not found (First interaction workaround)
+                # This mirrors the initial load logic in EvaluatorController to ensure continuity.
                 qualification_rule_id = QUALIFICATION_LEVEL_TO_RULE_ID.get(level, "toojuht_tase_5")
+                applicant_data = self.main_controller._get_applicant_data_for_validation(user_email, activity=activity)
                 all_states = self.validation_engine.validate(applicant_data, qualification_rule_id)
                 best_state = next((s for s in all_states if s.overall_met), all_states[0])
                 debug(f"Created fresh state for {qual_id}")
@@ -192,7 +192,7 @@ class EvaluatorWorkbenchController:
             if has_override_changed:
                 debug(f"[ACTION] Override changed for {qual_id}: Education '{current_edu}'->'{selected_education}', Foreign: {current_old_foreign}->{is_old_or_foreign}")
                 # Re-run validation with the new override
-                applicant_data = self.main_controller._get_applicant_data_for_validation(user_email)
+                applicant_data = self.main_controller._get_applicant_data_for_validation(user_email, activity=activity)
                 if selected_education is not None:
                     applicant_data.education = selected_education or "any"
                 applicant_data.is_education_old_or_foreign = is_old_or_foreign
