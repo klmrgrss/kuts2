@@ -82,7 +82,7 @@ class EvaluatorWorkbenchController:
     async def toggle_work_experience(self, request: Request, qual_id: str, exp_id: int):
         try:
             exp_id = int(exp_id)
-            user_email = qual_id.split(':::', 2)[0]
+            user_email, level, activity = qual_id.split(':::', 2)
             
             # 1. Load State
             best_state = None
@@ -91,7 +91,22 @@ class EvaluatorWorkbenchController:
                 best_state = self.validation_engine.dict_to_state(json.loads(rows[0][0]))
             
             if not best_state:
-                return Div("Evaluation state not found. Please open application first.", cls="text-red-500")
+                # FALLBACK: Generate fresh state if not found (First interaction workaround)
+                # This mirrors the initial load logic in EvaluatorController to ensure continuity.
+                qualification_rule_id = QUALIFICATION_LEVEL_TO_RULE_ID.get(level, "toojuht_tase_5")
+                applicant_data = self.main_controller._get_applicant_data_for_validation(user_email)
+                all_states = self.validation_engine.validate(applicant_data, qualification_rule_id)
+                best_state = next((s for s in all_states if s.overall_met), all_states[0])
+                
+                # Hydrate Legacy Decision if exists (Safety measure to not overwrite decisions with None)
+                # We use the raw table access for speed.
+                uq_rows = list(self.db.t.applied_qualifications.rows_where("user_email = ? AND level = ? AND qualification_name = ?", [user_email, level, activity]))
+                if uq_rows and uq_rows[0].get('eval_decision'):
+                     best_state.final_decision = uq_rows[0].get('eval_decision')
+                     if uq_rows[0].get('eval_comment'): 
+                         best_state.otsus_comment = uq_rows[0].get('eval_comment')
+                
+                # debug(f"Generated fresh state on-the-fly for toggle: {qual_id}")
 
             # 2. Toggle ID
             if not hasattr(best_state, 'accepted_work_experience_ids'):
