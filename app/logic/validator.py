@@ -104,6 +104,7 @@ class ValidationEngine:
         if package.total_experience_years is not None:
             state.total_experience.is_relevant = True
             state.total_experience.required = f"{package.total_experience_years}a"
+            print(f"[DEBUG] Validating Exp: {applicant.work_experience_years}")
             state.total_experience.provided = f"{applicant.work_experience_years}a"
             state.total_experience.is_met = applicant.work_experience_years >= package.total_experience_years
             if not state.total_experience.is_met: state.overall_met = False

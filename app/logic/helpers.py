@@ -40,3 +40,42 @@ def calculate_total_experience_years(periods: List[Tuple[date, date]]) -> float:
         total_months += delta.years * 12 + delta.months + 1 # Add 1 to include the start month
 
     return round(total_months / 12.0, 2)
+
+def format_duration_est(years_float: float) -> str:
+    """Formats 2.5 -> '2a 6k'"""
+    if not years_float: return "0a 0k"
+    
+    total_months = int(round(years_float * 12))
+    years = total_months // 12
+    months = total_months % 12
+    
+    parts = []
+    if years > 0: parts.append(f"{years}a")
+    if months > 0: parts.append(f"{months}k")
+    
+    return " ".join(parts) if parts else "0k"
+
+def construct_workex_header(req_str: str, provided_raw_str: str, accepted_years: float) -> str:
+    """
+    Constructs the standardized header string:
+    'Nõutav: X | Esitatud: Y | Vastavaks tunnistatud: Z'
+    Handles parsing raw provided strings like '3.0a' or 'Esitatud: 3.5a' into clean '3a 6k'.
+    """
+    import re
+    
+    # 1. Parse Provided Value
+    user_sum_val = 0.0
+    try:
+         target_str = provided_raw_str or ""
+         if "Esitatud:" in target_str:
+             m = re.search(r'Esitatud:\s*([^|]+)', target_str)
+             if m: target_str = m.group(1)
+         
+         m_val = re.search(r'([\d\.]+)', target_str)
+         if m_val: user_sum_val = float(m_val.group(1))
+    except: pass
+    
+    user_sum_fmt = format_duration_est(user_sum_val)
+    accepted_fmt = format_duration_est(accepted_years)
+    
+    return f"Nõutav: {req_str} | Esitatud: {user_sum_fmt} | Vastavaks tunnistatud: {accepted_fmt}"

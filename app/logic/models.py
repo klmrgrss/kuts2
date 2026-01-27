@@ -47,6 +47,7 @@ class ComplianceDashboardState:
     # Evaluator toggles
     education_old_or_foreign: Optional[bool] = None
     final_decision: Optional[str] = None
+    accepted_work_experience_ids: List[int] = field(default_factory=list)
 
 
 @dataclass

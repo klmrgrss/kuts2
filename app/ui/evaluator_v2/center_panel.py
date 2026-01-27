@@ -18,7 +18,7 @@ def render_compliance_subsection(title: str, check: ComplianceCheck, show_title:
         
     return Div(icon, content, cls="flex items-center gap-x-3 px-3 py-2")
 
-def render_compliance_section(title: str, icon_name: str, subsections: List[FT], all_checks: List[ComplianceCheck], context_name: str, comment: Optional[str], decision: Optional[str] = None, inline_details: Optional[str] = None):
+def render_compliance_section(title: str, icon_name: str, subsections: List[FT], all_checks: List[ComplianceCheck], context_name: str, comment: Optional[str], decision: Optional[str] = None, inline_details: Optional[str] = None, custom_status_color: str = None):
     relevant = [c for c in all_checks if c.is_relevant]
     if not relevant and context_name != "otsus":
          border, accent, icon, text = "border-gray-300 dark:border-gray-700 opacity-50", "bg-gray-300", UkIcon("minus", cls="text-gray-500"), "Ei ole asjakohane"
@@ -33,10 +33,19 @@ def render_compliance_section(title: str, icon_name: str, subsections: List[FT],
                  # Default "Pending" State for Otsus
                  border, accent, icon, text = "border-gray-300 dark:border-gray-600", "bg-gray-300 dark:bg-gray-600", UkIcon("help-circle", cls="text-gray-400"), "Otsus tegemata"
         else:
-            border = "border-green-500" if all_met else "border-red-500"
-            accent = "bg-green-500" if all_met else "bg-red-500"
-            icon = UkIcon("check-circle", cls="text-green-500") if all_met else UkIcon("x-circle", cls="text-red-500")
-            text = f"{len([c for c in relevant if c.is_met])}/{len(relevant)} täidetud"
+            if custom_status_color:
+                # Custom override (e.g. neutral for unchecked workex)
+                border = f"border-{custom_status_color}-500"
+                accent = f"bg-{custom_status_color}-500"
+                icon = UkIcon("minus-circle", cls=f"text-{custom_status_color}-500") # Neutral icon
+                text = "Ootab ülevaatamist" # clearer text for neutral state? Or just standard count?
+                # Let's keep the standard count text but neutral color
+                text = f"{len([c for c in relevant if c.is_met])}/{len(relevant)} täidetud (Precheck)"
+            else:
+                border = "border-green-500" if all_met else "border-red-500"
+                accent = "bg-green-500" if all_met else "bg-red-500"
+                icon = UkIcon("check-circle", cls="text-green-500") if all_met else UkIcon("x-circle", cls="text-red-500")
+                text = f"{len([c for c in relevant if c.is_met])}/{len(relevant)} täidetud"
 
     header_content = [
         Div(cls=f"w-1.5 h-full absolute left-0 top-0 {accent}"), UkIcon(icon_name, cls="w-5 h-5"), H5(title, cls="font-semibold")
@@ -90,7 +99,7 @@ def render_document_files(docs: list, empty_text: str = "Dokumente ei leitud.") 
         cls="p-2 space-y-1 bg-white dark:bg-gray-800 border-b dark:border-gray-700"
     )
 
-def render_compliance_dashboard(state: ComplianceDashboardState, work_experience: List[Dict] = None, documents: List[Dict] = None):
+def render_compliance_dashboard(state: ComplianceDashboardState, work_experience: List[Dict] = None, documents: List[Dict] = None, qual_id: str = None):
     # Header moved to main panel
     
     sections = [
@@ -104,18 +113,31 @@ def render_compliance_dashboard(state: ComplianceDashboardState, work_experience
     ]
     
     edu_details = f"Nõue: {state.education.required}, Esitatud: {state.education.provided}" if state.education.is_relevant else None
-    
-    exp_parts = []
-    if state.total_experience.is_relevant: 
-        exp_parts.append(f"Kokku: {state.total_experience.provided} (Nõue {state.total_experience.required})")
+
+    # If matching experience is relevant, we just use the provided string which is standard formatted now.
+    inline_details_text = None
     if state.matching_experience.is_relevant:
-        exp_parts.append(f"Vastav: {state.matching_experience.provided} (Nõue {state.matching_experience.required})")
-    exp_details = " | ".join(exp_parts) if exp_parts else None
+        inline_details_text = state.matching_experience.provided
+    elif state.total_experience.is_relevant:
+        # Fallback for total experience only cases (should be formatted too by now)
+        inline_details_text = f"Kokku: {state.total_experience.provided} (Nõue {state.total_experience.required})"
+    
+    # Neutral color logic:
+    # If accepted_ids list is empty, we consider it "Precheck" / Neutral.
+    # Note: If user explicitly unchecks everything, it becomes empty too. 
+    # But usually user expects Red if unchecks everything. 
+    # Constraint: "Precheck ... should render the section as neutral."
+    # With unified header, we always show "Vastavaks tunnistatud: 0a 0k" initially.
+    # So visually it is clear.
+    # Color wise: Gray if empty list?
+    workex_status_color = None
+    if not state.accepted_work_experience_ids:
+        workex_status_color = "gray"
 
     # Work Experience Table Injection
     work_ex_content = []
     if work_experience:
-        work_ex_content.append(render_work_experience_table(work_experience))
+        work_ex_content.append(render_work_experience_table(work_experience, qual_id=qual_id, accepted_ids=state.accepted_work_experience_ids))
 
     # Documents Preparation
     docs = documents or []
@@ -136,7 +158,7 @@ def render_compliance_dashboard(state: ComplianceDashboardState, work_experience
     return Div(
         # header removed
         render_compliance_section("Haridus", "book-open", haridus_content, [state.education], "haridus", state.haridus_comment, inline_details=edu_details),
-        render_compliance_section("Töökogemus", "briefcase", final_workex_content, [state.total_experience, state.matching_experience], "tookogemus", state.tookogemus_comment, inline_details=exp_details),
+        render_compliance_section("Töökogemus", "briefcase", final_workex_content, [state.total_experience, state.matching_experience], "tookogemus", state.tookogemus_comment, inline_details=inline_details_text, custom_status_color=workex_status_color),
         render_compliance_section("Koolitus", "award", koolitus_content, [state.base_training, state.conditional_training, state.manager_training, state.cpd_training], "koolitus", state.koolitus_comment),
         render_compliance_section("Otsus", "list-checks", [], [], "otsus", state.otsus_comment, state.final_decision),
         id="compliance-dashboard-container",
@@ -348,4 +370,4 @@ def render_center_panel(qual_data: Dict, user_data: Dict, state: ComplianceDashb
         })();
     """)
 
-    return Div(header, render_compliance_dashboard(state, work_experience, documents), footer, js_script, id="ev-center-panel", cls="flex flex-col h-full bg-white dark:bg-gray-900 overflow-y-auto relative [scrollbar-width:thin] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-gray-300 dark:[&::-webkit-scrollbar-thumb]:bg-gray-600 [&::-webkit-scrollbar-thumb]:rounded-full")
+    return Div(header, render_compliance_dashboard(state, work_experience, documents, qual_id), footer, js_script, id="ev-center-panel", cls="flex flex-col h-full bg-white dark:bg-gray-900 overflow-y-auto relative [scrollbar-width:thin] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-gray-300 dark:[&::-webkit-scrollbar-thumb]:bg-gray-600 [&::-webkit-scrollbar-thumb]:rounded-full")

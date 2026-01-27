@@ -4,6 +4,7 @@ from starlette.requests import Request
 from fastlite import NotFoundError
 import datetime
 import json
+import re
 import traceback
 from logic.helpers import calculate_total_experience_years
 from logic.models import ApplicantData, ComplianceDashboardState
@@ -122,6 +123,47 @@ class EvaluatorController:
                 if exp.get('user_email') == user_email and exp.get('associated_activity') == activity
             ]
 
+            # FORCE FORMATTING ON INITIAL LOAD
+            # We want "Nõutav: X | Esitatud: Y | Vastavaks tunnistatud: 0a 0k" 
+            # even if fresh validation just gave us "3.0a".
+            from logic.helpers import construct_workex_header
+            
+            # Start with 0 accepted if fresh (or whatever saved logic might imply, but usually saved has it formatted)
+            # If loaded from DB, the string might already be formatted. construct_workex_header is idempotent-ish 
+            # (parses numbers out).
+            
+            # Recalculate accepted years just to be 100% sure sync matches DB?
+            # Or just rely on 0.0 if not yet calculated.
+            # If loaded_from_db is True, 'best_state' has the saved string.
+            # But the accepted_ids might be present.
+            
+            accepted_years = 0.0
+            if hasattr(best_state, 'accepted_work_experience_ids') and best_state.accepted_work_experience_ids:
+                 # Minimal recalc for consistency
+                 from controllers.evaluator_workbench_controller import _calculate_years
+                 for exp in user_work_experience:
+                     if exp.get('id') in best_state.accepted_work_experience_ids:
+                         accepted_years += _calculate_years(exp.get('start_date'), exp.get('end_date'))
+            
+            if best_state.matching_experience.is_relevant:
+                 new_header = construct_workex_header(
+                    best_state.matching_experience.required,
+                    best_state.matching_experience.provided, # Raw from validator or Previous saved string
+                    accepted_years
+                 )
+                 best_state.matching_experience.provided = new_header
+            
+            # Also format total experience if needed (simpler format)
+            if best_state.total_experience.provided:
+                from logic.helpers import format_duration_est
+                # Parse raw first
+                try: 
+                     m = re.search(r'([\d\.]+)', best_state.total_experience.provided)
+                     if m: 
+                         val = float(m.group(1))
+                         best_state.total_experience.provided = format_duration_est(val)
+                except: pass
+
             center_panel = render_center_panel(qual_data, user_data, best_state, user_work_experience, user_documents)
             
             # Log the final state being presented
@@ -147,7 +189,9 @@ class EvaluatorController:
             best_edu = sorted_edu[0].get('education_category', 'any')
 
         # 2. Fetch Work Experience
-        work_experiences = self.work_exp_table("user_email=?", [user_email])
+        # work_experiences = self.work_exp_table("user_email=?", [user_email]) # potential ambiguity
+        work_experiences = list(self.work_exp_table.rows_where("user_email=?", [user_email]))
+        
         total_years = calculate_total_experience_years([
             (datetime.datetime.strptime(exp['start_date'], '%Y-%m').date(),
              datetime.datetime.strptime(exp['end_date'] or datetime.date.today().strftime('%Y-%m'), '%Y-%m').date())

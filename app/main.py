@@ -232,6 +232,10 @@ async def post_eval_search(req):
 @require_role(*G_EVAL)
 async def post_re_eval(req, qual_id: str): return await eval_bench.re_evaluate_application(req, qual_id)
 
+@rt("/evaluator/d/toggle-exp/{qual_id:str}/{exp_id:int}", methods=["POST"])
+@require_role(*G_EVAL)
+async def post_eval_toggle_exp(req, qual_id: str, exp_id: int): return await eval_bench.toggle_work_experience(req, qual_id, exp_id)
+
 @rt("/evaluator/test")
 @require_role(*G_EVAL)
 def get_eval_test(req): return eval_main.show_test_search_page(req)

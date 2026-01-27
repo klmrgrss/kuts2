@@ -4,7 +4,12 @@ from fasthtml.common import *
 from starlette.requests import Request
 from fastlite import NotFoundError
 import json
+import re
 import datetime
+from fasthtml.common import *
+from starlette.requests import Request
+from fastlite import NotFoundError
+import json
 import traceback
 import dataclasses
 from logic.validator import ValidationEngine
@@ -20,6 +25,16 @@ QUALIFICATION_LEVEL_TO_RULE_ID = {
     "ehitusjuht_tase_6": "ehitusjuht_tase_6",
 }
 
+def _calculate_years(start_str, end_str):
+    if not start_str: return 0.0
+    try:
+        start = datetime.datetime.strptime(start_str, "%Y-%m").date()
+        end = datetime.datetime.strptime(end_str, "%Y-%m").date() if end_str else datetime.date.today()
+        diff_months = (end.year - start.year) * 12 + (end.month - start.month) + 1
+        return max(0, diff_months / 12.0)
+    except:
+            return 0.0
+
 class EvaluatorWorkbenchController:
     def __init__(self, db, validation_engine, main_controller, search_controller):
         self.db = db
@@ -28,6 +43,91 @@ class EvaluatorWorkbenchController:
         self.main_controller = main_controller 
         self.search_controller = search_controller
         self.qual_table = db.t.applied_qualifications
+
+    def _apply_accepted_experience_logic(self, state: ComplianceDashboardState, work_experience: list):
+        if not work_experience: return
+
+        # 1. Calculate Sum of Accepted Rows
+        accepted_years = 0.0
+        if state.accepted_work_experience_ids:
+            for exp in work_experience:
+                if exp.get('id') in state.accepted_work_experience_ids:
+                    accepted_years += _calculate_years(exp.get('start_date'), exp.get('end_date'))
+        
+       # 2. Construct Header
+        from logic.helpers import construct_workex_header
+        
+        # We pass the CURRENT provided string as the raw source. 
+        # The helper parses out the previous number if it exists.
+        current_prov = state.matching_experience.provided or "0a"
+        
+        new_header = construct_workex_header(
+            state.matching_experience.required,
+            current_prov,
+            accepted_years
+        )
+        state.matching_experience.provided = new_header
+        
+        # 3. Color Logic (Overrule Validator)
+        req_val = 0.0
+        try:
+             # Extract number from req string (e.g. "2 a" or "2")
+             m = re.search(r'([\d\.]+)', state.matching_experience.required)
+             if m: req_val = float(m.group(1))
+        except: pass
+        
+        # Force the compliance status based on ACCEPTED amount
+        state.matching_experience.is_met = accepted_years >= req_val
+
+    async def toggle_work_experience(self, request: Request, qual_id: str, exp_id: int):
+        try:
+            exp_id = int(exp_id)
+            user_email = qual_id.split(':::', 2)[0]
+            
+            # 1. Load State
+            best_state = None
+            rows = list(self.db.execute("SELECT evaluation_state_json FROM evaluations WHERE qual_id = ?", (qual_id,)))
+            if rows:
+                best_state = self.validation_engine.dict_to_state(json.loads(rows[0][0]))
+            
+            if not best_state:
+                return Div("Evaluation state not found. Please open application first.", cls="text-red-500")
+
+            # 2. Toggle ID
+            if not hasattr(best_state, 'accepted_work_experience_ids'):
+                best_state.accepted_work_experience_ids = []
+            
+            if exp_id in best_state.accepted_work_experience_ids:
+                best_state.accepted_work_experience_ids.remove(exp_id)
+            else:
+                best_state.accepted_work_experience_ids.append(exp_id)
+            
+            # 3. Apply Logic with fresh data
+            work_experience = list(self.db.t.work_experience.rows_where("user_email = ?", [user_email], order_by='start_date DESC'))
+            self._apply_accepted_experience_logic(best_state, work_experience)
+
+            # 4. Save
+            self._save_evaluation_state(qual_id, user_email, best_state) # Note: session user might be different from applicant, but here we need evaluator email?
+            # Re-read evaluator email from session?
+            evaluator_email = request.session.get("user_email")
+            self._save_evaluation_state(qual_id, evaluator_email, best_state)
+
+            # 5. Render Dashboard
+            # Pass qual_id and work_experience explicitly
+            accepted_ids = best_state.accepted_work_experience_ids
+            from ui.evaluator_v2.workex_table import render_work_experience_table
+            
+            # Since we only want to update the dashboard/center panel, we call render_compliance_dashboard
+            # But wait, render_compliance_dashboard renders the WHOLE list of sections.
+            # We assume toggle is done via OOB or simple replacement.
+            # The UI asks for hx_target="#compliance-dashboard-container"
+            dashboard = render_compliance_dashboard(best_state, work_experience=work_experience, qual_id=qual_id)
+            
+            return dashboard
+
+        except Exception as e:
+            traceback.print_exc()
+            return Div(f"Error: {e}", cls="text-red-500")
 
     async def re_evaluate_application(self, request: Request, qual_id: str):
         print("\n--- [DEBUG] ENTERING RE-EVALUATION ENDPOINT ---")
@@ -98,12 +198,15 @@ class EvaluatorWorkbenchController:
                 sorted_states = sorted(all_states, key=state_sort_key, reverse=True)
                 new_best_state = sorted_states[0]
 
-                # Preserve carry-over data (comments and decisions)
+                # Preserve carry-over data (comments and decisions AND accepted_ids)
                 new_best_state.haridus_comment = best_state.haridus_comment
                 new_best_state.tookogemus_comment = best_state.tookogemus_comment
                 new_best_state.koolitus_comment = best_state.koolitus_comment
                 new_best_state.otsus_comment = best_state.otsus_comment
                 new_best_state.final_decision = best_state.final_decision
+                # Preserve accepted IDs
+                if hasattr(best_state, 'accepted_work_experience_ids'):
+                    new_best_state.accepted_work_experience_ids = best_state.accepted_work_experience_ids
 
                 best_state = new_best_state
             
@@ -119,11 +222,15 @@ class EvaluatorWorkbenchController:
                 best_state.final_decision = final_decision or None
                 debug(f"[ACTION] Decision made: \"{best_state.final_decision}\"")
 
-            # 6. Final Sync & Save
-            # 6. Final Sync & Save
+            # 6. Apply Accepted Experience Logic (Recalculate Totals/Status)
+            work_experience = list(self.db.t.work_experience.rows_where("user_email = ?", [user_email], order_by='start_date DESC'))
+            self._apply_accepted_experience_logic(best_state, work_experience)
+
+            # 7. Final Sync & Save
             self._save_evaluation_state(qual_id, request.session.get("user_email"), best_state)
             
-            dashboard = render_compliance_dashboard(best_state)
+            # Pass qual_id to ensure checkboxes are clickable
+            dashboard = render_compliance_dashboard(best_state, work_experience=work_experience, qual_id=qual_id)
             
             # --- OOB update: Full Sidebar Refresh (Ensures consistency) ---
             # Fetch all applications to render the updated list
