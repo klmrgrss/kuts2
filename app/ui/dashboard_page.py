@@ -45,12 +45,13 @@ def render_applicant_dashboard(data: dict, applicant_name: str) -> FT:
     )
 
 
-def render_evaluator_dashboard(data: dict) -> FT:
+def render_evaluator_dashboard(data: dict, evaluator_name: str) -> FT:
     """
     Renders the evaluator's view of the dashboard.
 
     Args:
         data (dict): A dictionary containing data for the evaluator, including the number of applications to review.
+        evaluator_name (str): The name of the evaluator.
 
     Returns:
         FT: A FastHTML component representing the evaluator's dashboard.
@@ -61,7 +62,7 @@ def render_evaluator_dashboard(data: dict) -> FT:
     
     return Div(
         # Dashboard title, styled as a floating label on the top border of the container.
-        Span("Hindaja Töölaud", cls="absolute -top-3 left-4 bg-background px-2 text-lg font-semibold text-gray-600 dark:text-gray-300"),
+        Span(evaluator_name, cls="absolute -top-3 left-4 bg-background px-2 text-lg font-semibold text-gray-600 dark:text-gray-300"),
         Div(
             # Main content area of the dashboard.
             Div(
@@ -90,12 +91,12 @@ def render_evaluator_dashboard(data: dict) -> FT:
     )
 
 
-def render_admin_dashboard(allowed_evaluators: list[dict]) -> FT:
+def render_admin_dashboard(allowed_evaluators: list[dict], admin_name: str) -> FT:
     """
     Renders the administrator's dashboard for managing evaluators.
     """
     return Div(
-        Span("Administraatori Töölaud", cls="absolute -top-3 left-4 bg-background px-2 text-lg font-semibold text-gray-600 dark:text-gray-300"),
+        Span(admin_name, cls="absolute -top-3 left-4 bg-background px-2 text-lg font-semibold text-gray-600 dark:text-gray-300"),
         Div(
             Div(
                 H3("Lubatud Hindajad", cls="text-xl font-bold mb-4"),

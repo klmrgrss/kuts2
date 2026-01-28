@@ -13,8 +13,12 @@ import traceback
 from typing import Any, Dict, Optional
 import hashlib, base64
 from services import smart_id_service
-from auth.utils import calculate_verification_code
+from services import smart_id_service
+from auth.utils import calculate_verification_code, get_birthdate_from_national_id
 from utils.log import log, debug, error
+from cryptography import x509
+from cryptography.hazmat.backends import default_backend
+from cryptography.x509.oid import NameOID
 
 class AuthController:
     """ Handles user authentication (login, registration, logout). """
@@ -96,18 +100,45 @@ class AuthController:
     @staticmethod
     def _parse_subject_fields(status_data: Dict[str, Any]) -> Dict[str, str]:
         """Extract subject fields from Smart-ID status response in a robust way."""
-        cert_data = status_data.get("cert", {})
-        cert_value = cert_data.get("value")
-        if not cert_value:
-            print("--- DEBUG: Certificate value not found in response. ---")
-            return {}
-
         parsed: Dict[str, str] = {}
+        
+        # 1. Extract from 'result' object if available
         result = status_data.get("result", {})
         if isinstance(result, dict):
             doc_num = result.get("documentNumber")
             if doc_num:
                 parsed["serialNumber"] = doc_num
+
+        # 2. Extract from Certificate (Primary source for Names)
+        cert_data = status_data.get("cert", {})
+        cert_value = cert_data.get("value")
+        
+        if cert_value:
+            try:
+                # Smart-ID returns Base64 encoded DER certificate
+                cert_bytes = base64.b64decode(cert_value)
+                cert = x509.load_der_x509_certificate(cert_bytes, default_backend())
+                subject = cert.subject
+
+                # Helper to safely get value from OID
+                def get_oid_value(oid):
+                    attributes = subject.get_attributes_for_oid(oid)
+                    return attributes[0].value if attributes else None
+
+                gn = get_oid_value(NameOID.GIVEN_NAME)
+                if gn: parsed["givenName"] = gn
+
+                sn = get_oid_value(NameOID.SURNAME)
+                if sn: parsed["surname"] = sn
+                
+                # Serial number might also be in the certificate subject
+                serial = get_oid_value(NameOID.SERIAL_NUMBER)
+                if serial and "serialNumber" not in parsed:
+                     parsed["serialNumber"] = serial
+
+            except Exception as e:
+                print(f"--- ERROR [AuthController]: Failed to parse certificate: {e} ---")
+                traceback.print_exc()
 
         print(f"--- DEBUG: Parsed fields from response: {parsed} ---")
         return parsed
@@ -165,6 +196,9 @@ class AuthController:
             
             user_domain = os.environ.get("USER_ID_DOMAIN", "id.eeel.ee")
             email = f"{national_id}@{user_domain}"
+            
+            # Helper to deduce birth date from ID code
+            birth_date = get_birthdate_from_national_id(national_id)
 
 
             print(f"--- DEBUG [AuthController]: Smart-ID success for {national_id} ({full_name}) ---")
@@ -206,7 +240,18 @@ class AuthController:
                 if new_role != current_role:
                     print(f"--- DEBUG [AuthController]: Updating role for {national_id} from {current_role} to {new_role} ---")
                     user_data['role'] = new_role
-                    self.users.update(user_data)
+                
+                # Update full name if it has changed (e.g. was placeholder)
+                if full_name and user_data.get('full_name') != full_name:
+                    print(f"--- DEBUG [AuthController]: Updating name for {national_id} to {full_name} ---")
+                    user_data['full_name'] = full_name
+
+                # Update birthday if missing
+                if birth_date and not user_data.get('birthday'):
+                    print(f"--- DEBUG [AuthController]: Updating birthday for {national_id} to {birth_date} ---")
+                    user_data['birthday'] = birth_date
+                
+                self.users.update(user_data)
 
             except NotFoundError:
                 print(f"--- DEBUG [AuthController]: User with national ID {national_id} not found. Creating new user. ---")
@@ -219,7 +264,7 @@ class AuthController:
                 
                 new_user = {
                     "email": email, "hashed_password": "", "full_name": full_name,
-                    "birthday": None, "role": initial_role, "national_id_number": national_id
+                    "birthday": birth_date, "role": initial_role, "national_id_number": national_id
                 }
                 self.users.insert(new_user, pk='email')
                 user_data = new_user

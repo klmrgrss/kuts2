@@ -8,6 +8,7 @@ from monsterui.all import *
 from starlette.requests import Request
 
 from auth.roles import ROLE_LABELS, is_admin, is_evaluator, normalize_role
+from utils.log import debug
 
 # --- TABS Dictionary ---
 TABS = {
@@ -61,7 +62,10 @@ def app_navbar(request: Request, db: Any) -> FT:
     if is_authenticated and db:
         try:
             user_data = db.t.users[user_email]
-            display_name = user_data.get('full_name') or user_email
+            fn = user_data.get('full_name')
+            if fn and fn.strip():
+                display_name = fn.strip()
+            debug(f"AppNavbar resolved user '{user_email}' to '{display_name}'")
         except NotFoundError:
             print(f"--- WARN [app_navbar]: User '{user_email}' not found in DB. Using email as display name. ---")
         except Exception as e:
@@ -96,10 +100,15 @@ def app_navbar(request: Request, db: Any) -> FT:
 
     wide_screen_right = Div(
         evaluator_chip,
+        Div(
+           ThemeToggle(), 
+           cls="mr-2"
+        ),
         A(
-            UkIcon("user", cls="w-6 h-6"),
+            UkIcon("user", cls="w-6 h-6 inline-block align-middle"),
+            Span(display_name, cls="ml-2 text-sm font-medium align-middle"),
             href="/dashboard",
-            cls="flex items-center mr-4 p-2 rounded hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+            cls="flex items-center mr-4 p-2 rounded hover:bg-muted transition-colors text-muted-foreground hover:text-foreground no-underline"
         ) if is_authenticated else Span(),
         cls="flex items-center"
     )
@@ -230,7 +239,10 @@ def evaluator_navbar(request: Request, db: Any) -> FT:
     if is_authenticated and db:
         try:
             user_data = db.t.users[user_email]
-            display_name = user_data.get('full_name') or user_email
+            fn = user_data.get('full_name')
+            if fn and fn.strip():
+                display_name = fn.strip()
+            debug(f"Navbar resolved user '{user_email}' to '{display_name}' (Role: {user_role})")
         except NotFoundError:
             print(f"--- WARN [evaluator_navbar]: User '{user_email}' not found. ---")
         except Exception as e:
@@ -266,9 +278,6 @@ def evaluator_navbar(request: Request, db: Any) -> FT:
         cls="hidden lg:flex justify-between items-center w-full"
     )
 
-    MAX_NAME_LEN = 15
-    truncated_name = (display_name[:MAX_NAME_LEN] + '…') if len(display_name) > MAX_NAME_LEN else display_name
-
     # --- Narrow Screen (Mobile) View ---
     narrow_screen_view = Div(
         Div(
@@ -286,7 +295,6 @@ def evaluator_navbar(request: Request, db: Any) -> FT:
         Div(
              A(
                 UkIcon("user", width=24, height=24, cls="inline-block mr-1 align-middle"),
-                Span(truncated_name, cls="text-sm"),
                 href="/dashboard",
                 cls="flex items-center"
             ),

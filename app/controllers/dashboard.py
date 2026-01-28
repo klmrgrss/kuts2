@@ -32,14 +32,14 @@ class DashboardController:
             # Admin Dashboard
             allowed_evals = self.db.t.allowed_evaluators()
             # Convert to list of dicts if needed, or pass result set
-            content = render_admin_dashboard(list(allowed_evals))
+            content = render_admin_dashboard(list(allowed_evals), current_user.get("full_name", user_email))
             title = "Administraatori Töölaud"
 
         elif is_evaluator(user_role):
             # Evaluator View (Dashboard accessible via /dashboard or link)
             evaluator_apps = self.evaluator_controller.search_controller._get_flattened_applications()
             evaluator_data = {"applications_to_review": len(evaluator_apps)}
-            content = render_evaluator_dashboard(evaluator_data)
+            content = render_evaluator_dashboard(evaluator_data, current_user.get("full_name", user_email))
             title = "Hindaja Töölaud"
 
         else: # Default to applicant view
