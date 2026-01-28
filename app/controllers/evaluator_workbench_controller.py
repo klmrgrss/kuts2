@@ -174,24 +174,38 @@ class EvaluatorWorkbenchController:
                 debug(f"Created fresh state for {qual_id}")
 
             # 2. Get evaluator inputs from form
+            certification_type = form_data.get("certification_type")
             selected_education = form_data.get("education_level")
-            is_old_or_foreign = form_data.get("education_old_or_foreign") == "on"
+
+            # New granular checkboxes
+            is_10y_plus = form_data.get("education_10y_plus") == "on"
+            is_foreign = form_data.get("education_foreign") == "on"
+            is_old_or_foreign = is_10y_plus or is_foreign # Computed legacy
+
             comment = form_data.get("main_comment")
             active_context = form_data.get("active_context")
             final_decision = form_data.get("final_decision")
 
+            # Update state with new fields
+            if certification_type:
+                best_state.certification_type = certification_type
+            
+            # Persist the granular flags
+            best_state.education_10y_plus = is_10y_plus
+            best_state.education_foreign = is_foreign
+
             # 3. Detect changes in overrides
             # Compare current form values with what's in the state (not original applicant data)
             current_edu = best_state.education.provided if best_state.education else "any"
-            current_old_foreign = bool(best_state.education_old_or_foreign)
+            current_old_foreign = bool(getattr(best_state, 'education_old_or_foreign', False))
 
             # If selected_education is empty string (from dropdown), we interpret it as a specific choice
-            # but we need to check if it has changed from the CURRENT state.
+            # but we need to check if has changed from the CURRENT state.
             has_override_changed = (selected_education is not None and selected_education != current_edu) or \
                                    (is_old_or_foreign != current_old_foreign)
 
             if has_override_changed:
-                debug(f"[ACTION] Override changed for {qual_id}: Education '{current_edu}'->'{selected_education}', Foreign: {current_old_foreign}->{is_old_or_foreign}")
+                debug(f"[ACTION] Override changed for {qual_id}: Education '{current_edu}'->'{selected_education}', Foreign (Calc): {current_old_foreign}->{is_old_or_foreign}")
                 # Re-run validation with the new override
                 applicant_data = self.main_controller._get_applicant_data_for_validation(user_email, activity=activity)
                 if selected_education is not None:
@@ -213,6 +227,11 @@ class EvaluatorWorkbenchController:
 
                 sorted_states = sorted(all_states, key=state_sort_key, reverse=True)
                 new_best_state = sorted_states[0]
+
+                # RE-APPLY Persistent Fields to the new state
+                new_best_state.certification_type = best_state.certification_type
+                new_best_state.education_10y_plus = best_state.education_10y_plus
+                new_best_state.education_foreign = best_state.education_foreign
 
                 # Preserve carry-over data (comments and decisions AND accepted_ids)
                 new_best_state.haridus_comment = best_state.haridus_comment

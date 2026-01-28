@@ -5,6 +5,7 @@ from typing import Dict, Optional, List
 from ui.shared_components import LevelPill
 from logic.models import ComplianceDashboardState, ComplianceCheck
 from ui.evaluator_v2.application_list import get_safe_dom_id
+import json
 
 # --- Reusable Components ---
 
@@ -98,6 +99,7 @@ def render_compliance_section(title: str, icon_name: str, subsections: List[FT],
     )
 
 from ui.evaluator_v2.workex_table import render_work_experience_table
+from ui.evaluator_v2.education_table import render_education_input_table
 
 # --- Document Helper ---
 def render_document_files(docs: list, empty_text: str = "Dokumente ei leitud.") -> FT:
@@ -121,6 +123,36 @@ def render_document_files(docs: list, empty_text: str = "Dokumente ei leitud.") 
         ],
         cls="p-2 space-y-1 bg-white dark:bg-gray-800 border-b dark:border-gray-700"
     )
+
+def render_certification_type_toggle(state: ComplianceDashboardState, qual_id: str):
+    is_esma = state.certification_type != "taastõendamine"
+    
+    def _toggle_btn(label, val, active):
+        base_cls = "flex-1 px-4 py-2 text-sm font-medium transition-colors text-center relative z-10 focus:outline-none"
+        active_cls = "text-blue-700 font-bold"
+        inactive_cls = "text-gray-500 hover:text-gray-700"
+        
+        return Button(
+            label,
+            hx_post=f"/evaluator/d/re-evaluate/{qual_id}",
+            hx_vals=json.dumps({"certification_type": val}),
+            hx_include="#compliance-dashboard-container, #final-decision-area", 
+            hx_target="#compliance-dashboard-container",
+            hx_swap="outerHTML",
+            cls=f"{base_cls} {active_cls if active else inactive_cls}"
+        )
+
+    return Div(
+        Div(
+            _toggle_btn("Esmatõendamine", "esmatõendamine", is_esma),
+            _toggle_btn("Taastõendamine", "taastõendamine", not is_esma),
+            Div(cls=f"absolute top-1 bottom-1 left-1 w-[calc(50%-4px)] bg-white shadow-sm rounded-md transition-all duration-300 {'translate-x-0' if is_esma else 'translate-x-[100%]'}"),
+            cls="relative flex bg-gray-100 dark:bg-gray-800 p-1 rounded-lg w-full max-w-md select-none shadow-inner"
+        ),
+        cls="w-full flex justify-start pl-1"
+    )
+
+
 
 def render_compliance_dashboard(state: ComplianceDashboardState, work_experience: List[Dict] = None, documents: List[Dict] = None, qual_id: str = None):
     # Header moved to main panel
@@ -173,11 +205,12 @@ def render_compliance_dashboard(state: ComplianceDashboardState, work_experience
     training_icons = render_header_document_icons(training_docs)
     emp_icons = render_header_document_icons(emp_docs)
 
-    # Content bodies now only contain subsections (no doc lists)
-    haridus_content = []  # Empty body for haridus if no subsections (edu check is header only?)
-    # Wait, haridus usually had just the docs. If we move docs to header, body is empty?
-    # Logic: "render_compliance_section" renders subsections + comment. 
-    # If subsections is empty list, it just renders comment area.
+    # Haridus Content Logic
+    haridus_content = []
+    if state.certification_type != "taastõendamine":
+         haridus_content.append(render_education_input_table(state, qual_id))
+    else:
+         haridus_content.append(Div(P("Taastõendamise puhul haridustaset ei hinnata.", cls="text-sm text-gray-500 italic p-3")))
     
     koolitus_content = [s for s in sections[3:] if s]
 
@@ -186,7 +219,7 @@ def render_compliance_dashboard(state: ComplianceDashboardState, work_experience
     final_workex_content = work_ex_content
 
     return Div(
-        # header removed
+        render_certification_type_toggle(state, qual_id),
         render_compliance_section("Haridus", "book-open", haridus_content, [state.education], "haridus", state.haridus_comment, inline_details=edu_details, doc_icons=edu_icons),
         render_compliance_section("Töökogemus", "briefcase", final_workex_content, [state.total_experience, state.matching_experience], "tookogemus", state.tookogemus_comment, inline_details=inline_details_text, custom_status_color=workex_status_color, doc_icons=emp_icons),
         render_compliance_section("Koolitus", "award", koolitus_content, [state.base_training, state.conditional_training, state.manager_training, state.cpd_training], "koolitus", state.koolitus_comment, doc_icons=training_icons),
@@ -230,31 +263,7 @@ def render_center_panel(qual_data: Dict, user_data: Dict, state: ComplianceDashb
     )
 
     # 2. Haridus Controls (Inline)
-    edu_opts = {"": "Haridus: -", "keskharidus": "Keskharidus", "vastav_kõrgharidus_180_eap": "Bakalaureus (180)", "vastav_kõrgharidus_240_eap": "Rakenduskõrg (240)", "vastav_kõrgharidus_300_eap": "Magister (300)", "mittevastav_kõrgharidus_180_eap": "Muu Baka (180)", "tehniline_kõrgharidus_300_eap": "Tehniline Mag (300)"}
-    edu_curr = state.education.provided or ""
-    edu_disp = edu_opts.get(edu_curr, "Vali")
-    
-    foreign_opts = {"": ">10/F: Ei", "on": ">10/F: Jah"}
-    foreign_curr = "on" if getattr(state, "education_old_or_foreign", False) else ""
-    foreign_disp = foreign_opts.get(foreign_curr, "Ei")
-
-    def InlineDropdown(btn_id, label, opts, name, current, width_cls="w-32"):
-        dd_id = btn_id.replace('btn-', 'dropdown-')
-        return Div(
-            Input(type="hidden", name=name, value=current, id=f"hidden-{btn_id}"),
-            Button(Span(label, cls="truncate max-w-[100px]"), UkIcon("chevron-down", cls="w-3 h-3 ml-1 flex-none"), 
-                   id=btn_id, onclick=f"toggleDropdown('{dd_id}')", type="button",
-                   cls="inline-flex items-center justify-between px-3 py-1.5 text-xs font-semibold rounded-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors h-8 whitespace-nowrap"),
-            Div(*[Button(txt, onclick=f"window.selectInlineOption('{btn_id}', '{val}', '{txt}')", type="button", cls="block w-full text-left px-3 py-2 text-xs hover:bg-gray-100 dark:hover:bg-gray-700") for val, txt in opts.items()],
-                id=dd_id, cls=f"absolute bottom-full left-0 mb-1 {width_cls} bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg shadow-lg overflow-hidden z-50", style="display: none;"),
-            cls="relative"
-        )
-
-    haridus_area = Div(
-        InlineDropdown("btn-edu-lvl", edu_disp, edu_opts, "education_level", edu_curr, "w-48"),
-        InlineDropdown("btn-foreign", foreign_disp, foreign_opts, "education_old_or_foreign", foreign_curr, "w-32"),
-        id="haridus-inline-controls", cls="hidden flex items-center gap-1.5 transition-all duration-300 ease-in-out origin-left"
-    )
+    # 2. Controls removed (Migrated to Education Table)
 
     # 3. Decision Button (Inline)
     dec_opts = {"Anda": "green", "Mitte anda": "red", "Täiendav tegevus": "blue"}
@@ -293,8 +302,7 @@ def render_center_panel(qual_data: Dict, user_data: Dict, state: ComplianceDashb
                  Div(Button(UkIcon("plus", cls="w-5 h-5"), onclick=f"toggleDropdown('{ctx_id}')", type="button", 
                             cls="btn btn-circle btn-sm btn-ghost hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-500 dark:text-gray-400"),
                      ctx_menu, cls="relative flex-none"),
-                 # Haridus
-                 haridus_area,
+                 # Haridus Controls Removed
                  # Otsus
                  decision_btn,
                  cls="flex items-center gap-1.5"

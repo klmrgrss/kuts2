@@ -43,9 +43,15 @@ class ComplianceDashboardState:
     tookogemus_comment: Optional[str] = None
     koolitus_comment: Optional[str] = None
     otsus_comment: Optional[str] = None
-
+    
+    # Certification Flow State
+    certification_type: str = "esmatõendamine" # "esmatõendamine" | "taastõendamine"
+    
     # Evaluator toggles
-    education_old_or_foreign: Optional[bool] = None
+    education_old_or_foreign: Optional[bool] = None # Legacy/Computed
+    education_10y_plus: bool = False
+    education_foreign: bool = False
+    
     final_decision: Optional[str] = None
     accepted_work_experience_ids: List[int] = field(default_factory=list)
 
