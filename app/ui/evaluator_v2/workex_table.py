@@ -55,7 +55,7 @@ def render_checkbox_cell(is_checked: bool, qual_id: str, exp_id: int):
               hx_target="#compliance-dashboard-container",
               hx_swap="outerHTML",
               cls="checkbox checkbox-sm checkbox-primary"),
-        cls="text-center",
+        cls="text-left pl-2", # Left aligned as requested
         onclick="event.stopPropagation()" # Prevent row click if any
     )
 
@@ -96,11 +96,11 @@ def render_work_experience_table(experiences: list, qual_id: str = None, accepte
         if qual_id and exp_id:
             check_col = render_checkbox_cell(is_accepted, qual_id, exp_id)
         else:
-            check_col = Td(Input(type="checkbox", disabled=True, cls="checkbox checkbox-xs"), cls="text-center")
+            check_col = Td(Input(type="checkbox", disabled=True, cls="checkbox checkbox-xs"), cls="text-left pl-2")
 
         rows.append(Tr(
             check_col,
-            Td(str(idx), cls="text-center text-gray-400"),
+            Td(str(idx), cls="text-left text-gray-400"),
             Td(exp.get('role', '-'), cls="font-medium"),
             Td(
                 Div(exp.get('start_date', '-'), cls="text-xs"),
@@ -108,14 +108,14 @@ def render_work_experience_table(experiences: list, qual_id: str = None, accepte
             ),
             Td(duration_str, cls="font-mono text-xs whitespace-nowrap"),
             
-            # Replaced disabled checkboxes with indicative ones
-            Td(render_indicative_checkbox(is_ptv), cls="text-center"),
-            Td(render_indicative_checkbox(is_atv), cls="text-center"),
-            Td(render_indicative_checkbox(is_ptvo), cls="text-center"),
+            # Replaced disabled checkboxes with indicative ones - Left aligned
+            Td(render_indicative_checkbox(is_ptv), cls="text-left"),
+            Td(render_indicative_checkbox(is_atv), cls="text-left"),
+            Td(render_indicative_checkbox(is_ptvo), cls="text-left"),
             
             Td(exp.get('object_address', '-'), cls="text-xs max-w-[150px] truncate", title=exp.get('object_address', '')),
             Td(exp.get('ehr_code', '-'), cls="font-mono text-xs"),
-            Td(render_indicative_checkbox(bool(exp.get('permit_required'))), cls="text-center"),
+            Td(render_indicative_checkbox(bool(exp.get('permit_required'))), cls="text-left"),
             Td(
                 render_info_card("Ettevõte", exp.get('company_name'), exp.get('company_code'), exp.get('company_contact'), exp.get('company_email'), exp.get('company_phone'))
             ),
