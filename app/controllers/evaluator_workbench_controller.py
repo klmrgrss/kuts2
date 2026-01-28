@@ -118,7 +118,7 @@ class EvaluatorWorkbenchController:
                 best_state.accepted_work_experience_ids.append(exp_id)
             
             # 3. Apply Logic with fresh data
-            work_experience = list(self.db.t.work_experience.rows_where("user_email = ?", [user_email], order_by='start_date DESC'))
+            work_experience = list(self.db.t.work_experience.rows_where("user_email = ?", [user_email], order_by='start_date DESC, id DESC'))
             self._apply_accepted_experience_logic(best_state, work_experience)
 
             # 4. Save

@@ -118,10 +118,11 @@ class EvaluatorController:
             }
 
             user_documents = [doc for doc in self.db.t.documents() if doc.get('user_email') == user_email]
-            user_work_experience = [
-                exp for exp in self.work_exp_table() 
-                if exp.get('user_email') == user_email and exp.get('associated_activity') == activity
-            ]
+            user_work_experience = list(self.work_exp_table.rows_where(
+                "user_email = ? AND associated_activity = ?", 
+                [user_email, activity],
+                order_by="start_date DESC, id DESC"
+            ))
 
             # FORCE FORMATTING ON INITIAL LOAD
             # We want "Nõutav: X | Esitatud: Y | Vastavaks tunnistatud: 0a 0k" 

@@ -18,7 +18,26 @@ def render_compliance_subsection(title: str, check: ComplianceCheck, show_title:
         
     return Div(icon, content, cls="flex items-center gap-x-3 px-3 py-2")
 
-def render_compliance_section(title: str, icon_name: str, subsections: List[FT], all_checks: List[ComplianceCheck], context_name: str, comment: Optional[str], decision: Optional[str] = None, inline_details: Optional[str] = None, custom_status_color: str = None):
+def render_header_document_icons(docs: list) -> FT:
+    """Renders document icons for the section header. Blue link if exists, muted X if missing."""
+    if not docs:
+        return UkIcon("file-x", cls="w-5 h-5 text-gray-400 opacity-50 ml-2", uk_tooltip="Dokument puudub")
+    
+    return Div(
+        *[
+            A(
+                UkIcon("file-text", cls="w-5 h-5"), 
+                href=f"/files/view/{doc.get('id')}", 
+                target="_blank",
+                cls="text-blue-500 hover:text-blue-700 transition-colors",
+                uk_tooltip=f"title: {(doc.get('description') or doc.get('original_filename') or 'Dokument')}; pos: top"
+            )
+            for doc in docs
+        ],
+        cls="flex items-center gap-1 ml-2"
+    )
+
+def render_compliance_section(title: str, icon_name: str, subsections: List[FT], all_checks: List[ComplianceCheck], context_name: str, comment: Optional[str], decision: Optional[str] = None, inline_details: Optional[str] = None, custom_status_color: str = None, doc_icons: Optional[FT] = None):
     relevant = [c for c in all_checks if c.is_relevant]
     if not relevant and context_name != "otsus":
          border, accent, icon, text = "border-gray-300 dark:border-gray-700 opacity-50", "bg-gray-300", UkIcon("minus", cls="text-gray-500"), "Ei ole asjakohane"
@@ -50,6 +69,10 @@ def render_compliance_section(title: str, icon_name: str, subsections: List[FT],
     header_content = [
         Div(cls=f"w-1.5 h-full absolute left-0 top-0 {accent}"), UkIcon(icon_name, cls="w-5 h-5"), H5(title, cls="font-semibold")
     ]
+    
+    if doc_icons:
+        header_content.append(doc_icons)
+
     
     if inline_details:
         header_content.append(Span(inline_details, cls="text-xs text-gray-500 dark:text-gray-400 truncate flex-1 ml-2"))
@@ -145,21 +168,29 @@ def render_compliance_dashboard(state: ComplianceDashboardState, work_experience
     training_docs = [d for d in docs if d.get('document_type') == 'training']
     emp_docs = [d for d in docs if d.get('document_type') == 'employment_proof']
 
-    # Inject Documents
-    haridus_content = [render_document_files(edu_docs, "Hariduse dokumente ei leitud.")]
+    # Inject Documents - Now using Icons in Header
+    edu_icons = render_header_document_icons(edu_docs)
+    training_icons = render_header_document_icons(training_docs)
+    emp_icons = render_header_document_icons(emp_docs)
 
-    koolitus_content = [render_document_files(training_docs, "Täiendkoolituse dokumente ei leitud.")]
-    koolitus_content.extend([s for s in sections[3:] if s])
+    # Content bodies now only contain subsections (no doc lists)
+    haridus_content = []  # Empty body for haridus if no subsections (edu check is header only?)
+    # Wait, haridus usually had just the docs. If we move docs to header, body is empty?
+    # Logic: "render_compliance_section" renders subsections + comment. 
+    # If subsections is empty list, it just renders comment area.
+    
+    koolitus_content = [s for s in sections[3:] if s]
 
-    # Work Experience Content (Documents + Table)
-    emp_docs_content = render_document_files(emp_docs, "Töötamise tõendeid ei leitud.")
-    final_workex_content = [emp_docs_content] + work_ex_content
+    # Work Experience Content (Just Table)
+    # emp_docs_content removed from body
+    final_workex_content = work_ex_content
 
     return Div(
         # header removed
-        render_compliance_section("Haridus", "book-open", haridus_content, [state.education], "haridus", state.haridus_comment, inline_details=edu_details),
-        render_compliance_section("Töökogemus", "briefcase", final_workex_content, [state.total_experience, state.matching_experience], "tookogemus", state.tookogemus_comment, inline_details=inline_details_text, custom_status_color=workex_status_color),
-        render_compliance_section("Koolitus", "award", koolitus_content, [state.base_training, state.conditional_training, state.manager_training, state.cpd_training], "koolitus", state.koolitus_comment),
+        render_compliance_section("Haridus", "book-open", haridus_content, [state.education], "haridus", state.haridus_comment, inline_details=edu_details, doc_icons=edu_icons),
+        render_compliance_section("Töökogemus", "briefcase", final_workex_content, [state.total_experience, state.matching_experience], "tookogemus", state.tookogemus_comment, inline_details=inline_details_text, custom_status_color=workex_status_color, doc_icons=emp_icons),
+        render_compliance_section("Koolitus", "award", koolitus_content, [state.base_training, state.conditional_training, state.manager_training, state.cpd_training], "koolitus", state.koolitus_comment, doc_icons=training_icons),
+
         render_compliance_section("Otsus", "list-checks", [], [], "otsus", state.otsus_comment, state.final_decision),
         id="compliance-dashboard-container",
         cls="p-4 space-y-4 pb-32"

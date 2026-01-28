@@ -54,10 +54,22 @@ def render_checkbox_cell(is_checked: bool, qual_id: str, exp_id: int):
               hx_post=f"/evaluator/d/toggle-exp/{qual_id}/{exp_id}",
               hx_target="#compliance-dashboard-container",
               hx_swap="outerHTML",
-              cls="checkbox checkbox-xs"),
+              cls="checkbox checkbox-sm checkbox-primary"),
         cls="text-center",
         onclick="event.stopPropagation()" # Prevent row click if any
     )
+
+def render_indicative_checkbox(checked: bool):
+    """Renders a read-only checkbox that is distinct but muted."""
+    # pointer-events-none -> no hover, no click interaction (purely visual)
+    # opacity-50 -> clearly visible but distinct from 'active' inputs
+    cls = "checkbox checkbox-xs pointer-events-none"
+    if checked:
+        cls += " opacity-50"
+    else:
+        cls += " opacity-50"
+        
+    return Input(type="checkbox", checked=checked, onclick="return false;", cls=cls, tabindex="-1")
 
 def render_work_experience_table(experiences: list, qual_id: str = None, accepted_ids: list = None) -> FT:
     if not experiences:
@@ -95,17 +107,15 @@ def render_work_experience_table(experiences: list, qual_id: str = None, accepte
                 Div(exp.get('end_date', '...'), cls="text-xs text-gray-400"),
             ),
             Td(duration_str, cls="font-mono text-xs whitespace-nowrap"),
-            # Removed redundant logic contract type checkboxes (visual only)
-            # Keeping them as "visual indicators" as per original code? 
-            # Original code used render_checkbox_cell which was just disabled input.
-            # I'll keep them as simple disabled checks.
-            Td(Input(type="checkbox", checked=is_ptv, disabled=True, cls="checkbox checkbox-xs"), cls="text-center"),
-            Td(Input(type="checkbox", checked=is_atv, disabled=True, cls="checkbox checkbox-xs"), cls="text-center"),
-            Td(Input(type="checkbox", checked=is_ptvo, disabled=True, cls="checkbox checkbox-xs"), cls="text-center"),
+            
+            # Replaced disabled checkboxes with indicative ones
+            Td(render_indicative_checkbox(is_ptv), cls="text-center"),
+            Td(render_indicative_checkbox(is_atv), cls="text-center"),
+            Td(render_indicative_checkbox(is_ptvo), cls="text-center"),
             
             Td(exp.get('object_address', '-'), cls="text-xs max-w-[150px] truncate", title=exp.get('object_address', '')),
             Td(exp.get('ehr_code', '-'), cls="font-mono text-xs"),
-            Td(Input(type="checkbox", checked=bool(exp.get('permit_required')), disabled=True, cls="checkbox checkbox-xs"), cls="text-center"),
+            Td(render_indicative_checkbox(bool(exp.get('permit_required'))), cls="text-center"),
             Td(
                 render_info_card("Ettevõte", exp.get('company_name'), exp.get('company_code'), exp.get('company_contact'), exp.get('company_email'), exp.get('company_phone'))
             ),
